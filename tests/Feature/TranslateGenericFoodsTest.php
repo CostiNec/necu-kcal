@@ -133,4 +133,82 @@ class TranslateGenericFoodsTest extends TestCase
             'locale' => 'ro',
         ]);
     }
+
+    public function test_it_does_not_translate_hidden_duplicate_foods(): void
+    {
+        $canonical = Food::query()->forceCreate([
+            'name' => 'Cucumber, raw',
+            'food_type' => 'generic',
+            'calories' => 16,
+            'is_public' => true,
+            'is_active' => true,
+        ]);
+        $duplicate = Food::query()->forceCreate([
+            'name' => 'Cucumber, raw',
+            'food_type' => 'generic',
+            'calories' => 16,
+            'is_public' => true,
+            'is_active' => true,
+            'canonical_food_id' => $canonical->id,
+        ]);
+        $canonical->translations()->create([
+            'locale' => 'en',
+            'name' => 'Cucumber, raw',
+        ]);
+        $duplicate->translations()->create([
+            'locale' => 'en',
+            'name' => 'Cucumber, raw',
+        ]);
+        $translator = Mockery::mock(FoodNameTranslator::class);
+        $translator->shouldReceive('assertConfigured')->once();
+        $translator
+            ->shouldReceive('translate')
+            ->once()
+            ->with(['Cucumber, raw'], 'en', 'ro')
+            ->andReturn(['Castravete, crud']);
+        $translator->shouldReceive('source')->once()->andReturn('deepl');
+        $this->app->instance(FoodNameTranslator::class, $translator);
+
+        $status = Artisan::call('foods:translate-generics');
+
+        $this->assertSame(0, $status, Artisan::output());
+        $this->assertDatabaseHas('food_translations', [
+            'food_id' => $canonical->id,
+            'locale' => 'ro',
+            'name' => 'Castravete, crud',
+        ]);
+        $this->assertDatabaseMissing('food_translations', [
+            'food_id' => $duplicate->id,
+            'locale' => 'ro',
+        ]);
+    }
+
+    public function test_it_splits_large_batches_at_the_request_byte_limit(): void
+    {
+        config([
+            'food-translations.deepl.key' => 'test-key',
+            'food-translations.deepl.url' => 'https://deepl.test/v2/translate',
+            'food-translations.deepl.max_request_bytes' => 600,
+        ]);
+        Http::fake(fn (Request $request) => Http::response([
+            'translations' => collect($request['text'])
+                ->map(fn (string $name) => ['text' => 'RO '.$name])
+                ->all(),
+        ]));
+        $translator = app(FoodNameTranslator::class);
+        $names = [
+            str_repeat('A', 255),
+            str_repeat('B', 255),
+            str_repeat('C', 255),
+        ];
+
+        $translations = $translator->translate($names, 'en', 'ro');
+
+        $this->assertSame([
+            'RO '.$names[0],
+            'RO '.$names[1],
+            'RO '.$names[2],
+        ], $translations);
+        Http::assertSentCount(3);
+    }
 }

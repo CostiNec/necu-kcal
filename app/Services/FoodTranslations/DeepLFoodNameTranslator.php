@@ -32,6 +32,44 @@ class DeepLFoodNameTranslator implements FoodNameTranslator
             return [];
         }
 
+        $translations = [];
+
+        foreach (
+            $this->requestChunks($names, $sourceLocale, $targetLocale) as $chunk
+        ) {
+            array_push(
+                $translations,
+                ...$this->translateChunk(
+                    $chunk,
+                    $sourceLocale,
+                    $targetLocale,
+                    $key
+                )
+            );
+        }
+
+        if (
+            count($translations) !== count($names)
+            || in_array('', $translations, true)
+        ) {
+            throw new RuntimeException(
+                'DeepL returned an incomplete food translation response.'
+            );
+        }
+
+        return $translations;
+    }
+
+    /**
+     * @param  array<int, string>  $names
+     * @return array<int, string>
+     */
+    private function translateChunk(
+        array $names,
+        string $sourceLocale,
+        string $targetLocale,
+        string $key
+    ): array {
         $response = $this->http
             ->withHeaders([
                 'Authorization' => 'DeepL-Auth-Key '.$key,
@@ -44,17 +82,7 @@ class DeepLFoodNameTranslator implements FoodNameTranslator
             ->retry(3, 500)
             ->post(
                 (string) config('food-translations.deepl.url'),
-                [
-                    'text' => array_values($names),
-                    'source_lang' => mb_strtoupper($sourceLocale),
-                    'target_lang' => mb_strtoupper($targetLocale),
-                    'context' => implode(' ', [
-                        'These are concise food and food preparation names',
-                        'from a nutrition database. Preserve ingredients,',
-                        'cuts, cooking methods, and qualifiers.',
-                    ]),
-                    'preserve_formatting' => true,
-                ]
+                $this->payload($names, $sourceLocale, $targetLocale)
             )
             ->throw();
 
@@ -75,6 +103,102 @@ class DeepLFoodNameTranslator implements FoodNameTranslator
         }
 
         return $translations;
+    }
+
+    /**
+     * @param  array<int, string>  $names
+     * @return array<int, array<int, string>>
+     */
+    private function requestChunks(
+        array $names,
+        string $sourceLocale,
+        string $targetLocale
+    ): array {
+        $maximumBytes = (int) config(
+            'food-translations.deepl.max_request_bytes',
+            112 * 1024
+        );
+        $chunks = [];
+        $chunk = [];
+
+        foreach (array_values($names) as $name) {
+            $candidate = [...$chunk, $name];
+
+            if (
+                $chunk !== []
+                && $this->payloadBytes(
+                    $candidate,
+                    $sourceLocale,
+                    $targetLocale
+                ) > $maximumBytes
+            ) {
+                $chunks[] = $chunk;
+                $chunk = [$name];
+            } else {
+                $chunk = $candidate;
+            }
+
+            if (
+                $this->payloadBytes(
+                    $chunk,
+                    $sourceLocale,
+                    $targetLocale
+                ) > $maximumBytes
+            ) {
+                throw new RuntimeException(
+                    'A food name is too large for one DeepL request.'
+                );
+            }
+        }
+
+        if ($chunk !== []) {
+            $chunks[] = $chunk;
+        }
+
+        return $chunks;
+    }
+
+    /**
+     * @param  array<int, string>  $names
+     * @return array<string, mixed>
+     */
+    private function payload(
+        array $names,
+        string $sourceLocale,
+        string $targetLocale
+    ): array {
+        return [
+            'text' => array_values($names),
+            'source_lang' => mb_strtoupper($sourceLocale),
+            'target_lang' => mb_strtoupper($targetLocale),
+            'context' => implode(' ', [
+                'These are concise food and food preparation names',
+                'from a nutrition database. Preserve ingredients,',
+                'cuts, cooking methods, and qualifiers.',
+            ]),
+            'preserve_formatting' => true,
+        ];
+    }
+
+    /**
+     * @param  array<int, string>  $names
+     */
+    private function payloadBytes(
+        array $names,
+        string $sourceLocale,
+        string $targetLocale
+    ): int {
+        $json = json_encode(
+            $this->payload($names, $sourceLocale, $targetLocale)
+        );
+
+        if ($json === false) {
+            throw new RuntimeException(
+                'Unable to encode the DeepL translation request.'
+            );
+        }
+
+        return strlen($json);
     }
 
     public function source(): string

@@ -22,6 +22,10 @@ class Food extends Model
         'user_id',
         'food_type',
         'search_priority',
+        'is_common',
+        'common_priority',
+        'canonical_food_id',
+        'nutrition_source_food_id',
         'name',
         'brand',
         'barcode',
@@ -50,6 +54,8 @@ class Food extends Model
             'sodium' => 'float',
             'is_public' => 'boolean',
             'search_priority' => 'integer',
+            'is_common' => 'boolean',
+            'common_priority' => 'integer',
         ];
     }
 
@@ -107,6 +113,26 @@ class Food extends Model
         return $this->hasMany(FoodTranslation::class);
     }
 
+    public function aliases(): HasMany
+    {
+        return $this->hasMany(FoodAlias::class);
+    }
+
+    public function canonicalFood(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'canonical_food_id');
+    }
+
+    public function duplicateFoods(): HasMany
+    {
+        return $this->hasMany(self::class, 'canonical_food_id');
+    }
+
+    public function nutritionSourceFood(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'nutrition_source_food_id');
+    }
+
     public function translation(): HasOne
     {
         return $this->hasOne(FoodTranslation::class)
@@ -125,10 +151,44 @@ class Food extends Model
 
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        return $query->where(
-            fn (Builder $builder) => $builder
-                ->where('foods.is_public', true)
-                ->orWhere('foods.user_id', $user->id)
-        );
+        return $query
+            ->whereNull('foods.canonical_food_id')
+            ->where('foods.is_active', true)
+            ->where(
+                fn (Builder $builder) => $builder
+                    ->where('foods.is_public', true)
+                    ->orWhere('foods.user_id', $user->id)
+            );
+    }
+
+    /**
+     * Shape shared with a future Laravel Scout/Typesense index.
+     *
+     * @return array<string, mixed>
+     */
+    public function toSearchableArray(): array
+    {
+        $this->loadMissing(['translations', 'aliases']);
+
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'brand' => $this->brand,
+            'barcode' => $this->barcode,
+            'food_type' => $this->food_type,
+            'is_common' => $this->is_common,
+            'common_priority' => $this->common_priority ?? 65535,
+            'search_priority' => $this->search_priority,
+            'popularity_score' => $this->popularity_score,
+            'translations' => $this->translations
+                ->mapWithKeys(fn (FoodTranslation $translation) => [
+                    $translation->locale => $translation->name,
+                ])
+                ->all(),
+            'aliases' => $this->aliases
+                ->groupBy('locale')
+                ->map->pluck('name')
+                ->all(),
+        ];
     }
 }

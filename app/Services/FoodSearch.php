@@ -65,6 +65,31 @@ class FoodSearch
                 }
             );
 
+            $builder->orWhereHas(
+                'aliases',
+                function (Builder $aliasQuery) use (
+                    $search,
+                    $useSqliteWordFallback
+                ) {
+                    $aliasQuery->where(function (
+                        Builder $nameQuery
+                    ) use ($search, $useSqliteWordFallback) {
+                        $nameQuery->where(
+                            'food_aliases.name',
+                            'like',
+                            "{$search}%"
+                        );
+
+                        if ($useSqliteWordFallback) {
+                            $nameQuery->orWhereRaw(
+                                'instr(lower(food_aliases.name), lower(?)) > 0',
+                                [" {$search}"]
+                            );
+                        }
+                    });
+                }
+            );
+
             $builder->orWhere(function (Builder $foodQuery) use (
                 $search,
                 $useSqliteWordFallback
@@ -134,15 +159,27 @@ class FoodSearch
             'WHERE prefix_translation.food_id = foods.id',
             "AND LOWER(prefix_translation.name) LIKE {$prefix} ESCAPE '=')",
         ]);
+        $aliasExact = implode(' ', [
+            'EXISTS (SELECT 1 FROM food_aliases AS exact_alias',
+            'WHERE exact_alias.food_id = foods.id',
+            "AND LOWER(exact_alias.name) = {$exact})",
+        ]);
+        $aliasPrefix = implode(' ', [
+            'EXISTS (SELECT 1 FROM food_aliases AS prefix_alias',
+            'WHERE prefix_alias.food_id = foods.id',
+            "AND LOWER(prefix_alias.name) LIKE {$prefix} ESCAPE '=')",
+        ]);
         $exactMatch = implode(' OR ', [
             "{$localizedLower} = {$exact}",
             "{$baseLower} = {$exact}",
             $translatedExact,
+            $aliasExact,
         ]);
         $prefixMatch = implode(' OR ', [
             "{$localizedLower} LIKE {$prefix} ESCAPE '='",
             "{$baseLower} LIKE {$prefix} ESCAPE '='",
             $translatedPrefix,
+            $aliasPrefix,
         ]);
         $lengthFunction = DB::getDriverName() === 'sqlite'
             ? 'LENGTH'
@@ -165,8 +202,13 @@ class FoodSearch
             ->selectRaw(
                 "{$localizedLower} AS search_sort_name"
             )
+            ->selectRaw(
+                'COALESCE(foods.common_priority, 65535) AS search_common_priority'
+            )
             ->orderBy('foods.search_priority')
             ->orderBy('search_match_priority')
+            ->orderByDesc('foods.is_common')
+            ->orderBy('search_common_priority')
             ->orderBy('search_name_length')
             ->orderByDesc('foods.popularity_score')
             ->orderBy('search_sort_name')

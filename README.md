@@ -11,7 +11,7 @@ Inertia, React, Material UI, and the licensed Minimal UI design system.
 - Common food library, custom foods, servings, barcode fields, and favourites
 - Mobile camera barcode scanning while logging packaged foods
 - Streaming Open Food Facts imports with Romanian-market filtering
-- Streaming USDA FoodData Central imports for generic foods
+- Official generic-food imports from USDA, Canada, Finland, the UK, and Australia
 - Nutrition snapshots so historical diary entries do not change when a food is edited
 - Daily notes and quick serving adjustments
 - Weekly calorie and macro charts, averages, and most-logged foods
@@ -109,10 +109,10 @@ The source URL and local path can be changed with
 
 USDA FoodData Central complements Open Food Facts with generic foods such as
 raw and cooked fruit, vegetables, grains, meat, and dairy. The importer uses
-the Foundation and SR Legacy datasets, stores their English descriptions as
-food translations, and normalizes nutrients to the source's 100 g edible-food
-basis. Branded USDA foods are intentionally excluded because Open Food Facts
-already supplies the packaged-product catalog.
+Foundation, SR Legacy, and FNDDS, stores English descriptions as food
+translations, and normalizes nutrients to the source basis. Branded USDA foods
+are intentionally excluded because Open Food Facts already supplies the
+packaged-product catalog.
 
 Run the migration and import both archives:
 
@@ -125,13 +125,65 @@ The import command downloads any missing archives into
 `storage/app/imports` before processing them. You can also download them
 without importing by running `php artisan foods:download-usda`.
 
-Use `--dataset=foundation` or `--dataset=sr-legacy` to process only one
-archive. The import is streamed from each ZIP, uses bounded transactions, and
-supports `--dry-run`, `--resume`, `--force`, and `--batch=500`.
+Use `--dataset=foundation`, `--dataset=sr-legacy`, or `--dataset=fndds` to
+process one archive. The import is streamed from each ZIP, uses bounded
+transactions, and supports `--dry-run`, `--resume`, `--force`, and
+`--batch=500`.
 
-The source URLs can be changed with the two `USDA_*_URL` variables in `.env`.
+The source URLs can be changed with the `USDA_*_URL` variables in `.env`.
 The archives are not committed or deployed with the application, so the first
 import on each server downloads its own copies.
+
+## Other official generic-food sources
+
+The unified importer supports these provenance-preserving sources:
+
+- Canadian Nutrient File 2026 (`cnf`)
+- Fineli raw ingredients (`fineli`)
+- UK CoFID 2021 (`cofid`)
+- Australian Food Composition Database Release 3 (`afcd`)
+
+Missing source files are downloaded automatically into `storage/app/imports`.
+They are intentionally ignored by Git, so the same command should be run on
+the production server after deployment.
+
+Validate every source without writing:
+
+```bash
+php artisan foods:import-generic-sources --source=all --dry-run
+```
+
+Import them and then create the reviewed English/Romanian common-food layer:
+
+```bash
+php artisan foods:import-generic-sources --source=all
+php artisan foods:import-usda --dataset=fndds
+php artisan foods:curate-common --link-exact-duplicates
+php artisan foods:deduplicate-generics
+```
+
+Use `--source=cnf`, `fineli`, `cofid`, or `afcd` for a single source. Imports
+are idempotent by `(source_id, external_id)`, audited in `food_import_runs`,
+and can be repeated with `--force` after a source file changes. Spreadsheet
+imports raise the CLI memory limit to 768 MB while parsing, so production
+workers should allow at least that amount for this maintenance command.
+
+After all generic sources are loaded, `foods:deduplicate-generics` links
+records with the same normalized source name and nutrition basis to one
+preferred canonical record. It preserves every source row and existing diary
+reference while removing duplicate choices from food search.
+
+The curation command never invents nutrition data. It creates a stable simple
+food (for example `Egg` / `Ou`) from a reviewed source candidate and stores
+the supplying row in `nutrition_source_food_id`. Exact duplicate source rows
+can be hidden from normal search without being deleted. Edit
+`config/common-foods.php` to review or extend the vocabulary.
+
+EFSA's European Food Composition Database is registered as a source, but is
+not imported automatically because EFSA currently exposes it through an
+interactive dashboard rather than a stable, documented bulk-download file.
+An importer should only be added after EFSA publishes a supported export
+schema and URL.
 
 ## Localization
 

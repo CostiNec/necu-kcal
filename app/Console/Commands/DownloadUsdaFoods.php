@@ -11,7 +11,7 @@ use Throwable;
 class DownloadUsdaFoods extends Command
 {
     protected $signature = 'foods:download-usda
-        {--dataset=all : foundation, sr-legacy, or all}
+        {--dataset=all : foundation, sr-legacy, fndds, or all}
         {--force : Replace archives that already exist}';
 
     protected $description = 'Download USDA generic food archives atomically';
@@ -64,7 +64,7 @@ class DownloadUsdaFoods extends Command
 
         if (! isset($datasets[$requested])) {
             throw new RuntimeException(
-                'Dataset must be foundation, sr-legacy, or all.'
+                'Dataset must be foundation, sr-legacy, fndds, or all.'
             );
         }
 

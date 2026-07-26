@@ -12,13 +12,13 @@ use Throwable;
 class ImportUsdaFoods extends Command
 {
     protected $signature = 'foods:import-usda
-        {--dataset=all : foundation, sr-legacy, or all}
+        {--dataset=all : foundation, sr-legacy, fndds, or all}
         {--batch= : Foods written per transaction}
         {--dry-run : Validate without writing}
         {--resume : Resume an interrupted import}
         {--force : Reimport archives already completed}';
 
-    protected $description = 'Import USDA Foundation and SR Legacy generic foods';
+    protected $description = 'Import USDA Foundation, SR Legacy, and FNDDS generic foods';
 
     public function handle(
         FoodImporter $importer,
@@ -155,7 +155,7 @@ class ImportUsdaFoods extends Command
 
         if (! isset($datasets[$requested])) {
             throw new RuntimeException(
-                'Dataset must be foundation, sr-legacy, or all.'
+                'Dataset must be foundation, sr-legacy, fndds, or all.'
             );
         }
 

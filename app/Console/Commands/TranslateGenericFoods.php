@@ -15,7 +15,7 @@ class TranslateGenericFoods extends Command
     protected $signature = 'foods:translate-generics
         {--from=en : Source locale}
         {--to=ro : Target locale}
-        {--batch=25 : Names translated per request}
+        {--batch=500 : Names loaded per translation cycle}
         {--limit= : Maximum number of foods to translate}
         {--dry-run : Count eligible foods and characters without translating}';
 
@@ -257,6 +257,7 @@ class TranslateGenericFoods extends Command
             )
             ->where('foods.food_type', 'generic')
             ->where('foods.is_active', true)
+            ->whereNull('foods.canonical_food_id')
             ->whereNull('target_translation.id')
             ->whereNotNull('source_translation.name')
             ->where('source_translation.name', '!=', '')
@@ -282,6 +283,7 @@ class TranslateGenericFoods extends Command
                 )
                 ->where('foods.food_type', 'generic')
                 ->where('foods.is_active', true)
+                ->whereNull('foods.canonical_food_id')
                 ->where('food_translations.locale', $locale)
                 ->where('foods.id', '>', $lastFoodId)
                 ->orderBy('foods.id')
@@ -362,9 +364,9 @@ class TranslateGenericFoods extends Command
             FILTER_VALIDATE_INT
         );
 
-        if ($batchSize === false || $batchSize < 1 || $batchSize > 50) {
+        if ($batchSize === false || $batchSize < 1 || $batchSize > 2000) {
             throw new RuntimeException(
-                '--batch must be an integer between 1 and 50.'
+                '--batch must be an integer between 1 and 2,000.'
             );
         }
 

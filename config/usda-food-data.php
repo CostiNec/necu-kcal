@@ -24,6 +24,16 @@ return [
             ),
             'root_key' => 'SRLegacyFoods',
         ],
+        'fndds' => [
+            'url' => env(
+                'USDA_FNDDS_URL',
+                'https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_json_2024-10-31.zip'
+            ),
+            'path' => storage_path(
+                'app/imports/usda-fndds-2021-2023.zip'
+            ),
+            'root_key' => 'SurveyFoods',
+        ],
     ],
 
     'batch_size' => 500,
