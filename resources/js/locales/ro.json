@@ -62,7 +62,7 @@
     "cooked_weight": "Greutatea preparatului gătit",
     "cooked_weight_help": "Cântărește întreaga rețetă gătită înainte de salvare.",
     "ingredients": "Ingrediente",
-    "ingredients_help": "Alege fiecare aliment și introdu cantitatea totală în grame.",
+    "ingredients_help": "Alege fiecare aliment și introdu cantitatea totală folosită în grame sau mililitri.",
     "create_food": "Creează aliment",
     "search_food": "Caută aliment",
     "search_placeholder": "Începe să scrii numele alimentului",
@@ -93,7 +93,7 @@
     "yield_summary": "{{weight}} g gătite · {{count}} ingrediente",
     "macro_summary": "Proteine {{protein}} g · Carbohidrați {{carbs}} g · Grăsimi {{fat}} g · Fibre {{fibre}} g per 100 g",
     "create_food_title": "Creează un ingredient",
-    "create_food_help": "Ingredientele folosesc valori nutriționale per 100 g. Noul aliment va fi disponibil și în biblioteca ta.",
+    "create_food_help": "Alege dacă valorile nutriționale se raportează la greutate sau volum. Noul aliment va fi disponibil și în biblioteca ta.",
     "create_and_select": "Creează și selectează"
   },
   "layout": {
@@ -226,10 +226,11 @@
     "remove_favourite": "Elimină {{food}} din favorite",
     "custom": "Aliment personalizat",
     "common": "Aliment comun",
-    "per_units": "per 100 {{unit}}",
+    "per_units": "per {{amount}} {{unit}}",
     "macro_summary": "Proteine {{protein}} g · Carbohidrați {{carbs}} g · Grăsimi {{fat}} g · Fibre {{fibre}} g",
     "food_name": "Denumirea alimentului",
-    "nutrition_per_100": "Valori nutriționale per 100 g",
+    "nutrition_basis_amount": "Bază nutrițională",
+    "nutrition_basis": "Valori nutriționale per {{amount}} {{unit}}",
     "save_custom": "Salvează alimentul"
   },
   "reports": {

@@ -4,6 +4,14 @@ namespace App\Services\OpenFoodFacts;
 
 class ProductMapper
 {
+    public const SKIP_MISSING_SOURCE_ID = 'missing_source_id';
+
+    public const SKIP_MISSING_NAME = 'missing_name';
+
+    public const SKIP_MISSING_ENERGY = 'missing_energy';
+
+    public const SKIP_OUTSIDE_SCOPE = 'outside_scope';
+
     /**
      * @param  array<string, mixed>  $product
      * @return array{
@@ -17,7 +25,33 @@ class ProductMapper
      */
     public function map(array $product, string $scope): ?array
     {
-        $externalId = $this->string($product['code'] ?? null, 64);
+        return $this->mapWithReason($product, $scope)['product'];
+    }
+
+    /**
+     * @param  array<string, mixed>  $product
+     * @return array{
+     *     product: array{
+     *         external_id: string,
+     *         food: array<string, mixed>,
+     *         translations: array<string, string>,
+     *         markets: array<int, string>,
+     *         stores: array<int, array{external_key: string, name: string}>,
+     *         schema_version: int|null
+     *     }|null,
+     *     skipped_reason: string|null
+     * }
+     */
+    public function mapWithReason(array $product, string $scope): array
+    {
+        $barcode = $this->string($product['code'] ?? null, 64);
+        $externalId = $barcode
+            ?? $this->string($product['_id'] ?? $product['id'] ?? null, 64);
+
+        if ($externalId === null) {
+            return $this->skipped(self::SKIP_MISSING_SOURCE_ID);
+        }
+
         $romanianName = $this->string($product['product_name_ro'] ?? null);
         $englishName = $this->string($product['product_name_en'] ?? null);
         $name = $this->string($product['product_name'] ?? null)
@@ -25,8 +59,8 @@ class ProductMapper
             ?? $englishName
             ?? $this->string($product['generic_name'] ?? null);
 
-        if ($externalId === null || $name === null) {
-            return null;
+        if ($name === null) {
+            return $this->skipped(self::SKIP_MISSING_NAME);
         }
 
         $nutriments = is_array($product['nutriments'] ?? null)
@@ -46,17 +80,15 @@ class ProductMapper
         }
 
         if ($calories === null) {
-            return null;
+            return $this->skipped(self::SKIP_MISSING_ENERGY);
         }
 
-        if ($this->isVolumeProduct($product)) {
-            return null;
-        }
+        $nutritionBasisUnit = $this->isVolumeProduct($product) ? 'ml' : 'g';
 
         $markets = $this->markets($product);
 
         if ($scope === 'ro' && ! in_array('RO', $markets, true)) {
-            return null;
+            return $this->skipped(self::SKIP_OUTSIDE_SCOPE);
         }
 
         $protein = $this->nutrient($nutriments, 'proteins_100g');
@@ -94,63 +126,79 @@ class ProductMapper
             $this->string($product['generic_name_ro'] ?? null),
             $this->string($product['generic_name_en'] ?? null),
             $brand,
-            $externalId,
+            $barcode,
         ])->filter()->unique()->implode(' ');
 
         return [
-            'external_id' => $externalId,
-            'food' => [
-                'user_id' => null,
+            'product' => [
                 'external_id' => $externalId,
-                'food_type' => 'product',
-                'name' => $name,
-                'brand' => $brand,
-                'main_locale' => $mainLocale,
-                'barcode' => $externalId,
-                'calories' => $calories,
-                'protein' => $protein,
-                'carbohydrates' => $carbohydrates,
-                'fat' => $fat,
-                'saturated_fat' => $this->nutrient(
-                    $nutriments,
-                    'saturated-fat_100g'
-                ),
-                'fibre' => $fibre,
-                'sugar' => $this->nutrient($nutriments, 'sugars_100g'),
-                'sodium' => $this->nutrient($nutriments, 'sodium_100g'),
-                'salt' => $this->nutrient($nutriments, 'salt_100g'),
-                'package_quantity' => $package['amount'] ?? null,
-                'package_unit' => $package['unit'] ?? null,
-                'is_public' => true,
-                'nutrition_complete' => $protein !== null
-                    && $carbohydrates !== null
-                    && $fat !== null,
-                'is_active' => true,
-                'data_completeness' => $this->completeness(
-                    $product['completeness'] ?? null
-                ),
-                'popularity_score' => $this->positiveInteger(
-                    $product['unique_scans_n']
-                        ?? $product['scans_n']
-                        ?? null
-                ),
-                'image_url' => $this->url(
-                    $product['image_front_small_url']
-                        ?? $product['image_front_url']
-                        ?? null
-                ),
-                'search_text' => $searchText,
-                'source_updated_at' => $this->timestamp(
-                    $product['last_modified_t'] ?? null
+                'food' => [
+                    'user_id' => null,
+                    'external_id' => $externalId,
+                    'food_type' => 'product',
+                    'name' => $name,
+                    'brand' => $brand,
+                    'main_locale' => $mainLocale,
+                    'barcode' => $barcode,
+                    'calories' => $calories,
+                    'nutrition_basis_amount' => 100,
+                    'nutrition_basis_unit' => $nutritionBasisUnit,
+                    'protein' => $protein,
+                    'carbohydrates' => $carbohydrates,
+                    'fat' => $fat,
+                    'saturated_fat' => $this->nutrient(
+                        $nutriments,
+                        'saturated-fat_100g'
+                    ),
+                    'fibre' => $fibre,
+                    'sugar' => $this->nutrient($nutriments, 'sugars_100g'),
+                    'sodium' => $this->nutrient($nutriments, 'sodium_100g'),
+                    'salt' => $this->nutrient($nutriments, 'salt_100g'),
+                    'package_quantity' => $package['amount'] ?? null,
+                    'package_unit' => $package['unit'] ?? null,
+                    'is_public' => true,
+                    'nutrition_complete' => $protein !== null
+                        && $carbohydrates !== null
+                        && $fat !== null,
+                    'is_active' => true,
+                    'data_completeness' => $this->completeness(
+                        $product['completeness'] ?? null
+                    ),
+                    'popularity_score' => $this->positiveInteger(
+                        $product['unique_scans_n']
+                            ?? $product['scans_n']
+                            ?? null
+                    ),
+                    'image_url' => $this->url(
+                        $product['image_front_small_url']
+                            ?? $product['image_front_url']
+                            ?? null
+                    ),
+                    'search_text' => $searchText,
+                    'source_updated_at' => $this->timestamp(
+                        $product['last_modified_t'] ?? null
+                    ),
+                ],
+                'translations' => $translations,
+                'markets' => $markets,
+                'stores' => $this->stores($product),
+                'schema_version' => $this->positiveInteger(
+                    $product['schema_version'] ?? null,
+                    null
                 ),
             ],
-            'translations' => $translations,
-            'markets' => $markets,
-            'stores' => $this->stores($product),
-            'schema_version' => $this->positiveInteger(
-                $product['schema_version'] ?? null,
-                null
-            ),
+            'skipped_reason' => null,
+        ];
+    }
+
+    /**
+     * @return array{product: null, skipped_reason: string}
+     */
+    private function skipped(string $reason): array
+    {
+        return [
+            'product' => null,
+            'skipped_reason' => $reason,
         ];
     }
 
@@ -187,6 +235,10 @@ class ProductMapper
             'kg' => [$amount * 1000, 'g'],
             'mg' => [$amount / 1000, 'g'],
             'g' => [$amount, $unit],
+            'l' => [$amount * 1000, 'ml'],
+            'cl' => [$amount * 10, 'ml'],
+            'dl' => [$amount * 100, 'ml'],
+            'ml' => [$amount, $unit],
             default => [null, null],
         };
 

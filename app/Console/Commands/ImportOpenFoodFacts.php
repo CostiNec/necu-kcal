@@ -128,6 +128,15 @@ class ImportOpenFoodFacts extends Command
                                 )
                             )
                         );
+
+                        if ($current['skip_reasons'] !== []) {
+                            $this->line(
+                                '  Skip reasons: '
+                                .$this->formatSkipReasons(
+                                    $current['skip_reasons']
+                                )
+                            );
+                        }
                     }
                 );
             } finally {
@@ -147,6 +156,24 @@ class ImportOpenFoodFacts extends Command
                     number_format((int) $stats['errors']),
                 ]]
             );
+
+            if ($stats['skip_reasons'] !== []) {
+                $this->newLine();
+                $this->table(
+                    ['Skip reason', 'Records'],
+                    collect($stats['skip_reasons'])
+                        ->sortDesc()
+                        ->map(
+                            fn (int $count, string $reason) => [
+                                $this->skipReasonLabel($reason),
+                                number_format($count),
+                            ]
+                        )
+                        ->values()
+                        ->all()
+                );
+            }
+
             $this->components->success(
                 $dryRun
                     ? 'Dry run finished; the database was not changed.'
@@ -218,5 +245,35 @@ class ImportOpenFoodFacts extends Command
         }
 
         return sprintf('%.1f %s', $size, $units[$unit]);
+    }
+
+    /**
+     * @param  array<string, int>  $reasons
+     */
+    private function formatSkipReasons(array $reasons): string
+    {
+        arsort($reasons);
+
+        return collect($reasons)
+            ->map(
+                fn (int $count, string $reason) => sprintf(
+                    '%s %s',
+                    $this->skipReasonLabel($reason),
+                    number_format($count)
+                )
+            )
+            ->implode(' · ');
+    }
+
+    private function skipReasonLabel(string $reason): string
+    {
+        return match ($reason) {
+            'missing_source_id' => 'missing source ID',
+            'missing_name' => 'missing name',
+            'missing_energy' => 'missing/invalid energy',
+            'liquid_product' => 'liquid product',
+            'outside_scope' => 'outside scope',
+            default => str_replace('_', ' ', $reason),
+        };
     }
 }

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -69,6 +70,16 @@ class FoodController extends Controller
             'brand' => ['nullable', 'string', 'max:255'],
             'barcode' => ['nullable', 'string', 'max:64'],
             'calories' => ['required', 'numeric', 'min:0', 'max:10000'],
+            'nutrition_basis_amount' => [
+                'sometimes',
+                'numeric',
+                'min:0.01',
+                'max:1000000',
+            ],
+            'nutrition_basis_unit' => [
+                'sometimes',
+                Rule::in(['g', 'ml']),
+            ],
             'protein' => ['nullable', 'numeric', 'min:0', 'max:1000'],
             'carbohydrates' => ['nullable', 'numeric', 'min:0', 'max:1000'],
             'fat' => ['nullable', 'numeric', 'min:0', 'max:1000'],
@@ -77,6 +88,10 @@ class FoodController extends Controller
 
         $food = $request->user()->foods()->create([
             ...$validated,
+            'nutrition_basis_amount' => $validated['nutrition_basis_amount']
+                ?? 100,
+            'nutrition_basis_unit' => $validated['nutrition_basis_unit']
+                ?? 'g',
             'is_public' => false,
         ]);
 
@@ -130,6 +145,8 @@ class FoodController extends Controller
                 'brand',
                 'barcode',
                 'calories',
+                'nutrition_basis_amount',
+                'nutrition_basis_unit',
                 'protein',
                 'carbohydrates',
                 'fat',

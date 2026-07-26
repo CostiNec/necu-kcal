@@ -59,6 +59,7 @@ class RecipeController extends Controller
                     'name' => $ingredient->food?->localizedName()
                         ?? $ingredient->food_name,
                     'amount' => $ingredient->amount,
+                    'unit' => $ingredient->unit,
                 ])->values(),
             ]);
 
@@ -133,6 +134,8 @@ class RecipeController extends Controller
                 'carbohydrates' => $nutrition['carbohydrates'],
                 'fat' => $nutrition['fat'],
                 'fibre' => $nutrition['fibre'],
+                'nutrition_basis_amount' => 100,
+                'nutrition_basis_unit' => 'g',
                 'is_public' => false,
             ]);
 
@@ -201,6 +204,8 @@ class RecipeController extends Controller
                     'carbohydrates' => $nutrition['carbohydrates'],
                     'fat' => $nutrition['fat'],
                     'fibre' => $nutrition['fibre'],
+                    'nutrition_basis_amount' => 100,
+                    'nutrition_basis_unit' => 'g',
                     'is_public' => false,
                 ]);
             } else {
@@ -211,6 +216,8 @@ class RecipeController extends Controller
                     'carbohydrates' => $nutrition['carbohydrates'],
                     'fat' => $nutrition['fat'],
                     'fibre' => $nutrition['fibre'],
+                    'nutrition_basis_amount' => 100,
+                    'nutrition_basis_unit' => 'g',
                 ]);
             }
 
@@ -325,6 +332,7 @@ class RecipeController extends Controller
                 'food_id' => $ingredientFood->id,
                 'food_name' => $ingredientFood->name,
                 'amount' => $ingredient['amount'],
+                'unit' => $ingredientFood->nutrition_basis_unit,
                 'calories' => $ingredientFood->calories,
                 'protein' => $ingredientFood->protein ?? 0,
                 'carbohydrates' => $ingredientFood->carbohydrates ?? 0,
@@ -370,7 +378,8 @@ class RecipeController extends Controller
         foreach ($ingredients as $ingredient) {
             /** @var Food $food */
             $food = $foods->get($ingredient['food_id']);
-            $factor = (float) $ingredient['amount'] / 100;
+            $factor = (float) $ingredient['amount']
+                / max($food->nutrition_basis_amount, 0.001);
 
             foreach (array_keys($totals) as $nutrient) {
                 $totals[$nutrient] += (float) ($food->{$nutrient} ?? 0) * $factor;
@@ -392,6 +401,8 @@ class RecipeController extends Controller
                 'id',
                 'brand',
                 'calories',
+                'nutrition_basis_amount',
+                'nutrition_basis_unit',
                 'protein',
                 'carbohydrates',
                 'fat',

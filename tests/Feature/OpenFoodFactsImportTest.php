@@ -50,6 +50,8 @@ class OpenFoodFactsImportTest extends TestCase
         $this->assertSame('Piept de pui gata preparat', $food->name);
         $this->assertSame('Test Brand', $food->brand);
         $this->assertEquals(165, $food->calories);
+        $this->assertEquals(100, $food->nutrition_basis_amount);
+        $this->assertSame('g', $food->nutrition_basis_unit);
         $this->assertEquals(31, $food->protein);
         $this->assertEquals(2.4, $food->fibre);
         $this->assertEquals(250, $food->package_quantity);
@@ -99,6 +101,87 @@ class OpenFoodFactsImportTest extends TestCase
             'error_count' => 0,
             'last_processed_line' => 3,
         ]);
+        $run = DB::table('food_import_runs')->latest('id')->first();
+        $this->assertSame([
+            'outside_scope' => 1,
+            'missing_energy' => 1,
+        ], json_decode($run->skip_reasons, true));
+    }
+
+    public function test_it_reports_and_persists_each_skip_reason(): void
+    {
+        $missingBarcode = $this->romanianProduct();
+        unset($missingBarcode['code']);
+        $missingBarcode['_id'] = 'off-record-without-barcode';
+
+        $missingSourceId = $this->romanianProduct();
+        unset($missingSourceId['code']);
+
+        $missingName = $this->romanianProduct();
+        unset(
+            $missingName['product_name'],
+            $missingName['product_name_ro'],
+            $missingName['product_name_en']
+        );
+        $missingName['code'] = '2222222222222';
+
+        $missingEnergy = [
+            ...$this->romanianProduct(),
+            'code' => '3333333333333',
+            'nutriments' => [],
+        ];
+        $liquid = [
+            ...$this->romanianProduct(),
+            'code' => '4444444444444',
+            'product_quantity' => 500,
+            'product_quantity_unit' => 'ml',
+        ];
+        $outsideScope = [
+            ...$this->romanianProduct(),
+            'code' => '5555555555555',
+            'countries_tags' => ['en:france'],
+        ];
+        $path = $this->gzipDump([
+            $this->romanianProduct(),
+            $missingBarcode,
+            $missingSourceId,
+            $missingName,
+            $missingEnergy,
+            $liquid,
+            $outsideScope,
+        ]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'ro',
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $status, $output);
+        $run = DB::table('food_import_runs')->latest('id')->first();
+        $this->assertSame(7, $run->processed_count);
+        $this->assertSame(4, $run->skipped_count);
+        $this->assertSame([
+            'missing_source_id' => 1,
+            'missing_name' => 1,
+            'missing_energy' => 1,
+            'outside_scope' => 1,
+        ], json_decode($run->skip_reasons, true));
+        $this->assertDatabaseHas('foods', [
+            'external_id' => 'off-record-without-barcode',
+            'barcode' => null,
+        ]);
+        $this->assertDatabaseHas('foods', [
+            'external_id' => '4444444444444',
+            'nutrition_basis_amount' => 100,
+            'nutrition_basis_unit' => 'ml',
+            'package_quantity' => 500,
+            'package_unit' => 'ml',
+        ]);
+        $this->assertStringContainsString(
+            'missing/invalid energy',
+            $output
+        );
     }
 
     public function test_dry_run_maps_records_without_writing_any_data(): void
@@ -149,6 +232,47 @@ class OpenFoodFactsImportTest extends TestCase
             'inserted_count' => 0,
             'updated_count' => 1,
         ]);
+    }
+
+    public function test_sparse_products_are_flushed_before_the_resume_checkpoint(): void
+    {
+        config([
+            'open-food-facts.progress_every' => 2,
+            'open-food-facts.max_errors' => 1,
+        ]);
+        $path = $this->gzipDump([
+            $this->romanianProduct(),
+            [
+                ...$this->romanianProduct(),
+                'code' => '2222222222222',
+                'countries_tags' => ['en:france'],
+            ],
+            '{invalid json',
+            '{invalid json again',
+        ]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'ro',
+            '--batch' => 500,
+        ]);
+
+        $this->assertSame(1, $status);
+        $this->assertDatabaseHas('foods', [
+            'external_id' => '1111111111111',
+        ]);
+        $this->assertDatabaseHas('food_import_runs', [
+            'status' => 'failed',
+            'processed_count' => 2,
+            'inserted_count' => 1,
+            'skipped_count' => 1,
+            'last_processed_line' => 2,
+        ]);
+        $run = DB::table('food_import_runs')->latest('id')->first();
+        $this->assertSame(
+            ['outside_scope' => 1],
+            json_decode($run->skip_reasons, true)
+        );
     }
 
     /**

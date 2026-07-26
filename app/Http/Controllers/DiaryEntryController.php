@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DiaryDay;
 use App\Models\DiaryEntry;
 use App\Models\Food;
-use App\Support\MassUnit;
+use App\Support\MeasurementUnit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -19,7 +19,7 @@ class DiaryEntryController extends Controller
             'food_id' => ['required', 'integer'],
             'date' => ['required', 'date_format:Y-m-d'],
             'meal' => ['required', 'in:breakfast,lunch,dinner,snacks'],
-            'unit' => ['required', Rule::enum(MassUnit::class)],
+            'unit' => ['required', Rule::enum(MeasurementUnit::class)],
             'amount' => ['required', 'numeric', 'min:0.01', 'max:1000000'],
             'quantity' => ['required', 'numeric', 'min:0.01', 'max:1000'],
         ]);
@@ -28,13 +28,16 @@ class DiaryEntryController extends Controller
             ->visibleTo($request->user())
             ->with('translation')
             ->findOrFail($validated['food_id']);
+        $measurement = $this->measurement(
+            $validated,
+            $food->nutrition_basis_unit
+        );
+        $factor = $measurement['total']
+            / max($food->nutrition_basis_amount, 0.001);
         $day = DiaryDay::firstOrCreate([
             'user_id' => $request->user()->id,
             'date' => $validated['date'],
         ]);
-
-        $totalGrams = $this->totalGrams($validated);
-        $factor = $totalGrams / 100;
 
         $day->entries()->create([
             'food_id' => $food->id,
@@ -44,7 +47,12 @@ class DiaryEntryController extends Controller
             'unit' => $validated['unit'],
             'amount' => $validated['amount'],
             'quantity' => $validated['quantity'],
-            'total_grams' => $totalGrams,
+            'total_grams' => $measurement['basis_unit'] === 'g'
+                ? $measurement['total']
+                : null,
+            'total_milliliters' => $measurement['basis_unit'] === 'ml'
+                ? $measurement['total']
+                : null,
             'calories' => round($food->calories * $factor, 2),
             'protein' => round(($food->protein ?? 0) * $factor, 2),
             'carbohydrates' => round(($food->carbohydrates ?? 0) * $factor, 2),
@@ -63,22 +71,31 @@ class DiaryEntryController extends Controller
     public function update(Request $request, DiaryEntry $diaryEntry): RedirectResponse
     {
         abort_unless($diaryEntry->day->user_id === $request->user()->id, 403);
-        abort_if($diaryEntry->total_grams === null, 422);
+        $previousTotal = $diaryEntry->total_grams
+            ?? $diaryEntry->total_milliliters;
+        abort_if($previousTotal === null, 422);
 
         $validated = $request->validate([
-            'unit' => ['required', Rule::enum(MassUnit::class)],
+            'unit' => ['required', Rule::enum(MeasurementUnit::class)],
             'amount' => ['required', 'numeric', 'min:0.01', 'max:1000000'],
             'quantity' => ['required', 'numeric', 'min:0.01', 'max:1000'],
         ]);
 
-        $totalGrams = $this->totalGrams($validated);
-        $ratio = $totalGrams / max($diaryEntry->total_grams, 0.001);
+        $basisUnit = $diaryEntry->food?->nutrition_basis_unit
+            ?? MeasurementUnit::from($diaryEntry->unit)->basisUnit();
+        $measurement = $this->measurement($validated, $basisUnit);
+        $ratio = $measurement['total'] / max($previousTotal, 0.001);
 
         $diaryEntry->update([
             'unit' => $validated['unit'],
             'amount' => $validated['amount'],
             'quantity' => $validated['quantity'],
-            'total_grams' => $totalGrams,
+            'total_grams' => $basisUnit === 'g'
+                ? $measurement['total']
+                : null,
+            'total_milliliters' => $basisUnit === 'ml'
+                ? $measurement['total']
+                : null,
             'calories' => round($diaryEntry->calories * $ratio, 2),
             'protein' => round($diaryEntry->protein * $ratio, 2),
             'carbohydrates' => round($diaryEntry->carbohydrates * $ratio, 2),
@@ -124,6 +141,7 @@ class DiaryEntryController extends Controller
             'quantity' => 1,
             'amount' => 1,
             'total_grams' => null,
+            'total_milliliters' => null,
             'calories' => round((float) $validated['calories'], 2),
             'protein' => round((float) ($validated['protein'] ?? 0), 2),
             'carbohydrates' => round(
@@ -153,18 +171,31 @@ class DiaryEntryController extends Controller
     /**
      * @param  array{unit: string, amount: float|int|string, quantity: float|int|string}  $measurement
      */
-    private function totalGrams(array $measurement): float
-    {
-        $total = MassUnit::from($measurement['unit'])->toGrams(
+    private function measurement(
+        array $measurement,
+        string $nutritionBasisUnit
+    ): array {
+        $unit = MeasurementUnit::from($measurement['unit']);
+
+        if (! $unit->isCompatibleWith($nutritionBasisUnit)) {
+            throw ValidationException::withMessages([
+                'unit' => __('app.incompatible_measurement_unit'),
+            ]);
+        }
+
+        $total = $unit->toBaseAmount(
             (float) $measurement['amount'] * (float) $measurement['quantity']
         );
 
         if ($total > 10000000) {
             throw ValidationException::withMessages([
-                'amount' => __('app.weight_too_large'),
+                'amount' => __('app.measurement_too_large'),
             ]);
         }
 
-        return round($total, 3);
+        return [
+            'total' => round($total, 3),
+            'basis_unit' => $unit->basisUnit(),
+        ];
     }
 }

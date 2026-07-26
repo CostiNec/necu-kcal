@@ -12,6 +12,7 @@ class RecipeIngredient extends Model
         'food_id',
         'food_name',
         'amount',
+        'unit',
         'calories',
         'protein',
         'carbohydrates',

@@ -38,10 +38,11 @@ import {
     type NumberInputValue,
 } from '@/lib/utils';
 import {
-    massUnits,
-    toGrams,
-    type MassUnit,
-} from '@/lib/mass-units';
+    toBaseAmount,
+    unitsForBasis,
+    type MeasurementUnit,
+    type NutritionBasisUnit,
+} from '@/lib/measurement-units';
 import type { Food } from '@/types';
 
 const mealLabels = {
@@ -375,25 +376,25 @@ function FoodRow({
         food_id: number;
         date: string;
         meal: Meal;
-        unit: MassUnit;
+        unit: MeasurementUnit;
         amount: NumberInputValue;
         quantity: NumberInputValue;
     }>({
         food_id: food.id,
         date: date ?? '',
         meal,
-        unit: 'g',
-        amount: 100,
+        unit: food.nutrition_basis_unit,
+        amount: food.nutrition_basis_amount,
         quantity: 1,
     });
     const calculatedCalories =
         (food.calories *
-            toGrams(
+            toBaseAmount(
                 Number(form.data.amount),
                 form.data.unit,
                 Number(form.data.quantity),
             )) /
-        100;
+        food.nutrition_basis_amount;
 
     return (
         <Card
@@ -439,7 +440,13 @@ function FoodRow({
                                         (food.is_custom
                                             ? t('food.custom')
                                             : t('food.common'))}{' '}
-                                    · {t('food.per_units', { unit: 'g' })}
+                                    ·{' '}
+                                    {t('food.per_units', {
+                                        amount: formatNumber(
+                                            food.nutrition_basis_amount,
+                                        ),
+                                        unit: food.nutrition_basis_unit,
+                                    })}
                                 </Typography>
                             </Box>
                             <Chip
@@ -489,10 +496,13 @@ function FoodRow({
                         label={t('common.unit')}
                         value={form.data.unit}
                         onChange={(event) =>
-                            form.setData('unit', event.target.value as MassUnit)
+                            form.setData(
+                                'unit',
+                                event.target.value as MeasurementUnit,
+                            )
                         }
                     >
-                        {massUnits.map((unit) => (
+                        {unitsForBasis(food.nutrition_basis_unit).map((unit) => (
                             <MenuItem key={unit} value={unit}>
                                 {unit}
                             </MenuItem>
@@ -550,6 +560,8 @@ function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
         brand: string;
         barcode: string;
         calories: NumberInputValue;
+        nutrition_basis_amount: NumberInputValue;
+        nutrition_basis_unit: NutritionBasisUnit;
         protein: NumberInputValue;
         carbohydrates: NumberInputValue;
         fat: NumberInputValue;
@@ -559,6 +571,8 @@ function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
         brand: '',
         barcode: '',
         calories: 0,
+        nutrition_basis_amount: 100,
+        nutrition_basis_unit: 'g',
         protein: 0,
         carbohydrates: 0,
         fat: 0,
@@ -617,8 +631,56 @@ function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
                         </Grid>
                     </Grid>
 
+                    <Grid container spacing={2}>
+                        <Grid size={{ xs: 8, sm: 4 }}>
+                            <TextField
+                                fullWidth
+                                required
+                                type="number"
+                                label={t('food.nutrition_basis_amount')}
+                                value={form.data.nutrition_basis_amount}
+                                error={Boolean(
+                                    form.errors.nutrition_basis_amount,
+                                )}
+                                helperText={
+                                    form.errors.nutrition_basis_amount
+                                }
+                                slotProps={{
+                                    htmlInput: { min: 0.01, step: 0.01 },
+                                }}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'nutrition_basis_amount',
+                                        parseNumberInput(event.target.value),
+                                    )
+                                }
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 4, sm: 2 }}>
+                            <TextField
+                                fullWidth
+                                select
+                                label={t('common.unit')}
+                                value={form.data.nutrition_basis_unit}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'nutrition_basis_unit',
+                                        event.target
+                                            .value as NutritionBasisUnit,
+                                    )
+                                }
+                            >
+                                <MenuItem value="g">g</MenuItem>
+                                <MenuItem value="ml">ml</MenuItem>
+                            </TextField>
+                        </Grid>
+                    </Grid>
                     <Typography variant="subtitle2">
-                        {t('food.nutrition_per_100')}
+                        {t('food.nutrition_basis', {
+                            amount:
+                                Number(form.data.nutrition_basis_amount) || 0,
+                            unit: form.data.nutrition_basis_unit,
+                        })}
                     </Typography>
                     <Grid container spacing={2}>
                         {nutrientFields.map(([key, label]) => (

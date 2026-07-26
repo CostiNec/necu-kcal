@@ -24,6 +24,7 @@ class ProductImporter
      *     inserted: int,
      *     updated: int,
      *     skipped: int,
+     *     skip_reasons: array<string, int>,
      *     errors: int,
      *     last_line: int
      * }
@@ -68,6 +69,9 @@ class ProductImporter
             'inserted' => (int) ($run?->inserted_count ?? 0),
             'updated' => (int) ($run?->updated_count ?? 0),
             'skipped' => (int) ($run?->skipped_count ?? 0),
+            'skip_reasons' => $this->decodeSkipReasons(
+                $run?->skip_reasons ?? null
+            ),
             'errors' => (int) ($run?->error_count ?? 0),
             'last_line' => (int) ($run?->last_processed_line ?? 0),
         ];
@@ -114,12 +118,16 @@ class ProductImporter
                         );
                     }
 
-                    $this->checkpointWithoutBatch(
+                    $this->checkpointIfDue(
+                        $batch,
+                        (int) $sourceId,
                         $stats,
                         $schemaVersion,
                         $lastExternalId,
+                        $batchSize,
                         $progressEvery,
-                        $dryRun
+                        $dryRun,
+                        $progress
                     );
 
                     continue;
@@ -134,42 +142,40 @@ class ProductImporter
                         );
                     }
 
-                    $this->checkpointWithoutBatch(
+                    $this->checkpointIfDue(
+                        $batch,
+                        (int) $sourceId,
                         $stats,
                         $schemaVersion,
                         $lastExternalId,
+                        $batchSize,
                         $progressEvery,
-                        $dryRun
+                        $dryRun,
+                        $progress
                     );
-
-                    if (
-                        $progress !== null
-                        && $stats['processed'] % $progressEvery === 0
-                    ) {
-                        $progress($stats);
-                    }
 
                     continue;
                 }
 
-                $mapped = $this->mapper->map($product, $scope);
+                $mapping = $this->mapper->mapWithReason($product, $scope);
+                $mapped = $mapping['product'];
 
                 if ($mapped === null) {
                     $stats['skipped']++;
-                    $this->checkpointWithoutBatch(
+                    $reason = $mapping['skipped_reason'] ?? 'unknown';
+                    $stats['skip_reasons'][$reason] =
+                        ($stats['skip_reasons'][$reason] ?? 0) + 1;
+                    $this->checkpointIfDue(
+                        $batch,
+                        (int) $sourceId,
                         $stats,
                         $schemaVersion,
                         $lastExternalId,
+                        $batchSize,
                         $progressEvery,
-                        $dryRun
+                        $dryRun,
+                        $progress
                     );
-
-                    if (
-                        $progress !== null
-                        && $stats['processed'] % $progressEvery === 0
-                    ) {
-                        $progress($stats);
-                    }
 
                     continue;
                 }
@@ -182,41 +188,45 @@ class ProductImporter
                 ) ?: null;
 
                 if ($dryRun) {
-                    if (
-                        $progress !== null
-                        && $stats['processed'] % $progressEvery === 0
-                    ) {
-                        $progress($stats);
-                    }
+                    $this->checkpointIfDue(
+                        $batch,
+                        (int) $sourceId,
+                        $stats,
+                        $schemaVersion,
+                        $lastExternalId,
+                        $batchSize,
+                        $progressEvery,
+                        true,
+                        $progress
+                    );
 
                     continue;
                 }
 
                 $batch[] = $mapped;
 
-                if (count($batch) >= $batchSize) {
-                    $this->writeBatch(
-                        $batch,
-                        (int) $sourceId,
-                        $stats,
-                        $schemaVersion,
-                        $lastExternalId
-                    );
-                    $batch = [];
-
-                    if ($progress !== null) {
-                        $progress($stats);
-                    }
-                }
-            }
-
-            if (! $dryRun && $batch !== []) {
-                $this->writeBatch(
+                $this->checkpointIfDue(
                     $batch,
                     (int) $sourceId,
                     $stats,
                     $schemaVersion,
-                    $lastExternalId
+                    $lastExternalId,
+                    $batchSize,
+                    $progressEvery,
+                    false,
+                    $progress
+                );
+            }
+
+            if (! $dryRun && $batch !== []) {
+                $this->checkpoint(
+                    $batch,
+                    (int) $sourceId,
+                    $stats,
+                    $schemaVersion,
+                    $lastExternalId,
+                    false,
+                    $progress
                 );
             }
 
@@ -234,6 +244,9 @@ class ProductImporter
                         'inserted_count' => $stats['inserted'],
                         'updated_count' => $stats['updated'],
                         'skipped_count' => $stats['skipped'],
+                        'skip_reasons' => $this->encodeSkipReasons(
+                            $stats['skip_reasons']
+                        ),
                         'error_count' => $stats['errors'],
                         'last_processed_line' => $stats['last_line'],
                         'last_external_id' => $lastExternalId,
@@ -253,14 +266,6 @@ class ProductImporter
                     ->where('id', $stats['run_id'])
                     ->update([
                         'status' => 'failed',
-                        'source_schema_version' => $schemaVersion,
-                        'processed_count' => $stats['processed'],
-                        'inserted_count' => $stats['inserted'],
-                        'updated_count' => $stats['updated'],
-                        'skipped_count' => $stats['skipped'],
-                        'error_count' => $stats['errors'],
-                        'last_processed_line' => $stats['last_line'],
-                        'last_external_id' => $lastExternalId,
                         'error_message' => mb_substr(
                             $exception->getMessage(),
                             0,
@@ -305,6 +310,9 @@ class ProductImporter
                     'inserted_count' => $stats['inserted'],
                     'updated_count' => $stats['updated'],
                     'skipped_count' => $stats['skipped'],
+                    'skip_reasons' => $this->encodeSkipReasons(
+                        $stats['skip_reasons']
+                    ),
                     'error_count' => $stats['errors'],
                     'last_processed_line' => $stats['last_line'],
                     'last_external_id' => $lastExternalId,
@@ -353,6 +361,8 @@ class ProductImporter
                 'main_locale',
                 'barcode',
                 'calories',
+                'nutrition_basis_amount',
+                'nutrition_basis_unit',
                 'protein',
                 'carbohydrates',
                 'fat',
@@ -487,18 +497,58 @@ class ProductImporter
     /**
      * @param  array<string, int|string|null>  $stats
      */
-    private function checkpointWithoutBatch(
-        array $stats,
+    private function checkpointIfDue(
+        array &$batch,
+        int $sourceId,
+        array &$stats,
         ?int $schemaVersion,
         ?string $lastExternalId,
+        int $batchSize,
         int $progressEvery,
-        bool $dryRun
+        bool $dryRun,
+        ?callable $progress
     ): void {
-        if ($stats['processed'] % $progressEvery !== 0) {
+        if (
+            count($batch) < $batchSize
+            && $stats['processed'] % $progressEvery !== 0
+        ) {
             return;
         }
 
-        if (! $dryRun) {
+        $this->checkpoint(
+            $batch,
+            $sourceId,
+            $stats,
+            $schemaVersion,
+            $lastExternalId,
+            $dryRun,
+            $progress
+        );
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $batch
+     * @param  array<string, int|string|null>  $stats
+     */
+    private function checkpoint(
+        array &$batch,
+        int $sourceId,
+        array &$stats,
+        ?int $schemaVersion,
+        ?string $lastExternalId,
+        bool $dryRun,
+        ?callable $progress
+    ): void {
+        if (! $dryRun && $batch !== []) {
+            $this->writeBatch(
+                $batch,
+                $sourceId,
+                $stats,
+                $schemaVersion,
+                $lastExternalId
+            );
+            $batch = [];
+        } elseif (! $dryRun) {
             DB::table('food_import_runs')
                 ->where('id', $stats['run_id'])
                 ->update([
@@ -507,11 +557,18 @@ class ProductImporter
                     'inserted_count' => $stats['inserted'],
                     'updated_count' => $stats['updated'],
                     'skipped_count' => $stats['skipped'],
+                    'skip_reasons' => $this->encodeSkipReasons(
+                        $stats['skip_reasons']
+                    ),
                     'error_count' => $stats['errors'],
                     'last_processed_line' => $stats['last_line'],
                     'last_external_id' => $lastExternalId,
                     'updated_at' => now(),
                 ]);
+        }
+
+        if ($progress !== null) {
+            $progress($stats);
         }
     }
 
@@ -621,6 +678,40 @@ class ProductImporter
             'file_size' => filesize($path) ?: 0,
             'file_modified_at' => filemtime($path) ?: 0,
         ];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function decodeSkipReasons(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = json_decode($value, true);
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $reasons = [];
+
+        foreach ($value as $reason => $count) {
+            if (is_string($reason) && is_numeric($count) && $count >= 0) {
+                $reasons[$reason] = (int) $count;
+            }
+        }
+
+        return $reasons;
+    }
+
+    /**
+     * @param  array<string, int>  $reasons
+     */
+    private function encodeSkipReasons(array $reasons): string
+    {
+        arsort($reasons);
+
+        return json_encode($reasons, JSON_THROW_ON_ERROR);
     }
 
     private function validateOptions(

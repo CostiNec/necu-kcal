@@ -62,7 +62,7 @@
     "cooked_weight": "Cooked food weight",
     "cooked_weight_help": "Weigh the complete cooked recipe before saving.",
     "ingredients": "Ingredients",
-    "ingredients_help": "Choose each food and enter the total grams used.",
+    "ingredients_help": "Choose each food and enter the total amount used in grams or millilitres.",
     "create_food": "Create food",
     "search_food": "Search food",
     "search_placeholder": "Start typing a food name",
@@ -93,7 +93,7 @@
     "yield_summary": "{{weight}} g cooked · {{count}} ingredients",
     "macro_summary": "Protein {{protein}} g · Carbs {{carbs}} g · Fat {{fat}} g · Fibre {{fibre}} g per 100 g",
     "create_food_title": "Create an ingredient",
-    "create_food_help": "Recipe ingredients use nutrition values per 100 g. The new food will also be available in your food library.",
+    "create_food_help": "Choose whether the nutrition values apply to a weight or volume basis. The new food will also be available in your food library.",
     "create_and_select": "Create and select"
   },
   "layout": {
@@ -226,10 +226,11 @@
     "remove_favourite": "Remove {{food}} from favourites",
     "custom": "Custom food",
     "common": "Common food",
-    "per_units": "per 100 {{unit}}",
+    "per_units": "per {{amount}} {{unit}}",
     "macro_summary": "Protein {{protein}} g · Carbs {{carbs}} g · Fat {{fat}} g · Fibre {{fibre}} g",
     "food_name": "Food name",
-    "nutrition_per_100": "Nutrition per 100 g",
+    "nutrition_basis_amount": "Nutrition basis",
+    "nutrition_basis": "Nutrition per {{amount}} {{unit}}",
     "save_custom": "Save custom food"
   },
   "reports": {

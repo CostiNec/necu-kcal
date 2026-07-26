@@ -170,6 +170,55 @@ class NutritionTrackingTest extends TestCase
         $this->assertDatabaseCount('foods', 0);
     }
 
+    public function test_liquid_foods_are_logged_and_updated_by_volume(): void
+    {
+        $user = $this->onboardedUser();
+        $milk = Food::create([
+            'user_id' => $user->id,
+            'name' => 'Milk',
+            'calories' => 60,
+            'protein' => 3.2,
+            'carbohydrates' => 4.8,
+            'fat' => 3.5,
+            'nutrition_basis_amount' => 100,
+            'nutrition_basis_unit' => 'ml',
+            'is_public' => false,
+        ]);
+
+        $this->actingAs($user)->post('/diary-entries', [
+            'food_id' => $milk->id,
+            'date' => '2026-07-26',
+            'meal' => 'breakfast',
+            'unit' => 'l',
+            'amount' => 0.25,
+            'quantity' => 2,
+        ])->assertRedirect('/diary/2026-07-26');
+
+        $entry = DiaryDay::firstOrFail()->entries()->firstOrFail();
+        $this->assertNull($entry->total_grams);
+        $this->assertSame(500.0, $entry->total_milliliters);
+        $this->assertSame(300.0, $entry->calories);
+
+        $this->actingAs($user)->put("/diary-entries/{$entry->id}", [
+            'unit' => 'ml',
+            'amount' => 200,
+            'quantity' => 1,
+        ])->assertRedirect();
+
+        $entry->refresh();
+        $this->assertSame(200.0, $entry->total_milliliters);
+        $this->assertSame(120.0, $entry->calories);
+
+        $this->actingAs($user)->post('/diary-entries', [
+            'food_id' => $milk->id,
+            'date' => '2026-07-27',
+            'meal' => 'breakfast',
+            'unit' => 'g',
+            'amount' => 100,
+            'quantity' => 1,
+        ])->assertSessionHasErrors('unit');
+    }
+
     public function test_quick_calorie_entry_accepts_optional_macronutrients(): void
     {
         $user = $this->onboardedUser();
@@ -291,6 +340,35 @@ class NutritionTrackingTest extends TestCase
         ])->assertSessionHasErrors('ingredients');
 
         $this->assertDatabaseCount('recipes', 0);
+    }
+
+    public function test_recipe_uses_each_ingredients_nutrition_basis(): void
+    {
+        $user = $this->onboardedUser();
+        $milk = Food::create([
+            'user_id' => $user->id,
+            'name' => 'Milk',
+            'calories' => 150,
+            'protein' => 8,
+            'carbohydrates' => 12,
+            'fat' => 8,
+            'nutrition_basis_amount' => 250,
+            'nutrition_basis_unit' => 'ml',
+            'is_public' => false,
+        ]);
+
+        $this->actingAs($user)->post('/recipes', [
+            'name' => 'Milk pudding',
+            'cooked_weight' => 600,
+            'ingredients' => [
+                ['food_id' => $milk->id, 'amount' => 500],
+            ],
+        ])->assertRedirect('/recipes');
+
+        $recipe = Recipe::with('ingredients', 'food')->firstOrFail();
+        $this->assertSame(300.0, $recipe->total_calories);
+        $this->assertSame(50.0, $recipe->food->calories);
+        $this->assertSame('ml', $recipe->ingredients->first()->unit);
     }
 
     public function test_food_autocomplete_is_server_side_and_respects_visibility(): void

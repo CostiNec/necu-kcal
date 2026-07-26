@@ -47,6 +47,7 @@ type Recipe = {
         food_id: number | null;
         name: string;
         amount: number;
+        unit: 'g' | 'ml';
     }[];
 };
 
@@ -306,7 +307,7 @@ function RecipeCard({
                                 label={`${ingredient.name} · ${formatNumber(
                                     ingredient.amount,
                                     0,
-                                )} g`}
+                                )} ${ingredient.unit}`}
                             />
                         ))}
                     </Stack>

@@ -42,9 +42,10 @@ import {
     type NumberInputValue,
 } from '@/lib/utils';
 import {
-    massUnits,
-    type MassUnit,
-} from '@/lib/mass-units';
+    basisForUnit,
+    unitsForBasis,
+    type MeasurementUnit,
+} from '@/lib/measurement-units';
 
 const meals = [
     { key: 'breakfast', labelKey: 'diary.breakfast', icon: FreeBreakfastRounded },
@@ -562,7 +563,7 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
     const { t } = useTranslation();
     const [editing, setEditing] = useState(false);
     const form = useForm<{
-        unit: MassUnit;
+        unit: MeasurementUnit;
         amount: NumberInputValue;
         quantity: NumberInputValue;
     }>({
@@ -570,6 +571,9 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
         amount: entry.amount,
         quantity: entry.quantity,
     });
+    const hasMeasurement =
+        entry.total_grams !== null || entry.total_milliliters !== null;
+    const compatibleUnits = unitsForBasis(basisForUnit(entry.unit));
     const openEditor = () => {
         form.setData({
             unit: entry.unit,
@@ -617,14 +621,14 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                         color="text.secondary"
                         sx={{ display: 'block', mt: 0.5 }}
                     >
-                        {entry.total_grams !== null
+                        {hasMeasurement
                             ? `${formatNumber(entry.quantity, 2)} × ${formatNumber(entry.amount, 2)} ${entry.unit}`
                             : t('diary.manual_entry')}
                         {entry.brand ? ` · ${entry.brand}` : ''}
                     </Typography>
                 </Box>
                 <Stack direction="row" spacing={1}>
-                    {entry.total_grams !== null && (
+                    {hasMeasurement && (
                         <Button
                             size="small"
                             variant="outlined"
@@ -671,11 +675,12 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                                 onChange={(event) =>
                                     form.setData(
                                         'unit',
-                                        event.target.value as MassUnit,
+                                        event.target
+                                            .value as MeasurementUnit,
                                     )
                                 }
                             >
-                                {massUnits.map((unit) => (
+                                {compatibleUnits.map((unit) => (
                                     <MenuItem key={unit} value={unit}>
                                         {unit}
                                     </MenuItem>

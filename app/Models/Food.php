@@ -18,6 +18,8 @@ class Food extends Model
         'brand',
         'barcode',
         'calories',
+        'nutrition_basis_amount',
+        'nutrition_basis_unit',
         'protein',
         'carbohydrates',
         'fat',
@@ -31,6 +33,7 @@ class Food extends Model
     {
         return [
             'calories' => 'float',
+            'nutrition_basis_amount' => 'float',
             'protein' => 'float',
             'carbohydrates' => 'float',
             'fat' => 'float',
