@@ -45,7 +45,6 @@ export type FoodOption = {
     carbohydrates: number | null;
     fat: number | null;
     fibre: number | null;
-    unit_type: 'g';
 };
 
 type IngredientInput = {
@@ -171,7 +170,7 @@ export default function RecipeFormPage({
                 const response = await fetch(
                     `/foods/search?search=${encodeURIComponent(
                         search,
-                    )}&unit_type=g`,
+                    )}`,
                     {
                         signal: controller.signal,
                         headers: { Accept: 'application/json' },
@@ -807,9 +806,6 @@ function CreateFoodDialog({
         carbohydrates: NumberInputValue;
         fat: NumberInputValue;
         fibre: NumberInputValue;
-        unit_type: string;
-        serving_name: string;
-        serving_amount: NumberInputValue;
     }>({
         name: '',
         brand: '',
@@ -819,9 +815,6 @@ function CreateFoodDialog({
         carbohydrates: 0,
         fat: 0,
         fibre: 0,
-        unit_type: 'g',
-        serving_name: '100 g',
-        serving_amount: 100,
     });
     const nutrients = [
         ['calories', t('common.calories')],

@@ -60,9 +60,6 @@ class DiaryController extends Controller
                 ...$entry->toArray(),
                 'food_name' => $entry->food?->localizedName()
                     ?? $entry->food_name,
-                'serving_name' => $entry->serving_translation_key
-                    ? __($entry->serving_translation_key)
-                    : $entry->serving_name,
             ]),
             'totals' => $totals,
             'targets' => $user->nutritionTarget,

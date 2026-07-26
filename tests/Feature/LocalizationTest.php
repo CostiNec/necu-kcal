@@ -59,7 +59,6 @@ class LocalizationTest extends TestCase
                 ->component('foods/index')
                 ->has('foods', 1)
                 ->where('foods.0.name', 'Piept de pui, gătit')
-                ->where('foods.0.serving.name', '100 g')
             );
     }
 
@@ -107,12 +106,6 @@ class LocalizationTest extends TestCase
             'locale' => 'en',
             'name' => 'English translated food',
         ]);
-        $food->servings()->create([
-            'name' => '100 g',
-            'amount' => 100,
-            'is_default' => true,
-        ]);
-
         $this->actingAs($user)
             ->withSession(['locale' => 'ro'])
             ->getJson('/foods/search?search=Fallback')

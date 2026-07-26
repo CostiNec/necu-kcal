@@ -6,18 +6,15 @@ use App\Models\Food;
 use App\Models\User;
 use App\Services\FoodSearch;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class FoodController extends Controller
 {
-    public function __construct(private FoodSearch $foodSearch)
-    {
-    }
+    public function __construct(private FoodSearch $foodSearch) {}
 
     public function index(Request $request): Response
     {
@@ -47,7 +44,6 @@ class FoodController extends Controller
     {
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:255'],
-            'unit_type' => ['nullable', 'in:g,ml,piece'],
             'favourites_only' => ['nullable', 'boolean'],
         ]);
         $search = trim((string) ($validated['search'] ?? ''));
@@ -56,8 +52,7 @@ class FoodController extends Controller
         $paginator = $this->paginatedQuery(
             $request->user(),
             $search,
-            $favouritesOnly,
-            $validated['unit_type'] ?? null
+            $favouritesOnly
         )->cursorPaginate(20);
 
         return response()->json([
@@ -78,25 +73,12 @@ class FoodController extends Controller
             'carbohydrates' => ['nullable', 'numeric', 'min:0', 'max:1000'],
             'fat' => ['nullable', 'numeric', 'min:0', 'max:1000'],
             'fibre' => ['nullable', 'numeric', 'min:0', 'max:1000'],
-            'unit_type' => ['required', 'in:g,ml,piece'],
-            'serving_name' => ['required', 'string', 'max:100'],
-            'serving_amount' => ['required', 'numeric', 'min:0.01', 'max:10000'],
         ]);
 
-        $food = DB::transaction(function () use ($request, $validated) {
-            $food = $request->user()->foods()->create([
-                ...collect($validated)->except(['serving_name', 'serving_amount'])->all(),
-                'is_public' => false,
-            ]);
-
-            $food->servings()->create([
-                'name' => $validated['serving_name'],
-                'amount' => $validated['serving_amount'],
-                'is_default' => true,
-            ]);
-
-            return $food;
-        });
+        $food = $request->user()->foods()->create([
+            ...$validated,
+            'is_public' => false,
+        ]);
 
         return back()->with([
             'success' => __('app.custom_food_created'),
@@ -115,8 +97,7 @@ class FoodController extends Controller
     private function paginatedQuery(
         User $user,
         string $search,
-        bool $favouritesOnly,
-        ?string $unitType = null
+        bool $favouritesOnly
     ): Builder {
         return $this->foodSearch
             ->query($user, $search)
@@ -129,22 +110,10 @@ class FoodController extends Controller
             ->selectRaw(
                 'CASE WHEN favourite.id IS NULL THEN 0 ELSE 1 END AS is_favourite'
             )
-            ->with([
-                'translation',
-                'servings' => fn ($query) => $query
-                    ->orderByDesc('is_default')
-                    ->orderBy('id'),
-            ])
+            ->with('translation')
             ->when(
                 $favouritesOnly,
                 fn (Builder $query) => $query->whereNotNull('favourite.id')
-            )
-            ->when(
-                $unitType,
-                fn (Builder $query, string $type) => $query->where(
-                    'foods.unit_type',
-                    $type
-                )
             )
             ->orderBy('foods.name')
             ->orderBy('foods.id');
@@ -155,8 +124,6 @@ class FoodController extends Controller
      */
     private function foodPayload(Food $food): array
     {
-        $serving = $food->servings->first();
-
         return [
             ...$food->only([
                 'id',
@@ -167,18 +134,10 @@ class FoodController extends Controller
                 'carbohydrates',
                 'fat',
                 'fibre',
-                'unit_type',
             ]),
             'name' => $food->localizedName(),
             'is_custom' => $food->user_id !== null,
             'is_favourite' => (bool) $food->is_favourite,
-            'serving' => $serving ? [
-                'name' => $serving->translation_key
-                    ? __($serving->translation_key)
-                    : $serving->name,
-                'translation_key' => $serving->translation_key,
-                'amount' => $serving->amount,
-            ] : null,
         ];
     }
 }

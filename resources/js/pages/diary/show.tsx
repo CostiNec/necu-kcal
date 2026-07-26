@@ -41,6 +41,10 @@ import {
     parseNumberInput,
     type NumberInputValue,
 } from '@/lib/utils';
+import {
+    massUnits,
+    type MassUnit,
+} from '@/lib/mass-units';
 
 const meals = [
     { key: 'breakfast', labelKey: 'diary.breakfast', icon: FreeBreakfastRounded },
@@ -557,11 +561,21 @@ function QuickEntryDialog({
 function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
     const { t } = useTranslation();
     const [editing, setEditing] = useState(false);
-    const form = useForm<{ quantity: NumberInputValue }>({
+    const form = useForm<{
+        unit: MassUnit;
+        amount: NumberInputValue;
+        quantity: NumberInputValue;
+    }>({
+        unit: entry.unit,
+        amount: entry.amount,
         quantity: entry.quantity,
     });
     const openEditor = () => {
-        form.setData('quantity', entry.quantity);
+        form.setData({
+            unit: entry.unit,
+            amount: entry.amount,
+            quantity: entry.quantity,
+        });
         form.clearErrors();
         setEditing(true);
     };
@@ -603,20 +617,23 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                         color="text.secondary"
                         sx={{ display: 'block', mt: 0.5 }}
                     >
-                        {formatNumber(entry.quantity, 2)} ×{' '}
-                        {entry.serving_name}
+                        {entry.total_grams !== null
+                            ? `${formatNumber(entry.quantity, 2)} × ${formatNumber(entry.amount, 2)} ${entry.unit}`
+                            : t('diary.manual_entry')}
                         {entry.brand ? ` · ${entry.brand}` : ''}
                     </Typography>
                 </Box>
                 <Stack direction="row" spacing={1}>
-                    <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<EditOutlined />}
-                        onClick={openEditor}
-                    >
-                        {t('diary.edit_quantity')}
-                    </Button>
+                    {entry.total_grams !== null && (
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<EditOutlined />}
+                            onClick={openEditor}
+                        >
+                            {t('diary.edit_amount')}
+                        </Button>
+                    )}
                     <Button
                         size="small"
                         color="error"
@@ -639,24 +656,62 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                 fullWidth
             >
                 <Box component="form" onSubmit={submit}>
-                    <DialogTitle>{t('diary.edit_quantity')}</DialogTitle>
+                    <DialogTitle>{t('diary.edit_amount')}</DialogTitle>
                     <DialogContent>
                         <Stack spacing={2} sx={{ pt: 1 }}>
                             <Typography variant="body2">
                                 {entry.food_name}
                             </Typography>
                             <TextField
+                                select
+                                label={t('common.unit')}
+                                value={form.data.unit}
+                                error={Boolean(form.errors.unit)}
+                                helperText={form.errors.unit}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'unit',
+                                        event.target.value as MassUnit,
+                                    )
+                                }
+                            >
+                                {massUnits.map((unit) => (
+                                    <MenuItem key={unit} value={unit}>
+                                        {unit}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                            <TextField
                                 required
                                 autoFocus
+                                type="number"
+                                label={t('common.amount')}
+                                value={form.data.amount}
+                                error={Boolean(form.errors.amount)}
+                                helperText={form.errors.amount}
+                                slotProps={{
+                                    htmlInput: {
+                                        min: 0.01,
+                                        max: 1000000,
+                                        step: 0.01,
+                                    },
+                                }}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'amount',
+                                        parseNumberInput(event.target.value),
+                                    )
+                                }
+                            />
+                            <TextField
+                                required
                                 type="number"
                                 label={t('common.quantity')}
                                 value={form.data.quantity}
                                 error={Boolean(form.errors.quantity)}
                                 helperText={
                                     form.errors.quantity ??
-                                    t('diary.quantity_help', {
-                                        serving: entry.serving_name,
-                                    })
+                                    t('diary.quantity_help')
                                 }
                                 slotProps={{
                                     htmlInput: {
@@ -686,10 +741,12 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                             type="submit"
                             variant="contained"
                             disabled={
-                                form.processing || form.data.quantity === ''
+                                form.processing ||
+                                form.data.amount === '' ||
+                                form.data.quantity === ''
                             }
                         >
-                            {t('diary.save_quantity')}
+                            {t('diary.save_amount')}
                         </Button>
                     </DialogActions>
                 </Box>

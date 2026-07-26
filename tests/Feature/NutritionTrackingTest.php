@@ -71,12 +71,15 @@ class NutritionTrackingTest extends TestCase
             'food_id' => $food->id,
             'date' => '2026-07-26',
             'meal' => 'lunch',
-            'serving_name' => 'Half bowl',
-            'serving_amount' => 50,
+            'unit' => 'g',
+            'amount' => 50,
             'quantity' => 2,
         ])->assertRedirect('/diary/2026-07-26');
 
         $entry = DiaryDay::firstOrFail()->entries()->firstOrFail();
+        $this->assertSame('g', $entry->unit);
+        $this->assertSame(50.0, $entry->amount);
+        $this->assertSame(100.0, $entry->total_grams);
         $this->assertSame(200.0, $entry->calories);
         $this->assertSame(10.0, $entry->protein);
         $this->assertSame(4.0, $entry->fibre);
@@ -87,6 +90,60 @@ class NutritionTrackingTest extends TestCase
         $this->assertSame(200.0, $entry->calories);
         $this->assertSame(10.0, $entry->protein);
         $this->assertSame(4.0, $entry->fibre);
+    }
+
+    public function test_mass_units_are_normalized_to_grams_and_can_be_updated(): void
+    {
+        $user = $this->onboardedUser();
+        $food = Food::create([
+            'user_id' => $user->id,
+            'name' => 'Measured food',
+            'calories' => 100,
+            'protein' => 10,
+            'carbohydrates' => 5,
+            'fat' => 2,
+            'fibre' => 1,
+            'is_public' => false,
+        ]);
+
+        $this->actingAs($user)->post('/diary-entries', [
+            'food_id' => $food->id,
+            'date' => '2026-07-26',
+            'meal' => 'lunch',
+            'unit' => 'kg',
+            'amount' => 0.25,
+            'quantity' => 2,
+        ])->assertRedirect('/diary/2026-07-26');
+
+        $entry = DiaryDay::firstOrFail()->entries()->firstOrFail();
+
+        $this->assertSame('kg', $entry->unit);
+        $this->assertSame(0.25, $entry->amount);
+        $this->assertSame(2.0, $entry->quantity);
+        $this->assertSame(500.0, $entry->total_grams);
+        $this->assertSame(500.0, $entry->calories);
+
+        $this->actingAs($user)->put("/diary-entries/{$entry->id}", [
+            'unit' => 'oz',
+            'amount' => 1,
+            'quantity' => 2,
+        ])->assertRedirect();
+
+        $entry->refresh();
+
+        $this->assertSame('oz', $entry->unit);
+        $this->assertSame(1.0, $entry->amount);
+        $this->assertSame(56.699, $entry->total_grams);
+        $this->assertSame(56.7, $entry->calories);
+
+        $this->actingAs($user)->post('/diary-entries', [
+            'food_id' => $food->id,
+            'date' => '2026-07-26',
+            'meal' => 'lunch',
+            'unit' => 'ml',
+            'amount' => 100,
+            'quantity' => 1,
+        ])->assertSessionHasErrors('unit');
     }
 
     public function test_user_can_log_calories_without_creating_a_food(): void
@@ -148,10 +205,10 @@ class NutritionTrackingTest extends TestCase
         $entry = $day->entries()->create([
             'meal' => 'snacks',
             'food_name' => 'Apple',
-            'unit_type' => 'g',
-            'serving_name' => '1 apple',
+            'unit' => 'g',
             'quantity' => 1,
             'amount' => 180,
+            'total_grams' => 180,
             'calories' => 95,
             'protein' => 0.5,
             'carbohydrates' => 25,
@@ -208,8 +265,6 @@ class NutritionTrackingTest extends TestCase
         $this->assertSame(175.0, $recipeFood->calories);
         $this->assertSame(6.5, $recipeFood->protein);
         $this->assertSame(15.0, $recipeFood->carbohydrates);
-        $this->assertSame('g', $recipeFood->unit_type);
-        $this->assertSame(100.0, $recipeFood->servings()->firstOrFail()->amount);
     }
 
     public function test_recipe_cannot_use_another_users_private_food(): void
@@ -264,7 +319,7 @@ class NutritionTrackingTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->getJson('/foods/search?search=Chicken&unit_type=g')
+            ->getJson('/foods/search?search=Chicken')
             ->assertOk()
             ->assertJsonCount(2, 'foods')
             ->assertJsonFragment(['name' => 'Chicken breast'])
@@ -529,10 +584,10 @@ class NutritionTrackingTest extends TestCase
         $day->entries()->create([
             'meal' => 'breakfast',
             'food_name' => 'Oats',
-            'unit_type' => 'g',
-            'serving_name' => '1 bowl',
+            'unit' => 'g',
             'quantity' => 1,
             'amount' => 50,
+            'total_grams' => 50,
             'calories' => 190,
             'protein' => 6.5,
             'carbohydrates' => 34,
@@ -569,10 +624,10 @@ class NutritionTrackingTest extends TestCase
             'food_id' => $food->id,
             'meal' => 'dinner',
             'food_name' => $food->name,
-            'unit_type' => 'g',
-            'serving_name' => '1 serving',
+            'unit' => 'g',
             'quantity' => 1,
             'amount' => 100,
+            'total_grams' => 100,
             'calories' => 450,
             'protein' => 25,
             'carbohydrates' => 40,

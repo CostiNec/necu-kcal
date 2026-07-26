@@ -1,4 +1,5 @@
 import type { PageProps as InertiaPageProps } from '@inertiajs/core';
+import type { MassUnit } from '@/lib/mass-units';
 
 export type User = {
     id: number;
@@ -45,14 +46,8 @@ export type Food = {
     carbohydrates: number | null;
     fat: number | null;
     fibre: number | null;
-    unit_type: 'g' | 'ml' | 'piece';
     is_custom: boolean;
     is_favourite?: boolean;
-    serving?: {
-        name: string;
-        translation_key: string | null;
-        amount: number;
-    } | null;
 };
 
 export type DiaryEntry = {
@@ -61,10 +56,10 @@ export type DiaryEntry = {
     food_id: number | null;
     food_name: string;
     brand: string | null;
-    serving_name: string;
-    serving_translation_key?: string | null;
+    unit: MassUnit;
     quantity: number;
     amount: number;
+    total_grams: number | null;
     calories: number;
     protein: number;
     carbohydrates: number;

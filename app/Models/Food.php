@@ -24,7 +24,6 @@ class Food extends Model
         'fibre',
         'sugar',
         'sodium',
-        'unit_type',
         'is_public',
     ];
 
@@ -45,11 +44,6 @@ class Food extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
-    }
-
-    public function servings(): HasMany
-    {
-        return $this->hasMany(FoodServing::class);
     }
 
     public function translations(): HasMany

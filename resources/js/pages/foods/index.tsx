@@ -37,6 +37,11 @@ import {
     parseNumberInput,
     type NumberInputValue,
 } from '@/lib/utils';
+import {
+    massUnits,
+    toGrams,
+    type MassUnit,
+} from '@/lib/mass-units';
 import type { Food } from '@/types';
 
 const mealLabels = {
@@ -366,32 +371,28 @@ function FoodRow({
     onToggleFavourite: () => void;
 }) {
     const { t } = useTranslation();
-    const serving = food.serving ?? {
-        name: `100 ${food.unit_type}`,
-        translation_key: null,
-        amount: 100,
-    };
     const form = useForm<{
         food_id: number;
         date: string;
         meal: Meal;
-        serving_name: string;
-        serving_translation_key: string | null;
-        serving_amount: NumberInputValue;
+        unit: MassUnit;
+        amount: NumberInputValue;
         quantity: NumberInputValue;
     }>({
         food_id: food.id,
         date: date ?? '',
         meal,
-        serving_name: serving.name,
-        serving_translation_key: serving.translation_key,
-        serving_amount: serving.amount,
+        unit: 'g',
+        amount: 100,
         quantity: 1,
     });
     const calculatedCalories =
         (food.calories *
-            Number(form.data.serving_amount) *
-            Number(form.data.quantity)) /
+            toGrams(
+                Number(form.data.amount),
+                form.data.unit,
+                Number(form.data.quantity),
+            )) /
         100;
 
     return (
@@ -438,7 +439,7 @@ function FoodRow({
                                         (food.is_custom
                                             ? t('food.custom')
                                             : t('food.common'))}{' '}
-                                    · {t('food.per_units', { unit: food.unit_type })}
+                                    · {t('food.per_units', { unit: 'g' })}
                                 </Typography>
                             </Box>
                             <Chip
@@ -477,29 +478,34 @@ function FoodRow({
                         display: 'grid',
                         gridTemplateColumns: {
                             xs: '1fr 1fr',
-                            sm: 'minmax(180px, 1fr) 120px 100px auto',
+                            sm: '110px minmax(120px, 1fr) minmax(100px, 1fr) auto',
                         },
                         gap: 1.5,
                         alignItems: 'start',
                     }}
                 >
                     <TextField
-                        label={t('common.serving')}
-                        value={form.data.serving_name}
-                        onChange={(event) => {
-                            form.setData('serving_name', event.target.value);
-                            form.setData('serving_translation_key', null);
-                        }}
-                        sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
-                    />
+                        select
+                        label={t('common.unit')}
+                        value={form.data.unit}
+                        onChange={(event) =>
+                            form.setData('unit', event.target.value as MassUnit)
+                        }
+                    >
+                        {massUnits.map((unit) => (
+                            <MenuItem key={unit} value={unit}>
+                                {unit}
+                            </MenuItem>
+                        ))}
+                    </TextField>
                     <TextField
                         label={t('common.amount')}
                         type="number"
-                        value={form.data.serving_amount}
+                        value={form.data.amount}
                         slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }}
                         onChange={(event) =>
                             form.setData(
-                                'serving_amount',
+                                'amount',
                                 parseNumberInput(event.target.value),
                             )
                         }
@@ -548,9 +554,6 @@ function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
         carbohydrates: NumberInputValue;
         fat: NumberInputValue;
         fibre: NumberInputValue;
-        unit_type: string;
-        serving_name: string;
-        serving_amount: NumberInputValue;
     }>({
         name: '',
         brand: '',
@@ -560,9 +563,6 @@ function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
         carbohydrates: 0,
         fat: 0,
         fibre: 0,
-        unit_type: 'g',
-        serving_name: t('food.default_serving'),
-        serving_amount: 100,
     });
     const nutrientFields = [
         ['calories', t('common.calories')],
@@ -644,63 +644,6 @@ function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
                                 />
                             </Grid>
                         ))}
-                    </Grid>
-
-                    <Grid container spacing={2}>
-                        <Grid size={{ xs: 12, sm: 4 }}>
-                            <TextField
-                                select
-                                fullWidth
-                                label={t('food.base_unit')}
-                                value={form.data.unit_type}
-                                error={Boolean(form.errors.unit_type)}
-                                helperText={form.errors.unit_type}
-                                onChange={(event) =>
-                                    form.setData('unit_type', event.target.value)
-                                }
-                            >
-                                <MenuItem value="g">{t('food.grams')}</MenuItem>
-                                <MenuItem value="ml">
-                                    {t('food.millilitres')}
-                                </MenuItem>
-                                <MenuItem value="piece">
-                                    {t('food.pieces')}
-                                </MenuItem>
-                            </TextField>
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 4 }}>
-                            <TextField
-                                fullWidth
-                                label={t('food.serving_name')}
-                                value={form.data.serving_name}
-                                error={Boolean(form.errors.serving_name)}
-                                helperText={form.errors.serving_name}
-                                onChange={(event) =>
-                                    form.setData('serving_name', event.target.value)
-                                }
-                            />
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 4 }}>
-                            <TextField
-                                fullWidth
-                                label={t('food.serving_amount')}
-                                type="number"
-                                value={form.data.serving_amount}
-                                error={Boolean(form.errors.serving_amount)}
-                                helperText={form.errors.serving_amount}
-                                slotProps={{
-                                    htmlInput: { min: 0.01, step: 0.01 },
-                                }}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'serving_amount',
-                                        parseNumberInput(
-                                            event.target.value,
-                                        ),
-                                    )
-                                }
-                            />
-                        </Grid>
                     </Grid>
 
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>

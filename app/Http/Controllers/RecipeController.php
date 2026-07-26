@@ -133,11 +133,8 @@ class RecipeController extends Controller
                 'carbohydrates' => $nutrition['carbohydrates'],
                 'fat' => $nutrition['fat'],
                 'fibre' => $nutrition['fibre'],
-                'unit_type' => 'g',
                 'is_public' => false,
             ]);
-
-            $this->createDefaultServing($food);
 
             $recipe = $request->user()->recipes()->create([
                 'food_id' => $food->id,
@@ -204,10 +201,8 @@ class RecipeController extends Controller
                     'carbohydrates' => $nutrition['carbohydrates'],
                     'fat' => $nutrition['fat'],
                     'fibre' => $nutrition['fibre'],
-                    'unit_type' => 'g',
                     'is_public' => false,
                 ]);
-                $this->createDefaultServing($food);
             } else {
                 $food->update([
                     'name' => $validated['name'],
@@ -298,7 +293,6 @@ class RecipeController extends Controller
         $foodIds = collect($validated['ingredients'])->pluck('food_id');
         $foods = Food::query()
             ->visibleTo($request->user())
-            ->where('unit_type', 'g')
             ->whereIn('id', $foodIds)
             ->get()
             ->keyBy('id');
@@ -341,15 +335,6 @@ class RecipeController extends Controller
         }
     }
 
-    private function createDefaultServing(Food $food): void
-    {
-        $food->servings()->create([
-            'name' => '100 g',
-            'amount' => 100,
-            'is_default' => true,
-        ]);
-    }
-
     private function createdFood(Request $request): ?Food
     {
         $createdFoodId = $request->session()->get('created_food_id');
@@ -357,7 +342,6 @@ class RecipeController extends Controller
         return $createdFoodId
             ? Food::query()
                 ->visibleTo($request->user())
-                ->where('unit_type', 'g')
                 ->with('translation')
                 ->find($createdFoodId)
             : null;
@@ -412,7 +396,6 @@ class RecipeController extends Controller
                 'carbohydrates',
                 'fat',
                 'fibre',
-                'unit_type',
             ]),
             'name' => $food->localizedName(),
         ];
