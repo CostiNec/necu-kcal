@@ -18,47 +18,42 @@ class FoodSearch
             return $query;
         }
 
+        if ($this->isBarcode($search)) {
+            return $query->where('foods.barcode', $search);
+        }
+
         $booleanSearch = $this->booleanSearch($search);
-        $useFullText = DB::getDriverName() === 'mysql'
+        $useMySqlFullText = DB::getDriverName() === 'mysql'
             && $booleanSearch !== '';
+
+        if ($useMySqlFullText) {
+            return $query->whereRaw(
+                'MATCH(foods.search_text) AGAINST (? IN BOOLEAN MODE)',
+                [$booleanSearch]
+            );
+        }
+
         $useSqliteWordFallback = DB::getDriverName() === 'sqlite';
         $locale = app()->getLocale();
 
         return $query->where(function (Builder $builder) use (
-            $booleanSearch,
             $locale,
             $search,
-            $useSqliteWordFallback,
-            $useFullText
+            $useSqliteWordFallback
         ) {
-            $builder->where('foods.barcode', $search);
-
-            $builder->orWhereHas(
+            $builder->whereHas(
                 'translations',
                 function (Builder $translationQuery) use (
-                    $booleanSearch,
                     $locale,
                     $search,
-                    $useSqliteWordFallback,
-                    $useFullText
+                    $useSqliteWordFallback
                 ) {
                     $translationQuery
                         ->where('locale', $locale)
                         ->where(function (Builder $nameQuery) use (
-                            $booleanSearch,
                             $search,
-                            $useSqliteWordFallback,
-                            $useFullText
+                            $useSqliteWordFallback
                         ) {
-                            if ($useFullText) {
-                                $nameQuery->whereRaw(
-                                    'MATCH(food_translations.name) AGAINST (? IN BOOLEAN MODE)',
-                                    [$booleanSearch]
-                                );
-
-                                return;
-                            }
-
                             $nameQuery->where(
                                 'food_translations.name',
                                 'like',
@@ -75,15 +70,6 @@ class FoodSearch
                 }
             );
 
-            if ($useFullText) {
-                $builder->orWhereRaw(
-                    'MATCH(foods.name, foods.brand) AGAINST (? IN BOOLEAN MODE)',
-                    [$booleanSearch]
-                );
-
-                return;
-            }
-
             $builder
                 ->orWhere('foods.name', 'like', "{$search}%")
                 ->orWhere('foods.brand', 'like', "{$search}%");
@@ -99,5 +85,10 @@ class FoodSearch
             ->take(8)
             ->map(fn (string $term) => "+{$term}*")
             ->implode(' ');
+    }
+
+    private function isBarcode(string $search): bool
+    {
+        return preg_match('/^\d{6,18}$/', $search) === 1;
     }
 }

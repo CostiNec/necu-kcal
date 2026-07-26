@@ -129,6 +129,8 @@ class RecipeController extends Controller
         ) {
             $food = $request->user()->foods()->create([
                 'name' => $validated['name'],
+                'food_type' => 'recipe',
+                'search_priority' => 1,
                 'calories' => $nutrition['calories'],
                 'protein' => $nutrition['protein'],
                 'carbohydrates' => $nutrition['carbohydrates'],
@@ -199,6 +201,8 @@ class RecipeController extends Controller
             if (! $food) {
                 $food = $request->user()->foods()->create([
                     'name' => $validated['name'],
+                    'food_type' => 'recipe',
+                    'search_priority' => 1,
                     'calories' => $nutrition['calories'],
                     'protein' => $nutrition['protein'],
                     'carbohydrates' => $nutrition['carbohydrates'],

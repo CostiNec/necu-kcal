@@ -7,6 +7,7 @@ import FavoriteRounded from '@mui/icons-material/FavoriteRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import SearchRounded from '@mui/icons-material/SearchRounded';
+import QrCodeScannerRounded from '@mui/icons-material/QrCodeScannerRounded';
 import {
     Box,
     Button,
@@ -32,6 +33,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/layouts/app-layout';
+import { BarcodeScannerDialog } from '@/components/barcode-scanner-dialog';
 import {
     formatNumber,
     parseNumberInput,
@@ -72,6 +74,7 @@ export default function FoodsIndex({
     const [searching, setSearching] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [showCreate, setShowCreate] = useState(false);
+    const [scannerOpen, setScannerOpen] = useState(false);
     const initialSearch = useRef(true);
     const logging = Boolean(context.date);
 
@@ -200,6 +203,10 @@ export default function FoodsIndex({
 
     const refreshResults = () =>
         loadFoods({ value: search, append: false });
+    const handleBarcodeDetected = useCallback((barcode: string) => {
+        setSearch(barcode.trim());
+        setScannerOpen(false);
+    }, []);
 
     return (
         <AppLayout
@@ -245,6 +252,20 @@ export default function FoodsIndex({
                             ),
                             endAdornment: (
                                 <InputAdornment position="end">
+                                    {logging && (
+                                        <IconButton
+                                            size="small"
+                                            color="primary"
+                                            aria-label={t(
+                                                'food.scan_barcode',
+                                            )}
+                                            onClick={() =>
+                                                setScannerOpen(true)
+                                            }
+                                        >
+                                            <QrCodeScannerRounded fontSize="small" />
+                                        </IconButton>
+                                    )}
                                     {searching ? (
                                         <CircularProgress size={20} />
                                     ) : search ? (
@@ -262,6 +283,12 @@ export default function FoodsIndex({
                             ),
                         },
                     }}
+                />
+
+                <BarcodeScannerDialog
+                    open={scannerOpen}
+                    onClose={() => setScannerOpen(false)}
+                    onDetected={handleBarcodeDetected}
                 />
 
                 <Button

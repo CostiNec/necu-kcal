@@ -9,7 +9,9 @@ Inertia, React, Material UI, and the licensed Minimal UI design system.
 - First-run onboarding for calorie, protein, carbohydrate, fat, and fibre targets
 - Daily diary split into breakfast, lunch, dinner, and snacks
 - Common food library, custom foods, servings, barcode fields, and favourites
+- Mobile camera barcode scanning while logging packaged foods
 - Streaming Open Food Facts imports with Romanian-market filtering
+- Streaming USDA FoodData Central imports for generic foods
 - Nutrition snapshots so historical diary entries do not change when a food is edited
 - Daily notes and quick serving adjustments
 - Weekly calorie and macro charts, averages, and most-logged foods
@@ -102,6 +104,34 @@ persistent terminal session or a process supervisor on the production server.
 
 The source URL and local path can be changed with
 `OPEN_FOOD_FACTS_URL` and `OPEN_FOOD_FACTS_IMPORT_PATH`.
+
+## USDA generic food import
+
+USDA FoodData Central complements Open Food Facts with generic foods such as
+raw and cooked fruit, vegetables, grains, meat, and dairy. The importer uses
+the Foundation and SR Legacy datasets, stores their English descriptions as
+food translations, and normalizes nutrients to the source's 100 g edible-food
+basis. Branded USDA foods are intentionally excluded because Open Food Facts
+already supplies the packaged-product catalog.
+
+Run the migration and import both archives:
+
+```bash
+php artisan migrate
+php artisan foods:import-usda
+```
+
+The import command downloads any missing archives into
+`storage/app/imports` before processing them. You can also download them
+without importing by running `php artisan foods:download-usda`.
+
+Use `--dataset=foundation` or `--dataset=sr-legacy` to process only one
+archive. The import is streamed from each ZIP, uses bounded transactions, and
+supports `--dry-run`, `--resume`, `--force`, and `--batch=500`.
+
+The source URLs can be changed with the two `USDA_*_URL` variables in `.env`.
+The archives are not committed or deployed with the application, so the first
+import on each server downloads its own copies.
 
 ## Localization
 

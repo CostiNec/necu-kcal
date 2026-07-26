@@ -472,6 +472,86 @@ class NutritionTrackingTest extends TestCase
             ->assertJsonPath('next_cursor', null);
     }
 
+    public function test_food_search_prioritizes_generic_foods_before_products(): void
+    {
+        $user = $this->onboardedUser();
+        $product = Food::create([
+            'name' => 'Milk A branded',
+            'brand' => 'Example Dairy',
+            'calories' => 64,
+            'unit_type' => 'g',
+            'food_type' => 'product',
+            'is_public' => true,
+        ]);
+        $generic = Food::create([
+            'name' => 'Milk Z whole',
+            'calories' => 61,
+            'unit_type' => 'g',
+            'food_type' => 'generic',
+            'is_public' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/foods/search?search=Milk')
+            ->assertOk()
+            ->assertJsonCount(2, 'foods')
+            ->assertJsonPath('foods.0.id', $generic->id)
+            ->assertJsonPath('foods.1.id', $product->id);
+    }
+
+    public function test_food_search_finds_an_exact_barcode(): void
+    {
+        $user = $this->onboardedUser();
+        $product = Food::create([
+            'name' => 'Unrelated product name',
+            'barcode' => '5941234567890',
+            'calories' => 100,
+            'unit_type' => 'g',
+            'food_type' => 'product',
+            'is_public' => true,
+        ]);
+        Food::create([
+            'name' => '5941234567890 is not a barcode match',
+            'calories' => 50,
+            'unit_type' => 'g',
+            'food_type' => 'generic',
+            'is_public' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/foods/search?search=5941234567890')
+            ->assertOk()
+            ->assertJsonCount(1, 'foods')
+            ->assertJsonPath('foods.0.id', $product->id);
+    }
+
+    public function test_existing_encoded_food_names_are_decoded_for_display(): void
+    {
+        $foodId = DB::table('foods')->insertGetId([
+            'name' => '&amp;quot;CRISPY&amp;quot; &amp; chips',
+            'brand' => 'Brand &amp; Co',
+            'calories' => 457,
+            'food_type' => 'product',
+            'search_priority' => 2,
+            'is_public' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('food_translations')->insert([
+            'food_id' => $foodId,
+            'locale' => 'en',
+            'name' => '&quot;CRISPY&quot; translated',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $food = Food::with('translation')->findOrFail($foodId);
+
+        $this->assertSame('"CRISPY" & chips', $food->name);
+        $this->assertSame('Brand & Co', $food->brand);
+        $this->assertSame('"CRISPY" translated', $food->localizedName());
+    }
+
     public function test_recipe_index_only_contains_the_authenticated_users_recipes(): void
     {
         $user = $this->onboardedUser();

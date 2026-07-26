@@ -2,6 +2,8 @@
 
 namespace App\Services\OpenFoodFacts;
 
+use App\Support\HtmlText;
+
 class ProductMapper
 {
     public const SKIP_MISSING_SOURCE_ID = 'missing_source_id';
@@ -136,6 +138,7 @@ class ProductMapper
                     'user_id' => null,
                     'external_id' => $externalId,
                     'food_type' => 'product',
+                    'search_priority' => 2,
                     'name' => $name,
                     'brand' => $brand,
                     'main_locale' => $mainLocale,
@@ -366,7 +369,7 @@ class ProductMapper
             return null;
         }
 
-        $value = trim($value);
+        $value = trim(HtmlText::decode($value) ?? '');
 
         if ($value === '') {
             return null;

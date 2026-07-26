@@ -356,6 +356,7 @@ class ProductImporter
             ['source_id', 'external_id'],
             [
                 'food_type',
+                'search_priority',
                 'name',
                 'brand',
                 'main_locale',

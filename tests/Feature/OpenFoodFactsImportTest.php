@@ -234,6 +234,29 @@ class OpenFoodFactsImportTest extends TestCase
         ]);
     }
 
+    public function test_it_decodes_html_entities_in_imported_text(): void
+    {
+        $product = $this->romanianProduct();
+        $product['product_name'] = '&quot;CRISPY&quot; &amp; spicy';
+        $product['product_name_ro'] = '&amp;quot;CRISPY&amp;quot; picant';
+        $product['brands'] = 'Brand &amp; Co';
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $food = DB::table('foods')->first();
+        $this->assertSame('"CRISPY" & spicy', $food->name);
+        $this->assertSame('Brand & Co', $food->brand);
+        $this->assertDatabaseHas('food_translations', [
+            'food_id' => $food->id,
+            'locale' => 'ro',
+            'name' => '"CRISPY" picant',
+        ]);
+    }
+
     public function test_sparse_products_are_flushed_before_the_resume_checkpoint(): void
     {
         config([

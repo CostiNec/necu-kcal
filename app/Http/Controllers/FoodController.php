@@ -88,6 +88,8 @@ class FoodController extends Controller
 
         $food = $request->user()->foods()->create([
             ...$validated,
+            'food_type' => 'custom',
+            'search_priority' => 1,
             'nutrition_basis_amount' => $validated['nutrition_basis_amount']
                 ?? 100,
             'nutrition_basis_unit' => $validated['nutrition_basis_unit']
@@ -129,6 +131,11 @@ class FoodController extends Controller
             ->when(
                 $favouritesOnly,
                 fn (Builder $query) => $query->whereNotNull('favourite.id')
+            )
+            ->when(
+                $search !== '',
+                fn (Builder $query) => $query
+                    ->orderBy('foods.search_priority')
             )
             ->orderBy('foods.name')
             ->orderBy('foods.id');
