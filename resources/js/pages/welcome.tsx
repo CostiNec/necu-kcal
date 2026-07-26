@@ -4,7 +4,6 @@ import CheckRounded from '@mui/icons-material/CheckRounded';
 import InsightsRounded from '@mui/icons-material/InsightsRounded';
 import SearchRounded from '@mui/icons-material/SearchRounded';
 import TrackChangesRounded from '@mui/icons-material/TrackChangesRounded';
-import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded';
 import {
     AppBar,
     Box,
@@ -100,39 +99,8 @@ export default function Welcome() {
                 </Toolbar>
             </AppBar>
 
-            <Box
-                component="main"
-                sx={{
-                    position: 'relative',
-                    '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        zIndex: -1,
-                        top: -260,
-                        left: -260,
-                        width: 620,
-                        height: 620,
-                        borderRadius: '50%',
-                        bgcolor: 'primary.lighter',
-                        filter: 'blur(90px)',
-                        opacity: 0.55,
-                    },
-                    '&::after': {
-                        content: '""',
-                        position: 'absolute',
-                        zIndex: -1,
-                        top: 80,
-                        right: -280,
-                        width: 560,
-                        height: 560,
-                        borderRadius: '50%',
-                        bgcolor: 'secondary.light',
-                        filter: 'blur(120px)',
-                        opacity: 0.18,
-                    },
-                }}
-            >
-                <Container maxWidth="lg" sx={{ py: { xs: 7, md: 13 } }}>
+            <Box component="main" sx={{ bgcolor: 'background.default' }}>
+                <Container maxWidth="lg" sx={{ py: { xs: 8, md: 12 } }}>
                     <Grid container spacing={{ xs: 7, lg: 10 }} alignItems="center">
                         <Grid size={{ xs: 12, lg: 7 }}>
                             <motion.div
@@ -140,12 +108,18 @@ export default function Welcome() {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.55, ease: 'easeOut' }}
                             >
-                                <Chip
-                                    icon={<AutoAwesomeRounded />}
-                                    label={t('landing.badge')}
-                                    color="primary"
-                                    sx={{ mb: 3 }}
-                                />
+                                <Typography
+                                    variant="overline"
+                                    color="primary.main"
+                                    sx={{
+                                        display: 'block',
+                                        mb: 2,
+                                        fontWeight: 700,
+                                        letterSpacing: '0.08em',
+                                    }}
+                                >
+                                    {t('landing.badge')}
+                                </Typography>
                                 <Typography
                                     component="h1"
                                     variant="h1"
@@ -239,11 +213,11 @@ export default function Welcome() {
                                 }}
                             >
                                 <Card
+                                    variant="outlined"
                                     sx={{
                                         maxWidth: 460,
                                         mx: 'auto',
-                                        boxShadow:
-                                            '0 32px 80px rgba(0, 167, 111, 0.18)',
+                                        boxShadow: 'none',
                                     }}
                                 >
                                     <CardContent>
@@ -403,13 +377,12 @@ export default function Welcome() {
                 </Container>
 
                 <Box
-                    sx={(theme) => ({
+                    sx={{
                         borderTop: 1,
                         borderBottom: 1,
                         borderColor: 'divider',
-                        bgcolor: alpha(theme.palette.background.paper, 0.7),
-                        backdropFilter: 'blur(16px)',
-                    })}
+                        bgcolor: 'background.paper',
+                    }}
                 >
                     <Container maxWidth="lg" sx={{ py: 8 }}>
                         <Grid container spacing={3}>

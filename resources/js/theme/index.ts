@@ -142,9 +142,6 @@ export function createKcalTheme(mode: PaletteMode) {
                 styleOverrides: {
                     html: { scrollBehavior: 'smooth' },
                     body: {
-                        backgroundImage: dark
-                            ? 'radial-gradient(circle at 10% -5%, rgba(0, 167, 111, 0.09), transparent 34rem)'
-                            : 'linear-gradient(135deg, rgba(0, 167, 111, 0.035), transparent 42%)',
                         transition:
                             'background-color 220ms ease, color 220ms ease',
                     },

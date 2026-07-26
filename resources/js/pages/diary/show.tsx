@@ -120,11 +120,6 @@ export default function DiaryShow({
                     <Card sx={{ height: '100%' }}>
                         <CardContent>
                             <Stack spacing={3}>
-                                <CalorieRing
-                                    value={totals.calories}
-                                    target={targets.calories}
-                                    progress={calorieProgress}
-                                />
                                 <Box
                                     sx={{
                                         p: 2,
@@ -141,6 +136,19 @@ export default function DiaryShow({
                                     <Typography variant="h5">
                                         {formatNumber(Math.abs(remaining))} kcal
                                     </Typography>
+                                </Box>
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        width: 1,
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <CalorieRing
+                                        value={totals.calories}
+                                        target={targets.calories}
+                                        progress={calorieProgress}
+                                    />
                                 </Box>
                                 <MacroProgress
                                     label={t('common.protein')}
@@ -214,14 +222,26 @@ function CalorieRing({
         <Box
             role="img"
             aria-label={t('diary.calorie_progress', { value, target })}
-            sx={{ position: 'relative', width: 200, height: 200, mx: 'auto' }}
+            sx={{
+                position: 'relative',
+                display: 'grid',
+                width: 200,
+                height: 200,
+                flexShrink: 0,
+                placeItems: 'center',
+            }}
         >
             <CircularProgress
                 variant="determinate"
                 value={100}
                 size={200}
                 thickness={4}
-                sx={{ color: 'primary.lighter', position: 'absolute' }}
+                sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    m: 'auto',
+                    color: 'primary.lighter',
+                }}
             />
             <CircularProgress
                 variant="determinate"
@@ -231,6 +251,8 @@ function CalorieRing({
                 sx={{
                     color: 'primary.main',
                     position: 'absolute',
+                    inset: 0,
+                    m: 'auto',
                     filter: 'drop-shadow(0 6px 8px rgba(0,167,111,0.18))',
                 }}
             />
