@@ -21,6 +21,7 @@ export type SharedProps = InertiaPageProps & {
     flash: {
         success?: string;
         error?: string;
+        createdFoodId?: number;
     };
     locale: string;
     availableLocales: Record<
@@ -36,7 +37,6 @@ export type SharedProps = InertiaPageProps & {
 export type Food = {
     id: number;
     name: string;
-    translation_key: string | null;
     brand: string | null;
     barcode: string | null;
     calories: number;
@@ -59,7 +59,6 @@ export type DiaryEntry = {
     meal: 'breakfast' | 'lunch' | 'dinner' | 'snacks';
     food_id: number | null;
     food_name: string;
-    food_translation_key?: string | null;
     brand: string | null;
     serving_name: string;
     serving_translation_key?: string | null;

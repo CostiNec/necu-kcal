@@ -1,30 +1,43 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
+import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
+import ExpandLessRounded from '@mui/icons-material/ExpandLessRounded';
+import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
+import FavoriteBorderRounded from '@mui/icons-material/FavoriteBorderRounded';
+import FavoriteRounded from '@mui/icons-material/FavoriteRounded';
+import AddRounded from '@mui/icons-material/AddRounded';
+import CloseRounded from '@mui/icons-material/CloseRounded';
+import SearchRounded from '@mui/icons-material/SearchRounded';
 import {
-    ArrowLeft,
-    ChevronDown,
-    ChevronUp,
-    Heart,
-    LoaderCircle,
-    Plus,
-    Search,
-} from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Collapse,
+    Grid,
+    IconButton,
+    InputAdornment,
+    MenuItem,
+    Stack,
+    TextField,
+    Typography,
+} from '@mui/material';
+import {
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+    type FormEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { FieldError } from '@/components/field-error';
+    formatNumber,
+    parseNumberInput,
+    type NumberInputValue,
+} from '@/lib/utils';
 import type { Food } from '@/types';
-import { formatNumber } from '@/lib/utils';
 
 const mealLabels = {
     breakfast: 'diary.breakfast',
@@ -38,46 +51,149 @@ type Meal = keyof typeof mealLabels;
 export default function FoodsIndex({
     foods,
     filters,
+    pagination,
     context,
 }: {
     foods: Food[];
     filters: { search: string };
+    pagination: { next_cursor: string | null };
     context: { date: string | null; meal: Meal };
 }) {
     const { t } = useTranslation();
     const [search, setSearch] = useState(filters.search);
+    const [results, setResults] = useState(foods);
+    const [nextCursor, setNextCursor] = useState(pagination.next_cursor);
+    const [searching, setSearching] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [showCreate, setShowCreate] = useState(false);
+    const initialSearch = useRef(true);
     const logging = Boolean(context.date);
 
-    const navigateToSearch = (value: string) => {
-        router.get(
-            '/foods',
+    const loadFoods = useCallback(
+        async ({
+            value,
+            cursor,
+            append,
+            signal,
+        }: {
+            value: string;
+            cursor?: string | null;
+            append: boolean;
+            signal?: AbortSignal;
+        }) => {
+            const params = new URLSearchParams();
+            const trimmedSearch = value.trim();
+
+            if (trimmedSearch) {
+                params.set('search', trimmedSearch);
+            } else {
+                params.set('favourites_only', '1');
+            }
+
+            if (cursor) {
+                params.set('cursor', cursor);
+            }
+
+            const response = await fetch(`/foods/search?${params.toString()}`, {
+                signal,
+                headers: { Accept: 'application/json' },
+            });
+
+            if (!response.ok) return;
+
+            const payload = (await response.json()) as {
+                foods: Food[];
+                next_cursor: string | null;
+            };
+
+            setResults((current) =>
+                append ? [...current, ...payload.foods] : payload.foods,
+            );
+            setNextCursor(payload.next_cursor);
+        },
+        [],
+    );
+
+    useEffect(() => {
+        if (initialSearch.current) {
+            initialSearch.current = false;
+            return;
+        }
+
+        const controller = new AbortController();
+        const timeout = window.setTimeout(async () => {
+            setSearching(true);
+
+            try {
+                await loadFoods({
+                    value: search,
+                    append: false,
+                    signal: controller.signal,
+                });
+            } catch (error) {
+                if (
+                    !(error instanceof DOMException) ||
+                    error.name !== 'AbortError'
+                ) {
+                    setResults([]);
+                    setNextCursor(null);
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setSearching(false);
+                }
+            }
+        }, 300);
+
+        return () => {
+            window.clearTimeout(timeout);
+            controller.abort();
+        };
+    }, [loadFoods, search]);
+
+    const loadNextPage = async () => {
+        if (!nextCursor || loadingMore) return;
+
+        setLoadingMore(true);
+        try {
+            await loadFoods({
+                value: search,
+                cursor: nextCursor,
+                append: true,
+            });
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
+    const toggleFavourite = (food: Food) => {
+        router.post(
+            `/foods/${food.id}/favourite`,
+            {},
             {
-                ...(value ? { search: value } : {}),
-                ...(context.date ? { date: context.date, meal: context.meal } : {}),
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () => {
+                    setResults((current) =>
+                        search.trim() === ''
+                            ? current.filter((item) => item.id !== food.id)
+                            : current.map((item) =>
+                                  item.id === food.id
+                                      ? {
+                                            ...item,
+                                            is_favourite:
+                                                !item.is_favourite,
+                                        }
+                                      : item,
+                              ),
+                    );
+                },
             },
-            { preserveState: true, replace: true },
         );
     };
 
-    const runSearch = (event: FormEvent) => {
-        event.preventDefault();
-        navigateToSearch(search.trim());
-    };
-
-    const clearSearch = () => {
-        setSearch('');
-        navigateToSearch('');
-    };
-
-    const openCreateForm = () => {
-        setShowCreate(true);
-        window.requestAnimationFrame(() => {
-            document
-                .getElementById('create-food-form')
-                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-    };
+    const refreshResults = () =>
+        loadFoods({ value: search, append: false });
 
     return (
         <AppLayout
@@ -95,102 +211,145 @@ export default function FoodsIndex({
             }
             actions={
                 logging ? (
-                    <Button size="sm" variant="outline" asChild>
-                        <Link href={`/diary/${context.date}`}>
-                            <ArrowLeft />
-                            {t('food.diary')}
-                        </Link>
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<ArrowBackRounded />}
+                        onClick={() => router.visit(`/diary/${context.date}`)}
+                    >
+                        {t('food.diary')}
                     </Button>
                 ) : undefined
             }
         >
-            <Head
-                title={
-                    logging ? t('food.add_food_head') : t('common.foods')
-                }
-            />
+            <Head title={logging ? t('food.add_food_head') : t('common.foods')} />
 
-            <form
-                onSubmit={runSearch}
-                className="glass-subtle flex gap-2 rounded-2xl p-2"
-            >
-                <div className="relative flex-1">
-                    <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
-                        placeholder={t('food.search_placeholder')}
-                        className="pl-10"
-                    />
-                </div>
-                <Button type="submit" variant="outline">
-                    {t('common.search')}
-                </Button>
-            </form>
+            <Stack spacing={2.5}>
+                <TextField
+                    fullWidth
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder={t('food.search_placeholder')}
+                    slotProps={{
+                        input: {
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchRounded color="action" />
+                                </InputAdornment>
+                            ),
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    {searching ? (
+                                        <CircularProgress size={20} />
+                                    ) : search ? (
+                                        <IconButton
+                                            size="small"
+                                            aria-label={t(
+                                                'food.clear_search',
+                                            )}
+                                            onClick={() => setSearch('')}
+                                        >
+                                            <CloseRounded fontSize="small" />
+                                        </IconButton>
+                                    ) : null}
+                                </InputAdornment>
+                            ),
+                        },
+                    }}
+                />
 
-            <Button
-                variant="outline"
-                className="mt-4 w-full justify-between"
-                onClick={() => setShowCreate((value) => !value)}
-            >
-                <span className="flex items-center gap-2">
-                    <Plus />
+                <Button
+                    variant="soft"
+                    color="primary"
+                    startIcon={<AddRounded />}
+                    endIcon={
+                        showCreate ? <ExpandLessRounded /> : <ExpandMoreRounded />
+                    }
+                    onClick={() => setShowCreate((value) => !value)}
+                    sx={{ alignSelf: 'flex-start' }}
+                >
                     {t('food.create_custom')}
-                </span>
-                {showCreate ? <ChevronUp /> : <ChevronDown />}
-            </Button>
+                </Button>
 
-            {showCreate && <CreateFoodForm />}
+                <Collapse in={showCreate} timeout={350} unmountOnExit>
+                    <CreateFoodForm onCreated={refreshResults} />
+                </Collapse>
 
-            <div className="stagger-in mt-6 space-y-3">
-                {foods.length === 0 ? (
-                    <Card className="border-dashed border-primary/14 bg-card/55 shadow-none">
-                        <CardContent className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
-                            <div className="soft-well grid size-11 shrink-0 place-items-center rounded-xl text-primary">
-                                <Search />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <h2 className="font-semibold">
-                                    {filters.search
-                                        ? t('food.no_results_for', {
-                                              search: filters.search,
-                                          })
-                                        : t('food.empty_library')}
-                                </h2>
-                                <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">
-                                    {filters.search
-                                        ? t('food.no_results_copy')
-                                        : t('food.empty_library_copy')}
-                                </p>
-                            </div>
-                            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                                {filters.search && (
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={clearSearch}
+                <Stack spacing={1.5}>
+                    {results.length === 0 && !searching ? (
+                        <Card variant="outlined" sx={{ borderStyle: 'dashed' }}>
+                            <CardContent sx={{ py: { xs: 4, sm: 5 } }}>
+                                <Stack
+                                    direction={{ xs: 'column', sm: 'row' }}
+                                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                                    spacing={2.5}
+                                >
+                                    <Box
+                                        sx={{
+                                            display: 'grid',
+                                            placeItems: 'center',
+                                            width: 48,
+                                            height: 48,
+                                            borderRadius: 2,
+                                            color: 'primary.main',
+                                            bgcolor: 'primary.lighter',
+                                        }}
                                     >
-                                        {t('food.clear_search')}
-                                    </Button>
-                                )}
-                                <Button type="button" onClick={openCreateForm}>
-                                    <Plus />
-                                    {t('food.create_food')}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    foods.map((food) => (
-                        <FoodRow
-                            key={food.id}
-                            food={food}
-                            date={context.date}
-                            meal={context.meal}
-                        />
-                    ))
-                )}
-            </div>
+                                        <SearchRounded />
+                                    </Box>
+                                    <Box sx={{ flex: 1 }}>
+                                        <Typography variant="h6">
+                                            {search.trim()
+                                                ? t('food.no_results_for', {
+                                                      search: search.trim(),
+                                                  })
+                                                : t(
+                                                      'food.empty_favourites',
+                                                  )}
+                                        </Typography>
+                                        <Typography
+                                            variant="body2"
+                                            color="text.secondary"
+                                            sx={{ mt: 0.5, maxWidth: 620 }}
+                                        >
+                                            {search.trim()
+                                                ? t('food.no_results_copy')
+                                                : t(
+                                                      'food.empty_favourites_copy',
+                                                  )}
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        results.map((food) => (
+                            <FoodRow
+                                key={food.id}
+                                food={food}
+                                date={context.date}
+                                meal={context.meal}
+                                onToggleFavourite={() =>
+                                    toggleFavourite(food)
+                                }
+                            />
+                        ))
+                    )}
+
+                    {nextCursor && (
+                        <Button
+                            variant="outlined"
+                            disabled={loadingMore}
+                            onClick={loadNextPage}
+                            sx={{ alignSelf: 'center', minWidth: 160 }}
+                        >
+                            {loadingMore
+                                ? t('food.loading_more')
+                                : t('food.load_more')}
+                        </Button>
+                    )}
+                </Stack>
+            </Stack>
         </AppLayout>
     );
 }
@@ -199,10 +358,12 @@ function FoodRow({
     food,
     date,
     meal,
+    onToggleFavourite,
 }: {
     food: Food;
     date: string | null;
     meal: Meal;
+    onToggleFavourite: () => void;
 }) {
     const { t } = useTranslation();
     const serving = food.serving ?? {
@@ -210,7 +371,15 @@ function FoodRow({
         translation_key: null,
         amount: 100,
     };
-    const form = useForm({
+    const form = useForm<{
+        food_id: number;
+        date: string;
+        meal: Meal;
+        serving_name: string;
+        serving_translation_key: string | null;
+        serving_amount: NumberInputValue;
+        quantity: NumberInputValue;
+    }>({
         food_id: food.id,
         date: date ?? '',
         meal,
@@ -220,134 +389,168 @@ function FoodRow({
         quantity: 1,
     });
     const calculatedCalories =
-        (food.calories * form.data.serving_amount * form.data.quantity) / 100;
+        (food.calories *
+            Number(form.data.serving_amount) *
+            Number(form.data.quantity)) /
+        100;
 
     return (
-        <Card className="overflow-hidden transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_54px_rgb(25_72_55_/_0.09)]">
-            <div className="flex items-start gap-3 p-4 sm:p-5">
-                <Button
-                    type="button"
-                    variant={food.is_favourite ? 'secondary' : 'ghost'}
-                    size="icon"
-                    aria-label={
-                        food.is_favourite
-                            ? t('food.remove_favourite', { food: food.name })
-                            : t('food.add_favourite', { food: food.name })
-                    }
-                    onClick={() =>
-                        router.post(
-                            `/foods/${food.id}/favourite`,
-                            {},
-                            { preserveScroll: true },
-                        )
-                    }
-                    className="shrink-0"
-                >
-                    <Heart
-                        className={food.is_favourite ? 'fill-current text-primary' : ''}
-                    />
-                </Button>
-                <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                            <h2 className="font-semibold">{food.name}</h2>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                                {food.brand ||
-                                    (food.is_custom
-                                        ? t('food.custom')
-                                        : t('food.common'))}{' '}
-                                ·{' '}
-                                {t('food.per_units', {
-                                    unit: food.unit_type,
-                                })}
-                            </p>
-                        </div>
-                        <p className="text-sm font-semibold">
-                            {formatNumber(food.calories)} kcal
-                        </p>
-                    </div>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                        {t('food.macro_summary', {
-                            protein: formatNumber(food.protein ?? 0, 1),
-                            carbs: formatNumber(food.carbohydrates ?? 0, 1),
-                            fat: formatNumber(food.fat ?? 0, 1),
-                        })}
-                    </p>
-                </div>
-            </div>
+        <Card
+            sx={{
+                transition: (theme) =>
+                    theme.transitions.create(['transform', 'box-shadow']),
+                '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: (theme) => theme.shadows[8],
+                },
+            }}
+        >
+            <CardContent>
+                <Stack direction="row" alignItems="flex-start" spacing={1.5}>
+                    <IconButton
+                        color={food.is_favourite ? 'primary' : 'default'}
+                        aria-label={
+                            food.is_favourite
+                                ? t('food.remove_favourite', { food: food.name })
+                                : t('food.add_favourite', { food: food.name })
+                        }
+                        onClick={onToggleFavourite}
+                    >
+                        {food.is_favourite ? (
+                            <FavoriteRounded />
+                        ) : (
+                            <FavoriteBorderRounded />
+                        )}
+                    </IconButton>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Stack
+                            direction="row"
+                            alignItems="flex-start"
+                            justifyContent="space-between"
+                            spacing={2}
+                        >
+                            <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="subtitle1" noWrap>
+                                    {food.name}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    {food.brand ||
+                                        (food.is_custom
+                                            ? t('food.custom')
+                                            : t('food.common'))}{' '}
+                                    · {t('food.per_units', { unit: food.unit_type })}
+                                </Typography>
+                            </Box>
+                            <Chip
+                                size="small"
+                                color="primary"
+                                variant="filled"
+                                label={`${formatNumber(food.calories)} kcal`}
+                            />
+                        </Stack>
+                        <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ display: 'block', mt: 1 }}
+                        >
+                            {t('food.macro_summary', {
+                                protein: formatNumber(food.protein ?? 0, 1),
+                                carbs: formatNumber(food.carbohydrates ?? 0, 1),
+                                fat: formatNumber(food.fat ?? 0, 1),
+                            })}
+                        </Typography>
+                    </Box>
+                </Stack>
+            </CardContent>
+
             {date && (
-                <form
-                    onSubmit={(event) => {
+                <Box
+                    component="form"
+                    onSubmit={(event: FormEvent) => {
                         event.preventDefault();
                         form.post('/diary-entries');
                     }}
-                    className="flex flex-col gap-3 border-t border-white/65 bg-white/18 p-4 sm:flex-row sm:items-end"
+                    sx={{
+                        p: 2,
+                        pt: 0,
+                        display: 'grid',
+                        gridTemplateColumns: {
+                            xs: '1fr 1fr',
+                            sm: 'minmax(180px, 1fr) 120px 100px auto',
+                        },
+                        gap: 1.5,
+                        alignItems: 'start',
+                    }}
                 >
-                    <div className="flex-1 space-y-1.5">
-                        <Label htmlFor={`serving-${food.id}`}>
-                            {t('common.serving')}
-                        </Label>
-                        <Input
-                            id={`serving-${food.id}`}
-                            value={form.data.serving_name}
-                            onChange={(event) => {
-                                form.setData('serving_name', event.target.value);
-                                form.setData('serving_translation_key', null);
-                            }}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 sm:flex">
-                        <div className="space-y-1.5 sm:w-28">
-                            <Label htmlFor={`amount-${food.id}`}>
-                                {t('common.amount')}
-                            </Label>
-                            <Input
-                                id={`amount-${food.id}`}
-                                type="number"
-                                min="0.01"
-                                step="0.01"
-                                value={form.data.serving_amount}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'serving_amount',
-                                        Number(event.target.value),
-                                    )
-                                }
-                            />
-                        </div>
-                        <div className="space-y-1.5 sm:w-24">
-                            <Label htmlFor={`quantity-${food.id}`}>
-                                {t('common.quantity')}
-                            </Label>
-                            <Input
-                                id={`quantity-${food.id}`}
-                                type="number"
-                                min="0.25"
-                                step="0.25"
-                                value={form.data.quantity}
-                                onChange={(event) =>
-                                    form.setData('quantity', Number(event.target.value))
-                                }
-                            />
-                        </div>
-                    </div>
-                    <Button type="submit" disabled={form.processing} className="sm:min-w-32">
-                        {form.processing ? (
-                            <LoaderCircle className="animate-spin" />
-                        ) : (
-                            <Plus />
-                        )}
+                    <TextField
+                        label={t('common.serving')}
+                        value={form.data.serving_name}
+                        onChange={(event) => {
+                            form.setData('serving_name', event.target.value);
+                            form.setData('serving_translation_key', null);
+                        }}
+                        sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
+                    />
+                    <TextField
+                        label={t('common.amount')}
+                        type="number"
+                        value={form.data.serving_amount}
+                        slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }}
+                        onChange={(event) =>
+                            form.setData(
+                                'serving_amount',
+                                parseNumberInput(event.target.value),
+                            )
+                        }
+                    />
+                    <TextField
+                        label={t('common.quantity')}
+                        type="number"
+                        value={form.data.quantity}
+                        slotProps={{ htmlInput: { min: 0.25, step: 0.25 } }}
+                        onChange={(event) =>
+                            form.setData(
+                                'quantity',
+                                parseNumberInput(event.target.value),
+                            )
+                        }
+                    />
+                    <Button
+                        type="submit"
+                        variant="contained"
+                        disabled={form.processing}
+                        startIcon={
+                            form.processing ? (
+                                <CircularProgress size={18} color="inherit" />
+                            ) : (
+                                <AddRounded />
+                            )
+                        }
+                        sx={{ minHeight: 54, gridColumn: { xs: '1 / -1', sm: 'auto' } }}
+                    >
                         {formatNumber(calculatedCalories)} kcal
                     </Button>
-                </form>
+                </Box>
             )}
         </Card>
     );
 }
 
-function CreateFoodForm() {
+function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
     const { t } = useTranslation();
-    const form = useForm({
+    const form = useForm<{
+        name: string;
+        brand: string;
+        barcode: string;
+        calories: NumberInputValue;
+        protein: NumberInputValue;
+        carbohydrates: NumberInputValue;
+        fat: NumberInputValue;
+        fibre: NumberInputValue;
+        unit_type: string;
+        serving_name: string;
+        serving_amount: NumberInputValue;
+    }>({
         name: '',
         brand: '',
         barcode: '',
@@ -360,173 +563,163 @@ function CreateFoodForm() {
         serving_name: t('food.default_serving'),
         serving_amount: 100,
     });
-
-    const submit = (event: FormEvent) => {
-        event.preventDefault();
-        form.post('/foods', {
-            preserveScroll: true,
-            onSuccess: () => form.reset(),
-        });
-    };
+    const nutrientFields = [
+        ['calories', t('common.calories')],
+        ['protein', t('common.protein')],
+        ['carbohydrates', t('common.carbs')],
+        ['fat', t('common.fat')],
+        ['fibre', t('common.fibre')],
+    ] as const;
 
     return (
-        <Card
-            id="create-food-form"
-            className="mt-4 scroll-mt-24 overflow-hidden border-primary/14"
-        >
-            <CardContent className="pt-5 sm:pt-6">
-                <form onSubmit={submit} className="space-y-5">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <FormField
-                            label={t('food.food_name')}
-                            id="new-name"
-                            value={form.data.name}
-                            error={form.errors.name}
-                            onChange={(value) => form.setData('name', value)}
-                        />
-                        <FormField
-                            label={t('common.brand')}
-                            id="new-brand"
-                            value={form.data.brand}
-                            error={form.errors.brand}
-                            onChange={(value) => form.setData('brand', value)}
-                        />
-                    </div>
-                    <p className="text-sm font-medium">
+        <Card id="create-food-form" variant="outlined" sx={{ scrollMarginTop: 96 }}>
+            <CardContent>
+                <Stack
+                    component="form"
+                    spacing={2.5}
+                    onSubmit={(event: FormEvent) => {
+                        event.preventDefault();
+                        form.post('/foods', {
+                            preserveScroll: true,
+                            onSuccess: () => {
+                                form.reset();
+                                void onCreated();
+                            },
+                        });
+                    }}
+                >
+                    <Grid container spacing={2}>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField
+                                fullWidth
+                                required
+                                label={t('food.food_name')}
+                                value={form.data.name}
+                                error={Boolean(form.errors.name)}
+                                helperText={form.errors.name}
+                                onChange={(event) =>
+                                    form.setData('name', event.target.value)
+                                }
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField
+                                fullWidth
+                                label={t('common.brand')}
+                                value={form.data.brand}
+                                error={Boolean(form.errors.brand)}
+                                helperText={form.errors.brand}
+                                onChange={(event) =>
+                                    form.setData('brand', event.target.value)
+                                }
+                            />
+                        </Grid>
+                    </Grid>
+
+                    <Typography variant="subtitle2">
                         {t('food.nutrition_per_100')}
-                    </p>
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-                        {[
-                            ['calories', t('common.calories')],
-                            ['protein', t('common.protein')],
-                            ['carbohydrates', t('common.carbs')],
-                            ['fat', t('common.fat')],
-                            ['fibre', t('common.fibre')],
-                        ].map(([key, label]) => (
-                            <div key={key} className="space-y-2">
-                                <Label htmlFor={`new-${key}`}>{label}</Label>
-                                <Input
-                                    id={`new-${key}`}
+                    </Typography>
+                    <Grid container spacing={2}>
+                        {nutrientFields.map(([key, label]) => (
+                            <Grid key={key} size={{ xs: 6, sm: 4, md: 2.4 }}>
+                                <TextField
+                                    fullWidth
+                                    label={label}
                                     type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={
-                                        form.data[
-                                            key as keyof Pick<
-                                                typeof form.data,
-                                                | 'calories'
-                                                | 'protein'
-                                                | 'carbohydrates'
-                                                | 'fat'
-                                                | 'fibre'
-                                            >
-                                        ]
-                                    }
+                                    value={form.data[key]}
+                                    error={Boolean(form.errors[key])}
+                                    helperText={form.errors[key]}
+                                    slotProps={{
+                                        htmlInput: { min: 0, step: 0.01 },
+                                    }}
                                     onChange={(event) =>
                                         form.setData(
-                                            key as
-                                                | 'calories'
-                                                | 'protein'
-                                                | 'carbohydrates'
-                                                | 'fat'
-                                                | 'fibre',
-                                            Number(event.target.value),
+                                            key,
+                                            parseNumberInput(
+                                                event.target.value,
+                                            ),
                                         )
                                     }
                                 />
-                            </div>
+                            </Grid>
                         ))}
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                        <div className="space-y-2">
-                            <Label htmlFor="new-unit">
-                                {t('food.base_unit')}
-                            </Label>
-                            <Select
+                    </Grid>
+
+                    <Grid container spacing={2}>
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <TextField
+                                select
+                                fullWidth
+                                label={t('food.base_unit')}
                                 value={form.data.unit_type}
-                                onValueChange={(value) =>
-                                    form.setData('unit_type', value)
+                                error={Boolean(form.errors.unit_type)}
+                                helperText={form.errors.unit_type}
+                                onChange={(event) =>
+                                    form.setData('unit_type', event.target.value)
                                 }
                             >
-                                <SelectTrigger id="new-unit" className="w-full">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="g">
-                                        {t('food.grams')}
-                                    </SelectItem>
-                                    <SelectItem value="ml">
-                                        {t('food.millilitres')}
-                                    </SelectItem>
-                                    <SelectItem value="piece">
-                                        {t('food.pieces')}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <FormField
-                            label={t('food.serving_name')}
-                            id="new-serving-name"
-                            value={form.data.serving_name}
-                            error={form.errors.serving_name}
-                            onChange={(value) => form.setData('serving_name', value)}
-                        />
-                        <div className="space-y-2">
-                            <Label htmlFor="new-serving-amount">
-                                {t('food.serving_amount')}
-                            </Label>
-                            <Input
-                                id="new-serving-amount"
+                                <MenuItem value="g">{t('food.grams')}</MenuItem>
+                                <MenuItem value="ml">
+                                    {t('food.millilitres')}
+                                </MenuItem>
+                                <MenuItem value="piece">
+                                    {t('food.pieces')}
+                                </MenuItem>
+                            </TextField>
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <TextField
+                                fullWidth
+                                label={t('food.serving_name')}
+                                value={form.data.serving_name}
+                                error={Boolean(form.errors.serving_name)}
+                                helperText={form.errors.serving_name}
+                                onChange={(event) =>
+                                    form.setData('serving_name', event.target.value)
+                                }
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <TextField
+                                fullWidth
+                                label={t('food.serving_amount')}
                                 type="number"
-                                min="0.01"
-                                step="0.01"
                                 value={form.data.serving_amount}
+                                error={Boolean(form.errors.serving_amount)}
+                                helperText={form.errors.serving_amount}
+                                slotProps={{
+                                    htmlInput: { min: 0.01, step: 0.01 },
+                                }}
                                 onChange={(event) =>
                                     form.setData(
                                         'serving_amount',
-                                        Number(event.target.value),
+                                        parseNumberInput(
+                                            event.target.value,
+                                        ),
                                     )
                                 }
                             />
-                            <FieldError message={form.errors.serving_amount} />
-                        </div>
-                    </div>
-                    <div className="flex justify-end">
-                        <Button type="submit" disabled={form.processing}>
-                            {form.processing && (
-                                <LoaderCircle className="animate-spin" />
-                            )}
+                        </Grid>
+                    </Grid>
+
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            disabled={form.processing}
+                            startIcon={
+                                form.processing ? (
+                                    <CircularProgress size={18} color="inherit" />
+                                ) : (
+                                    <AddRounded />
+                                )
+                            }
+                        >
                             {t('food.save_custom')}
                         </Button>
-                    </div>
-                </form>
+                    </Box>
+                </Stack>
             </CardContent>
         </Card>
-    );
-}
-
-function FormField({
-    label,
-    id,
-    value,
-    error,
-    onChange,
-}: {
-    label: string;
-    id: string;
-    value: string;
-    error?: string;
-    onChange: (value: string) => void;
-}) {
-    return (
-        <div className="space-y-2">
-            <Label htmlFor={id}>{label}</Label>
-            <Input
-                id={id}
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-            />
-            <FieldError message={error} />
-        </div>
     );
 }

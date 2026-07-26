@@ -24,6 +24,7 @@ class DiaryEntryController extends Controller
 
         $food = Food::query()
             ->visibleTo($request->user())
+            ->with('translation')
             ->findOrFail($validated['food_id']);
         $day = DiaryDay::firstOrCreate([
             'user_id' => $request->user()->id,
@@ -37,7 +38,6 @@ class DiaryEntryController extends Controller
             'food_id' => $food->id,
             'meal' => $validated['meal'],
             'food_name' => $food->name,
-            'food_translation_key' => $food->translation_key,
             'brand' => $food->brand,
             'unit_type' => $food->unit_type,
             'serving_name' => $validated['serving_name'],
@@ -54,7 +54,7 @@ class DiaryEntryController extends Controller
         return redirect()
             ->route('diary.show', ['date' => $validated['date']])
             ->with('success', __('app.food_added', [
-                'food' => $food->translation_key ? __($food->translation_key) : $food->name,
+                'food' => $food->localizedName(),
             ]));
     }
 
@@ -77,6 +77,57 @@ class DiaryEntryController extends Controller
         ]);
 
         return back()->with('success', __('app.serving_updated'));
+    }
+
+    public function storeQuick(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+            'meal' => ['required', 'in:breakfast,lunch,dinner,snacks'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'calories' => ['required', 'numeric', 'min:0.01', 'max:100000'],
+            'protein' => ['nullable', 'numeric', 'min:0', 'max:10000'],
+            'carbohydrates' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:10000',
+            ],
+            'fat' => ['nullable', 'numeric', 'min:0', 'max:10000'],
+        ]);
+
+        $day = DiaryDay::firstOrCreate([
+            'user_id' => $request->user()->id,
+            'date' => $validated['date'],
+        ]);
+        $name = trim((string) ($validated['name'] ?? ''));
+
+        $day->entries()->create([
+            'food_id' => null,
+            'meal' => $validated['meal'],
+            'food_name' => $name !== ''
+                ? $name
+                : __('app.quick_calorie_entry'),
+            'brand' => null,
+            'unit_type' => 'piece',
+            'serving_name' => __('app.quick_entry_serving'),
+            'quantity' => 1,
+            'amount' => 1,
+            'calories' => round((float) $validated['calories'], 2),
+            'protein' => round((float) ($validated['protein'] ?? 0), 2),
+            'carbohydrates' => round(
+                (float) ($validated['carbohydrates'] ?? 0),
+                2
+            ),
+            'fat' => round((float) ($validated['fat'] ?? 0), 2),
+            'position' => (int) $day->entries()
+                ->where('meal', $validated['meal'])
+                ->max('position') + 1,
+        ]);
+
+        return redirect()
+            ->route('diary.show', ['date' => $validated['date']])
+            ->with('success', __('app.quick_entry_added'));
     }
 
     public function destroy(Request $request, DiaryEntry $diaryEntry): RedirectResponse

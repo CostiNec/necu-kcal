@@ -1,10 +1,13 @@
-import { Progress } from '@/components/ui/progress';
+import Box from '@mui/material/Box';
+import LinearProgress from '@mui/material/LinearProgress';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import { formatNumber } from '@/lib/utils';
 
 const colors = {
-    protein: 'bg-[var(--protein)]',
-    carbohydrates: 'bg-[var(--carbs)]',
-    fat: 'bg-[var(--fat)]',
+    protein: '#00B8D9',
+    carbohydrates: '#FFAB00',
+    fat: '#8E33FF',
 };
 
 export function MacroProgress({
@@ -18,20 +21,27 @@ export function MacroProgress({
     value: number;
     target: number;
 }) {
-    const percentage = target > 0 ? (value / target) * 100 : 0;
+    const percentage = target > 0 ? Math.min((value / target) * 100, 100) : 0;
 
     return (
-        <div className="space-y-2">
-            <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm font-medium">{label}</span>
-                <span className="text-xs text-muted-foreground">
-                    <strong className="font-semibold text-foreground">
+        <Box>
+            <Stack direction="row" justifyContent="space-between" sx={{ mb: 1 }}>
+                <Typography variant="subtitle2">{label}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                    <Box component="strong" sx={{ color: 'text.primary' }}>
                         {formatNumber(value)}
-                    </strong>{' '}
+                    </Box>{' '}
                     / {formatNumber(target)} g
-                </span>
-            </div>
-            <Progress value={percentage} indicatorClassName={colors[type]} />
-        </div>
+                </Typography>
+            </Stack>
+            <LinearProgress
+                variant="determinate"
+                value={percentage}
+                sx={{
+                    bgcolor: 'action.hover',
+                    '& .MuiLinearProgress-bar': { bgcolor: colors[type] },
+                }}
+            />
+        </Box>
     );
 }

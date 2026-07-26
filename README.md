@@ -1,7 +1,7 @@
 # Kcal
 
 A mobile-first calories and macronutrients tracker built with Laravel, MySQL,
-Inertia, React, Tailwind CSS, and shadcn-style UI primitives.
+Inertia, React, Material UI, and the licensed Minimal UI design system.
 
 ## Included
 
@@ -23,9 +23,10 @@ Inertia, React, Tailwind CSS, and shadcn-style UI primitives.
 - MySQL 8+
 - Laravel Fortify
 - Inertia 3 and React 19
-- TypeScript, Vite, and Tailwind CSS 4
+- TypeScript and Vite
+- Material UI 7 with the Minimal UI palette, typography, shadows, and layouts
 - i18next and react-i18next
-- Radix UI primitives, Lucide icons, Sonner, and Recharts
+- MUI icons, Framer Motion, and Recharts
 
 ## Local setup
 

@@ -1,5 +1,16 @@
-import { Head, Link } from '@inertiajs/react';
-import { Flame, Target } from 'lucide-react';
+import { Head } from '@inertiajs/react';
+import LocalFireDepartmentOutlined from '@mui/icons-material/LocalFireDepartmentOutlined';
+import TrackChangesRounded from '@mui/icons-material/TrackChangesRounded';
+import {
+    Box,
+    Card,
+    CardContent,
+    CardHeader,
+    Grid,
+    Paper,
+    Stack,
+    Typography,
+} from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import {
     Area,
@@ -14,10 +25,18 @@ import {
     YAxis,
 } from 'recharts';
 import { AppLayout } from '@/layouts/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PeriodNavigator } from '@/components/period-navigator';
-import type { NutritionTargets } from '@/types';
 import { formatDate, formatNumber } from '@/lib/utils';
+import type { NutritionTargets } from '@/types';
+
+const chartColors = {
+    calories: 'var(--mui-palette-primary-main)',
+    protein: '#8E33FF',
+    carbohydrates: '#FFAB00',
+    fat: '#FF5630',
+    grid: 'var(--mui-palette-divider)',
+    muted: 'var(--mui-palette-text-secondary)',
+};
 
 type ChartPoint = {
     date: string;
@@ -36,12 +55,7 @@ export default function ReportsIndex({
     topFoods,
     targets,
 }: {
-    week: {
-        start: string;
-        end: string;
-        previous: string;
-        next: string;
-    };
+    week: { start: string; end: string; previous: string; next: string };
     chart: ChartPoint[];
     averages: NutritionTargets;
     loggedDays: number;
@@ -60,259 +74,356 @@ export default function ReportsIndex({
     }));
 
     return (
-        <AppLayout
-            title={t('reports.title')}
-            subtitle={t('reports.description')}
-        >
+        <AppLayout title={t('reports.title')} subtitle={t('reports.description')}>
             <Head title={t('common.reports')} />
 
-            <PeriodNavigator
-                title={t('reports.week_overview')}
-                subtitle={`${formatDate(week.start, { year: undefined })} – ${formatDate(week.end, { year: undefined })}`}
-                previousHref={`/reports?week=${week.previous}`}
-                nextHref={`/reports?week=${week.next}`}
-                previousLabel={t('common.previous_week')}
-                nextLabel={t('common.next_week')}
-            />
+            <Stack spacing={3}>
+                <PeriodNavigator
+                    title={t('reports.week_overview')}
+                    subtitle={`${formatDate(week.start, { year: undefined })} – ${formatDate(week.end, { year: undefined })}`}
+                    previousHref={`/reports?week=${week.previous}`}
+                    nextHref={`/reports?week=${week.next}`}
+                    previousLabel={t('common.previous_week')}
+                    nextLabel={t('common.next_week')}
+                />
 
-            <div className="stagger-in grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <StatCard
-                    label={t('reports.daily_average')}
-                    value={`${formatNumber(averages.calories)} kcal`}
-                    context={t('reports.days_logged', { count: loggedDays })}
-                />
-                <StatCard
-                    label={t('reports.protein_average')}
-                    value={`${formatNumber(averages.protein, 1)} g`}
-                    context={t('reports.target', {
-                        target: formatNumber(targets.protein),
-                    })}
-                    color="var(--protein)"
-                />
-                <StatCard
-                    label={t('reports.carb_average')}
-                    value={`${formatNumber(averages.carbohydrates, 1)} g`}
-                    context={t('reports.target', {
-                        target: formatNumber(targets.carbohydrates),
-                    })}
-                    color="var(--carbs)"
-                />
-                <StatCard
-                    label={t('reports.fat_average')}
-                    value={`${formatNumber(averages.fat, 1)} g`}
-                    context={t('reports.target', {
-                        target: formatNumber(targets.fat),
-                    })}
-                    color="var(--fat)"
-                />
-            </div>
+                <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                        <StatCard
+                            label={t('reports.daily_average')}
+                            value={`${formatNumber(averages.calories)} kcal`}
+                            context={t('reports.days_logged', { count: loggedDays })}
+                            color={chartColors.calories}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                        <StatCard
+                            label={t('reports.protein_average')}
+                            value={`${formatNumber(averages.protein, 1)} g`}
+                            context={t('reports.target', {
+                                target: formatNumber(targets.protein),
+                            })}
+                            color={chartColors.protein}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                        <StatCard
+                            label={t('reports.carb_average')}
+                            value={`${formatNumber(averages.carbohydrates, 1)} g`}
+                            context={t('reports.target', {
+                                target: formatNumber(targets.carbohydrates),
+                            })}
+                            color={chartColors.carbohydrates}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                        <StatCard
+                            label={t('reports.fat_average')}
+                            value={`${formatNumber(averages.fat, 1)} g`}
+                            context={t('reports.target', {
+                                target: formatNumber(targets.fat),
+                            })}
+                            color={chartColors.fat}
+                        />
+                    </Grid>
+                </Grid>
 
-            <div className="stagger-in mt-5 grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
-                <Card className="overflow-hidden">
-                    <CardHeader>
-                        <div className="flex items-center justify-between gap-3">
-                            <div>
-                                <CardTitle>
-                                    {t('reports.calories_by_day')}
-                                </CardTitle>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    {t('reports.calories_comparison', {
-                                        target: formatNumber(targets.calories),
-                                    })}
-                                </p>
-                            </div>
-                            <div className="soft-well grid size-10 place-items-center rounded-xl text-primary">
-                                <Flame />
-                            </div>
-                        </div>
-                    </CardHeader>
+                <Grid container spacing={3}>
+                    <Grid size={{ xs: 12, lg: 8 }}>
+                        <Card sx={{ height: 1 }}>
+                            <CardHeader
+                                title={t('reports.calories_by_day')}
+                                subheader={t('reports.calories_comparison', {
+                                    target: formatNumber(targets.calories),
+                                })}
+                                action={
+                                    <Box
+                                        sx={{
+                                            display: 'grid',
+                                            placeItems: 'center',
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: 2,
+                                            color: 'primary.main',
+                                            bgcolor: 'primary.lighter',
+                                        }}
+                                    >
+                                        <LocalFireDepartmentOutlined />
+                                    </Box>
+                                }
+                            />
+                            <CardContent>
+                                <Box
+                                    role="img"
+                                    aria-label={t('reports.calorie_chart')}
+                                    sx={{ width: 1, height: 300 }}
+                                >
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart
+                                            data={localizedChart}
+                                            margin={{
+                                                top: 10,
+                                                right: 6,
+                                                left: -22,
+                                                bottom: 0,
+                                            }}
+                                        >
+                                            <defs>
+                                                <linearGradient
+                                                    id="calorieFill"
+                                                    x1="0"
+                                                    y1="0"
+                                                    x2="0"
+                                                    y2="1"
+                                                >
+                                                    <stop
+                                                        offset="5%"
+                                                        stopColor={chartColors.calories}
+                                                        stopOpacity={0.3}
+                                                    />
+                                                    <stop
+                                                        offset="95%"
+                                                        stopColor={chartColors.calories}
+                                                        stopOpacity={0}
+                                                    />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid
+                                                vertical={false}
+                                                stroke={chartColors.grid}
+                                                strokeDasharray="3 3"
+                                            />
+                                            <XAxis
+                                                dataKey="day"
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{
+                                                    fill: chartColors.muted,
+                                                    fontSize: 12,
+                                                }}
+                                            />
+                                            <YAxis
+                                                domain={[
+                                                    0,
+                                                    Math.max(
+                                                        targets.calories,
+                                                        ...chart.map(
+                                                            (point) =>
+                                                                point.calories,
+                                                        ),
+                                                    ),
+                                                ]}
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{
+                                                    fill: chartColors.muted,
+                                                    fontSize: 11,
+                                                }}
+                                            />
+                                            <Tooltip
+                                                content={<ChartTooltip unit="kcal" />}
+                                            />
+                                            <ReferenceLine
+                                                y={targets.calories}
+                                                stroke={chartColors.muted}
+                                                strokeDasharray="4 4"
+                                            />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="calories"
+                                                stroke={chartColors.calories}
+                                                strokeWidth={3}
+                                                fill="url(#calorieFill)"
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, lg: 4 }}>
+                        <Card sx={{ height: 1 }}>
+                            <CardHeader title={t('reports.most_logged')} />
+                            <CardContent>
+                                {topFoods.length === 0 ? (
+                                    <Stack
+                                        alignItems="center"
+                                        spacing={1.5}
+                                        sx={{
+                                            py: 5,
+                                            borderRadius: 2,
+                                            bgcolor: 'background.default',
+                                            color: 'text.secondary',
+                                        }}
+                                    >
+                                        <TrackChangesRounded color="primary" />
+                                        <Typography variant="body2">
+                                            {t('reports.empty_patterns')}
+                                        </Typography>
+                                    </Stack>
+                                ) : (
+                                    <Stack spacing={1}>
+                                        {topFoods.map((food, index) => (
+                                            <Stack
+                                                key={food.name}
+                                                direction="row"
+                                                alignItems="center"
+                                                spacing={1.5}
+                                                sx={{
+                                                    p: 1,
+                                                    borderRadius: 1.5,
+                                                    transition: (theme) =>
+                                                        theme.transitions.create(
+                                                            'background-color',
+                                                        ),
+                                                    '&:hover': {
+                                                        bgcolor: 'action.hover',
+                                                    },
+                                                }}
+                                            >
+                                                <Box
+                                                    sx={{
+                                                        display: 'grid',
+                                                        placeItems: 'center',
+                                                        flexShrink: 0,
+                                                        width: 32,
+                                                        height: 32,
+                                                        borderRadius: 1.25,
+                                                        bgcolor:
+                                                            'background.default',
+                                                        typography: 'caption',
+                                                        fontWeight: 700,
+                                                    }}
+                                                >
+                                                    {index + 1}
+                                                </Box>
+                                                <Box sx={{ minWidth: 0, flex: 1 }}>
+                                                    <Typography
+                                                        variant="subtitle2"
+                                                        noWrap
+                                                    >
+                                                        {food.name}
+                                                    </Typography>
+                                                    <Typography
+                                                        variant="caption"
+                                                        color="text.secondary"
+                                                    >
+                                                        {t('reports.times', {
+                                                            count: food.times,
+                                                        })}
+                                                    </Typography>
+                                                </Box>
+                                                <Typography
+                                                    variant="caption"
+                                                    color="text.secondary"
+                                                >
+                                                    {formatNumber(food.calories)} kcal
+                                                </Typography>
+                                            </Stack>
+                                        ))}
+                                    </Stack>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                </Grid>
+
+                <Card>
+                    <CardHeader title={t('reports.macros_by_day')} />
                     <CardContent>
-                        <div
-                            className="h-72 w-full"
+                        <Box
                             role="img"
-                            aria-label={t('reports.calorie_chart')}
+                            aria-label={t('reports.macro_chart')}
+                            sx={{ width: 1, height: 300 }}
                         >
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart
+                                <BarChart
                                     data={localizedChart}
-                                    margin={{ top: 10, right: 6, left: -22, bottom: 0 }}
+                                    margin={{
+                                        top: 4,
+                                        right: 4,
+                                        left: -22,
+                                        bottom: 0,
+                                    }}
                                 >
-                                    <defs>
-                                        <linearGradient
-                                            id="calorieFill"
-                                            x1="0"
-                                            y1="0"
-                                            x2="0"
-                                            y2="1"
-                                        >
-                                            <stop
-                                                offset="5%"
-                                                stopColor="var(--primary)"
-                                                stopOpacity={0.28}
-                                            />
-                                            <stop
-                                                offset="95%"
-                                                stopColor="var(--primary)"
-                                                stopOpacity={0}
-                                            />
-                                        </linearGradient>
-                                    </defs>
                                     <CartesianGrid
                                         vertical={false}
-                                        stroke="var(--border)"
+                                        stroke={chartColors.grid}
+                                        strokeDasharray="3 3"
                                     />
                                     <XAxis
                                         dataKey="day"
                                         axisLine={false}
                                         tickLine={false}
-                                        tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+                                        tick={{
+                                            fill: chartColors.muted,
+                                            fontSize: 12,
+                                        }}
                                     />
                                     <YAxis
                                         domain={[
                                             0,
                                             Math.max(
-                                                targets.calories,
-                                                ...chart.map((point) => point.calories),
+                                                targets.protein,
+                                                targets.carbohydrates,
+                                                targets.fat,
+                                                ...chart.flatMap((point) => [
+                                                    point.protein,
+                                                    point.carbohydrates,
+                                                    point.fat,
+                                                ]),
                                             ),
                                         ]}
                                         axisLine={false}
                                         tickLine={false}
-                                        tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                                        tick={{
+                                            fill: chartColors.muted,
+                                            fontSize: 11,
+                                        }}
                                     />
-                                    <Tooltip content={<ChartTooltip unit="kcal" />} />
-                                    <ReferenceLine
-                                        y={targets.calories}
-                                        stroke="var(--muted-foreground)"
-                                        strokeDasharray="4 4"
+                                    <Tooltip content={<ChartTooltip unit="g" />} />
+                                    <Bar
+                                        dataKey="protein"
+                                        fill={chartColors.protein}
+                                        radius={[8, 8, 2, 2]}
                                     />
-                                    <Area
-                                        type="monotone"
-                                        dataKey="calories"
-                                        stroke="var(--primary)"
-                                        strokeWidth={3}
-                                        fill="url(#calorieFill)"
+                                    <Bar
+                                        dataKey="carbohydrates"
+                                        fill={chartColors.carbohydrates}
+                                        radius={[8, 8, 2, 2]}
                                     />
-                                </AreaChart>
+                                    <Bar
+                                        dataKey="fat"
+                                        fill={chartColors.fat}
+                                        radius={[8, 8, 2, 2]}
+                                    />
+                                </BarChart>
                             </ResponsiveContainer>
-                        </div>
+                        </Box>
+                        <Stack
+                            direction="row"
+                            flexWrap="wrap"
+                            justifyContent="center"
+                            gap={2.5}
+                            sx={{ mt: 2 }}
+                        >
+                            <Legend
+                                color={chartColors.protein}
+                                label={t('common.protein')}
+                            />
+                            <Legend
+                                color={chartColors.carbohydrates}
+                                label={t('common.carbohydrates')}
+                            />
+                            <Legend
+                                color={chartColors.fat}
+                                label={t('common.fat')}
+                            />
+                        </Stack>
                     </CardContent>
                 </Card>
-
-                <Card className="overflow-hidden">
-                    <CardHeader>
-                        <CardTitle>{t('reports.most_logged')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {topFoods.length === 0 ? (
-                            <div className="soft-well rounded-2xl py-10 text-center">
-                                <Target className="mx-auto size-8 text-primary/70" />
-                                <p className="mt-3 text-sm text-muted-foreground">
-                                    {t('reports.empty_patterns')}
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="space-y-5">
-                                {topFoods.map((food, index) => (
-                                    <div
-                                        key={food.name}
-                                        className="flex items-center gap-3 rounded-xl p-1.5 transition-colors hover:bg-white/45"
-                                    >
-                                        <span className="soft-well grid size-8 shrink-0 place-items-center rounded-lg text-xs font-semibold">
-                                            {index + 1}
-                                        </span>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-semibold">
-                                                {food.name}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {t('reports.times', {
-                                                    count: food.times,
-                                                })}
-                                            </p>
-                                        </div>
-                                        <p className="text-xs font-medium text-muted-foreground">
-                                            {formatNumber(food.calories)} kcal
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            <Card className="mt-5 overflow-hidden">
-                <CardHeader>
-                    <CardTitle>{t('reports.macros_by_day')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div
-                        className="h-72 w-full"
-                        role="img"
-                        aria-label={t('reports.macro_chart')}
-                    >
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                                data={localizedChart}
-                                margin={{ top: 4, right: 4, left: -22, bottom: 0 }}
-                            >
-                                <CartesianGrid vertical={false} stroke="var(--border)" />
-                                <XAxis
-                                    dataKey="day"
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
-                                />
-                                <YAxis
-                                    domain={[
-                                        0,
-                                        Math.max(
-                                            targets.protein,
-                                            targets.carbohydrates,
-                                            targets.fat,
-                                            ...chart.flatMap((point) => [
-                                                point.protein,
-                                                point.carbohydrates,
-                                                point.fat,
-                                            ]),
-                                        ),
-                                    ]}
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
-                                />
-                                <Tooltip content={<ChartTooltip unit="g" />} />
-                                <Bar
-                                    dataKey="protein"
-                                    fill="var(--protein)"
-                                    radius={[8, 8, 2, 2]}
-                                />
-                                <Bar
-                                    dataKey="carbohydrates"
-                                    fill="var(--carbs)"
-                                    radius={[8, 8, 2, 2]}
-                                />
-                                <Bar
-                                    dataKey="fat"
-                                    fill="var(--fat)"
-                                    radius={[8, 8, 2, 2]}
-                                />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                    <div className="mt-4 flex flex-wrap justify-center gap-5 text-xs text-muted-foreground">
-                        <Legend
-                            color="var(--protein)"
-                            label={t('common.protein')}
-                        />
-                        <Legend
-                            color="var(--carbs)"
-                            label={t('common.carbohydrates')}
-                        />
-                        <Legend color="var(--fat)" label={t('common.fat')} />
-                    </div>
-                </CardContent>
-            </Card>
+            </Stack>
         </AppLayout>
     );
 }
@@ -321,25 +432,44 @@ function StatCard({
     label,
     value,
     context,
-    color = 'var(--primary)',
+    color,
 }: {
     label: string;
     value: string;
     context: string;
-    color?: string;
+    color: string;
 }) {
     return (
-        <Card className="group overflow-hidden transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_46px_rgb(25_72_55_/_0.09)]">
-            <CardContent className="pt-5 sm:pt-6">
-                <span
-                    className="mb-4 block h-1.5 w-9 rounded-full shadow-[inset_0_1px_0_rgb(255_255_255_/_0.4)] transition-transform group-hover:scale-x-110"
-                    style={{ background: color }}
+        <Card
+            sx={{
+                height: 1,
+                transition: (theme) =>
+                    theme.transitions.create(['transform', 'box-shadow']),
+                '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: (theme) => theme.shadows[8],
+                },
+            }}
+        >
+            <CardContent>
+                <Box
+                    sx={{
+                        width: 36,
+                        height: 6,
+                        mb: 2,
+                        borderRadius: 10,
+                        bgcolor: color,
+                    }}
                 />
-                <p className="text-sm text-muted-foreground">{label}</p>
-                <p className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
+                <Typography variant="body2" color="text.secondary">
+                    {label}
+                </Typography>
+                <Typography variant="h4" sx={{ mt: 0.5 }}>
                     {value}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">{context}</p>
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                    {context}
+                </Typography>
             </CardContent>
         </Card>
     );
@@ -361,30 +491,46 @@ function ChartTooltip({
     if (!active || !payload?.length) return null;
 
     return (
-        <div className="glass-panel rounded-xl p-3 text-xs">
-            <p className="mb-2 font-semibold">{label}</p>
+        <Paper elevation={12} sx={{ p: 1.5, minWidth: 140 }}>
+            <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
+                {label}
+            </Typography>
             {payload.map((item) => (
-                <p key={item.name} className="mt-1 text-muted-foreground">
+                <Typography
+                    key={item.name}
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', mt: 0.5 }}
+                >
                     {t(
                         item.name === 'carbohydrates'
                             ? 'common.carbohydrates'
                             : `common.${item.name}`,
                     )}
                     :{' '}
-                    <strong className="text-foreground">
+                    <Box component="strong" sx={{ color: 'text.primary' }}>
                         {formatNumber(item.value, 1)} {unit}
-                    </strong>
-                </p>
+                    </Box>
+                </Typography>
             ))}
-        </div>
+        </Paper>
     );
 }
 
 function Legend({ color, label }: { color: string; label: string }) {
     return (
-        <span className="flex items-center gap-2">
-            <span className="size-2.5 rounded-sm" style={{ background: color }} />
-            {label}
-        </span>
+        <Stack direction="row" alignItems="center" spacing={1}>
+            <Box
+                sx={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 0.75,
+                    bgcolor: color,
+                }}
+            />
+            <Typography variant="caption" color="text.secondary">
+                {label}
+            </Typography>
+        </Stack>
     );
 }

@@ -1,12 +1,15 @@
-import { Head, Link, useForm } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
+import { Head, useForm } from '@inertiajs/react';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import Grid from '@mui/material/Grid';
+import MuiLink from '@mui/material/Link';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AuthLayout } from '@/layouts/auth-layout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { FieldError } from '@/components/field-error';
+import { RouterLink } from '@/components/router-link';
 
 export default function Register() {
     const { t } = useTranslation();
@@ -30,49 +33,42 @@ export default function Register() {
             description={t('auth.register_description')}
         >
             <Head title={t('auth.create_account')} />
-            <form onSubmit={submit} className="space-y-4">
-                <div className="space-y-2">
-                    <Label htmlFor="name">{t('auth.your_name')}</Label>
-                    <Input
-                        id="name"
-                        autoComplete="name"
-                        autoFocus
-                        value={form.data.name}
-                        onChange={(event) => form.setData('name', event.target.value)}
-                    />
-                    <FieldError message={form.errors.name} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="email">{t('common.email_address')}</Label>
-                    <Input
-                        id="email"
-                        type="email"
-                        autoComplete="email"
-                        value={form.data.email}
-                        onChange={(event) => form.setData('email', event.target.value)}
-                    />
-                    <FieldError message={form.errors.email} />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                        <Label htmlFor="password">{t('common.password')}</Label>
-                        <Input
-                            id="password"
+            <Stack component="form" spacing={2.5} onSubmit={submit}>
+                <TextField
+                    label={t('auth.your_name')}
+                    autoComplete="name"
+                    autoFocus
+                    value={form.data.name}
+                    onChange={(event) => form.setData('name', event.target.value)}
+                    error={Boolean(form.errors.name)}
+                    helperText={form.errors.name}
+                />
+                <TextField
+                    label={t('common.email_address')}
+                    type="email"
+                    autoComplete="email"
+                    value={form.data.email}
+                    onChange={(event) => form.setData('email', event.target.value)}
+                    error={Boolean(form.errors.email)}
+                    helperText={form.errors.email}
+                />
+                <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                            label={t('common.password')}
                             type="password"
                             autoComplete="new-password"
                             value={form.data.password}
                             onChange={(event) =>
                                 form.setData('password', event.target.value)
                             }
+                            error={Boolean(form.errors.password)}
+                            helperText={form.errors.password}
                         />
-                        <FieldError message={form.errors.password} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="password_confirmation">
-                            {t('auth.confirm')}
-                        </Label>
-                        <Input
-                            id="password_confirmation"
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                            label={t('auth.confirm')}
                             type="password"
                             autoComplete="new-password"
                             value={form.data.password_confirmation}
@@ -83,19 +79,35 @@ export default function Register() {
                                 )
                             }
                         />
-                    </div>
-                </div>
-                <Button type="submit" size="lg" className="w-full" disabled={form.processing}>
-                    {form.processing && <LoaderCircle className="animate-spin" />}
+                    </Grid>
+                </Grid>
+                <Button
+                    type="submit"
+                    size="large"
+                    variant="contained"
+                    disabled={form.processing}
+                    startIcon={
+                        form.processing ? (
+                            <CircularProgress size={18} color="inherit" />
+                        ) : undefined
+                    }
+                >
                     {t('auth.create_account')}
                 </Button>
-            </form>
-            <p className="mt-7 text-center text-sm text-muted-foreground">
+            </Stack>
+            <Typography
+                variant="body2"
+                color="text.secondary"
+                textAlign="center"
+                sx={{ mt: 3 }}
+            >
                 {t('auth.already_registered')}{' '}
-                <Link href="/login" className="font-semibold text-primary hover:underline">
-                    {t('auth.sign_in')}
-                </Link>
-            </p>
+                <RouterLink href="/login">
+                    <MuiLink component="span" fontWeight={700}>
+                        {t('auth.sign_in')}
+                    </MuiLink>
+                </RouterLink>
+            </Typography>
         </AuthLayout>
     );
 }

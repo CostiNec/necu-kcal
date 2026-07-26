@@ -6,6 +6,7 @@ use App\Http\Controllers\FavouriteFoodController;
 use App\Http\Controllers\FoodController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
 use Illuminate\Support\Facades\Route;
@@ -30,14 +31,33 @@ Route::middleware('auth')->group(function () {
             ->name('diary.notes.update');
 
         Route::get('/foods', [FoodController::class, 'index'])->name('foods.index');
+        Route::get('/foods/search', [FoodController::class, 'search'])
+            ->name('foods.search');
         Route::post('/foods', [FoodController::class, 'store'])->name('foods.store');
         Route::delete('/foods/{food}', [FoodController::class, 'destroy'])
             ->name('foods.destroy');
         Route::post('/foods/{food}/favourite', [FavouriteFoodController::class, 'toggle'])
             ->name('foods.favourite');
 
+        Route::get('/recipes', [RecipeController::class, 'index'])
+            ->name('recipes.index');
+        Route::get('/recipes/create', [RecipeController::class, 'create'])
+            ->name('recipes.create');
+        Route::get('/recipes/{recipe}/edit', [RecipeController::class, 'edit'])
+            ->name('recipes.edit');
+        Route::post('/recipes', [RecipeController::class, 'store'])
+            ->name('recipes.store');
+        Route::put('/recipes/{recipe}', [RecipeController::class, 'update'])
+            ->name('recipes.update');
+        Route::delete('/recipes/{recipe}', [RecipeController::class, 'destroy'])
+            ->name('recipes.destroy');
+
         Route::post('/diary-entries', [DiaryEntryController::class, 'store'])
             ->name('diary-entries.store');
+        Route::post(
+            '/diary-entries/quick',
+            [DiaryEntryController::class, 'storeQuick']
+        )->name('diary-entries.quick.store');
         Route::put('/diary-entries/{diaryEntry}', [DiaryEntryController::class, 'update'])
             ->name('diary-entries.update');
         Route::delete('/diary-entries/{diaryEntry}', [DiaryEntryController::class, 'destroy'])

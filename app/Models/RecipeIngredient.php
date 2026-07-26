@@ -5,42 +5,37 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class DiaryEntry extends Model
+class RecipeIngredient extends Model
 {
     protected $fillable = [
-        'diary_day_id',
+        'recipe_id',
         'food_id',
-        'meal',
         'food_name',
-        'brand',
-        'unit_type',
-        'serving_name',
-        'serving_translation_key',
-        'quantity',
         'amount',
         'calories',
         'protein',
         'carbohydrates',
         'fat',
+        'fibre',
         'position',
     ];
 
     protected function casts(): array
     {
         return [
-            'quantity' => 'float',
             'amount' => 'float',
             'calories' => 'float',
             'protein' => 'float',
             'carbohydrates' => 'float',
             'fat' => 'float',
+            'fibre' => 'float',
             'position' => 'integer',
         ];
     }
 
-    public function day(): BelongsTo
+    public function recipe(): BelongsTo
     {
-        return $this->belongsTo(DiaryDay::class, 'diary_day_id');
+        return $this->belongsTo(Recipe::class);
     }
 
     public function food(): BelongsTo

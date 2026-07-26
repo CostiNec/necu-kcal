@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Food extends Model
 {
@@ -14,7 +15,6 @@ class Food extends Model
     protected $fillable = [
         'user_id',
         'name',
-        'translation_key',
         'brand',
         'barcode',
         'calories',
@@ -52,12 +52,33 @@ class Food extends Model
         return $this->hasMany(FoodServing::class);
     }
 
+    public function translations(): HasMany
+    {
+        return $this->hasMany(FoodTranslation::class);
+    }
+
+    public function translation(): HasOne
+    {
+        return $this->hasOne(FoodTranslation::class)
+            ->where('locale', app()->getLocale());
+    }
+
+    public function localizedName(): string
+    {
+        return $this->translation?->name ?? $this->name;
+    }
+
+    public function recipe(): HasOne
+    {
+        return $this->hasOne(Recipe::class);
+    }
+
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
         return $query->where(
             fn (Builder $builder) => $builder
-                ->where('is_public', true)
-                ->orWhere('user_id', $user->id)
+                ->where('foods.is_public', true)
+                ->orWhere('foods.user_id', $user->id)
         );
     }
 }

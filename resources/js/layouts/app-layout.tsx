@@ -1,25 +1,74 @@
-import { Link, router, usePage } from '@inertiajs/react';
-import {
-    BarChart3,
-    BookOpen,
-    LogOut,
-    Settings,
-    Utensils,
-} from 'lucide-react';
-import { useEffect, type PropsWithChildren } from 'react';
+import { router, usePage } from '@inertiajs/react';
+import BarChartOutlined from '@mui/icons-material/BarChartOutlined';
+import CloseRounded from '@mui/icons-material/CloseRounded';
+import RestaurantMenuOutlined from '@mui/icons-material/RestaurantMenuOutlined';
+import ReceiptLongOutlined from '@mui/icons-material/ReceiptLongOutlined';
+import LogoutRounded from '@mui/icons-material/LogoutRounded';
+import MenuRounded from '@mui/icons-material/MenuRounded';
+import MenuBookOutlined from '@mui/icons-material/MenuBookOutlined';
+import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
+import AppBar from '@mui/material/AppBar';
+import Avatar from '@mui/material/Avatar';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Container from '@mui/material/Container';
+import Divider from '@mui/material/Divider';
+import Drawer from '@mui/material/Drawer';
+import IconButton from '@mui/material/IconButton';
+import List from '@mui/material/List';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import SwipeableDrawer from '@mui/material/SwipeableDrawer';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
+import { alpha } from '@mui/material/styles';
+import { useEffect, useState, type PropsWithChildren } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
 import { BrandMark } from '@/components/brand-mark';
+import { ColorModeButton } from '@/components/color-mode-button';
 import { LanguageSwitcher } from '@/components/language-switcher';
-import { Button } from '@/components/ui/button';
+import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
+import { PageTransition } from '@/components/page-transition';
+import { RouterLink } from '@/components/router-link';
+import { toast } from '@/components/snackbar';
 import type { SharedProps } from '@/types';
-import { cn } from '@/lib/utils';
+
+const drawerWidth = 280;
 
 const navigation = [
-    { labelKey: 'common.today', href: '/today', icon: Utensils, match: ['/today', '/diary'] },
-    { labelKey: 'common.foods', href: '/foods', icon: BookOpen, match: ['/foods'] },
-    { labelKey: 'common.reports', href: '/reports', icon: BarChart3, match: ['/reports'] },
-    { labelKey: 'common.profile', href: '/settings', icon: Settings, match: ['/settings'] },
+    {
+        labelKey: 'common.today',
+        href: '/today',
+        icon: RestaurantMenuOutlined,
+        match: ['/today', '/diary'],
+    },
+    {
+        labelKey: 'common.foods',
+        href: '/foods',
+        icon: MenuBookOutlined,
+        match: ['/foods'],
+    },
+    {
+        labelKey: 'common.recipes',
+        href: '/recipes',
+        icon: ReceiptLongOutlined,
+        match: ['/recipes'],
+    },
+    {
+        labelKey: 'common.reports',
+        href: '/reports',
+        icon: BarChartOutlined,
+        match: ['/reports'],
+    },
+    {
+        labelKey: 'common.profile',
+        href: '/settings',
+        icon: SettingsOutlined,
+        match: ['/settings'],
+    },
 ];
 
 export function AppLayout({
@@ -35,159 +84,397 @@ export function AppLayout({
     const page = usePage<SharedProps>();
     const { auth, flash } = page.props;
     const { t } = useTranslation();
-
+    const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
     useEffect(() => {
-        if (flash.success) toast.success(flash.success);
-        if (flash.error) toast.error(flash.error);
+        if (flash.success) {
+            toast.success(flash.success, { id: 'flash-notification' });
+        } else if (flash.error) {
+            toast.error(flash.error, { id: 'flash-notification' });
+        }
     }, [flash.error, flash.success]);
 
     const isActive = (matches: string[]) =>
-        matches.some((path) => page.url === path || page.url.startsWith(`${path}/`));
+        matches.some(
+            (path) => page.url === path || page.url.startsWith(`${path}/`),
+        );
+
+    const activeIndex = Math.max(
+        0,
+        navigation.findIndex((item) => isActive(item.match)),
+    );
 
     return (
-        <div className="relative isolate min-h-screen overflow-x-clip">
-            <div
-                aria-hidden="true"
-                className="ambient-orb pointer-events-none fixed -right-32 top-24 -z-10 size-[30rem] rounded-full bg-secondary/55 blur-3xl"
-            />
-            <div
-                aria-hidden="true"
-                className="ambient-orb-reverse pointer-events-none fixed bottom-12 left-48 -z-10 size-80 rounded-full bg-primary/5 blur-3xl"
-            />
-
-            <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-white/65 bg-card/62 shadow-[10px_0_40px_rgb(27_75_58_/_0.035)] backdrop-blur-2xl lg:flex lg:flex-col">
-                <div className="flex h-24 items-center px-7">
+        <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+            <Drawer
+                variant="permanent"
+                sx={{
+                    display: { xs: 'none', lg: 'block' },
+                    width: drawerWidth,
+                    flexShrink: 0,
+                    '& .MuiDrawer-paper': {
+                        width: drawerWidth,
+                        borderRightStyle: 'dashed',
+                        bgcolor: 'background.default',
+                    },
+                }}
+            >
+                <Box sx={{ px: 3.5, py: 3 }}>
                     <BrandMark />
-                </div>
-                <nav className="flex-1 space-y-1.5 px-4 py-3">
+                </Box>
+                <List sx={{ px: 2, py: 1 }}>
                     {navigation.map((item) => {
                         const active = isActive(item.match);
                         const Icon = item.icon;
 
                         return (
-                            <Button
+                            <RouterLink
                                 key={item.href}
-                                asChild
-                                variant={active ? 'secondary' : 'ghost'}
-                                className="group h-11 w-full justify-start gap-3 px-3"
+                                href={item.href}
+                                style={{ color: 'inherit', textDecoration: 'none' }}
                             >
-                                <Link href={item.href}>
-                                    <span
-                                        className={cn(
-                                            'grid size-8 place-items-center rounded-md',
-                                            active
-                                                ? 'bg-background text-primary'
-                                                : 'text-muted-foreground group-hover:text-foreground',
-                                        )}
+                                <ListItemButton
+                                    selected={active}
+                                    sx={{
+                                        minHeight: 48,
+                                        mb: 0.5,
+                                        borderRadius: 1,
+                                        '&.Mui-selected': {
+                                            color: 'primary.main',
+                                            bgcolor: 'primary.lighter',
+                                            '&:hover': {
+                                                bgcolor: 'primary.lighter',
+                                            },
+                                        },
+                                    }}
+                                >
+                                    <ListItemIcon
+                                        sx={{
+                                            minWidth: 40,
+                                            color: active
+                                                ? 'primary.main'
+                                                : 'text.secondary',
+                                        }}
                                     >
-                                        <Icon className="size-[1.1rem] stroke-[1.8]" />
-                                    </span>
-                                    {t(item.labelKey)}
-                                </Link>
-                            </Button>
+                                        <Icon fontSize="small" />
+                                    </ListItemIcon>
+                                    <ListItemText
+                                        primary={t(item.labelKey)}
+                                        primaryTypographyProps={{
+                                            variant: 'subtitle2',
+                                        }}
+                                    />
+                                </ListItemButton>
+                            </RouterLink>
                         );
                     })}
-                </nav>
-                <div className="border-t border-white/60 p-4">
-                    <div className="glass-subtle mb-2 rounded-2xl p-3">
-                        <div className="flex items-center gap-3">
-                            <div className="grid size-10 place-items-center rounded-full border border-white/70 bg-secondary text-sm font-semibold shadow-[inset_0_1px_0_rgb(255_255_255_/_0.8)]">
-                                {auth.user?.name.slice(0, 1).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold">
-                                    {auth.user?.name}
-                                </p>
-                                <p className="truncate text-xs text-muted-foreground">
-                                    {auth.user?.email}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    <Button
-                        variant="ghost"
-                        className="w-full justify-start text-muted-foreground"
-                        onClick={() => router.post('/logout')}
+                </List>
+                <Box sx={{ mt: 'auto', p: 2 }}>
+                    <Paper
+                        variant="outlined"
+                        sx={{ p: 2, mb: 1, borderColor: 'divider' }}
                     >
-                        <LogOut />
+                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                            <Avatar
+                                sx={{
+                                    width: 40,
+                                    height: 40,
+                                    color: 'primary.main',
+                                    bgcolor: 'primary.lighter',
+                                }}
+                            >
+                                {auth.user?.name.slice(0, 1).toUpperCase()}
+                            </Avatar>
+                            <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="subtitle2" noWrap>
+                                    {auth.user?.name}
+                                </Typography>
+                                <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    noWrap
+                                >
+                                    {auth.user?.email}
+                                </Typography>
+                            </Box>
+                        </Stack>
+                    </Paper>
+                    <Button
+                        fullWidth
+                        color="inherit"
+                        startIcon={<LogoutRounded />}
+                        onClick={() => router.post('/logout')}
+                        sx={{ justifyContent: 'flex-start' }}
+                    >
                         {t('common.sign_out')}
                     </Button>
-                </div>
-            </aside>
+                </Box>
+            </Drawer>
 
-            <div className="lg:pl-72">
-                <header className="sticky top-0 z-20 border-b border-white/60 bg-background/68 shadow-[0_1px_0_rgb(255_255_255_/_0.7)] backdrop-blur-2xl">
-                    <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:h-24 lg:px-8">
-                        <BrandMark className="lg:hidden" />
-                        <div className="hidden min-w-0 lg:block">
-                            {title && (
-                                <h1 className="truncate text-[1.35rem] font-semibold tracking-[-0.025em]">
-                                    {title}
-                                </h1>
-                            )}
-                            {subtitle && (
-                                <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                                    {subtitle}
-                                </p>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <LanguageSwitcher compact />
-                            {actions}
+            <SwipeableDrawer
+                anchor="right"
+                open={mobileDrawerOpen}
+                onOpen={() => setMobileDrawerOpen(true)}
+                onClose={() => setMobileDrawerOpen(false)}
+                swipeAreaWidth={24}
+                hysteresis={0.35}
+                ModalProps={{ keepMounted: true }}
+                sx={(theme) => ({
+                    display: { lg: 'none' },
+                    zIndex: theme.zIndex.modal + 10,
+                    '& .MuiDrawer-paper': {
+                        width: 'min(86vw, 340px)',
+                        bgcolor: 'background.default',
+                        backgroundImage: 'none',
+                        zIndex: theme.zIndex.modal + 11,
+                    },
+                })}
+            >
+                <Stack sx={{ height: 1 }}>
+                    <Stack
+                        component="header"
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        sx={{
+                            height: 72,
+                            minHeight: 72,
+                            px: 2,
+                            borderBottom: 1,
+                            borderColor: 'divider',
+                            bgcolor: 'background.paper',
+                        }}
+                    >
+                        <Typography variant="h6">
+                            {t('common.menu')}
+                        </Typography>
+                        <IconButton
+                            onClick={() => setMobileDrawerOpen(false)}
+                            aria-label={t('common.close')}
+                            sx={{ width: 44, height: 44 }}
+                        >
+                            <CloseRounded />
+                        </IconButton>
+                    </Stack>
+
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            minHeight: 0,
+                            flex: 1,
+                            flexDirection: 'column',
+                            overflowY: 'auto',
+                            p: 2,
+                        }}
+                    >
+                        <Paper variant="outlined" sx={{ p: 1 }}>
+                            <Stack
+                                direction="row"
+                                alignItems="center"
+                                justifyContent="space-between"
+                                spacing={1}
+                            >
+                                <LanguageSwitcher />
+                                <ColorModeButton withLabel />
+                            </Stack>
+                        </Paper>
+
+                        <Divider sx={{ my: 2 }} />
+
+                        <List sx={{ p: 0 }}>
+                            {navigation.map((item) => {
+                                const active = isActive(item.match);
+                                const Icon = item.icon;
+
+                                return (
+                                    <RouterLink
+                                        key={item.href}
+                                        href={item.href}
+                                        style={{
+                                            color: 'inherit',
+                                            textDecoration: 'none',
+                                        }}
+                                    >
+                                        <ListItemButton
+                                            selected={active}
+                                            onClick={() =>
+                                                setMobileDrawerOpen(false)
+                                            }
+                                            sx={{
+                                                minHeight: 50,
+                                                mb: 0.5,
+                                                borderRadius: 1.5,
+                                                '&.Mui-selected': {
+                                                    color: 'primary.main',
+                                                    bgcolor: 'primary.lighter',
+                                                },
+                                            }}
+                                        >
+                                            <ListItemIcon
+                                                sx={{
+                                                    minWidth: 42,
+                                                    color: active
+                                                        ? 'primary.main'
+                                                        : 'text.secondary',
+                                                }}
+                                            >
+                                                <Icon />
+                                            </ListItemIcon>
+                                            <ListItemText
+                                                primary={t(item.labelKey)}
+                                                primaryTypographyProps={{
+                                                    variant: 'subtitle2',
+                                                }}
+                                            />
+                                        </ListItemButton>
+                                    </RouterLink>
+                                );
+                            })}
+                        </List>
+
+                        <Box sx={{ mt: 'auto', pt: 2 }}>
+                            <Paper variant="outlined" sx={{ p: 2, mb: 1 }}>
+                                <Stack
+                                    direction="row"
+                                    alignItems="center"
+                                    spacing={1.5}
+                                >
+                                    <Avatar
+                                        sx={{
+                                            width: 40,
+                                            height: 40,
+                                            color: 'primary.main',
+                                            bgcolor: 'primary.lighter',
+                                        }}
+                                    >
+                                        {auth.user?.name
+                                            .slice(0, 1)
+                                            .toUpperCase()}
+                                    </Avatar>
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography variant="subtitle2" noWrap>
+                                            {auth.user?.name}
+                                        </Typography>
+                                        <Typography
+                                            variant="caption"
+                                            color="text.secondary"
+                                            noWrap
+                                        >
+                                            {auth.user?.email}
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+                            </Paper>
                             <Button
-                                variant="ghost"
-                                size="icon"
-                                className="lg:hidden"
-                                aria-label={t('common.sign_out')}
+                                fullWidth
+                                color="inherit"
+                                startIcon={<LogoutRounded />}
                                 onClick={() => router.post('/logout')}
+                                sx={{ justifyContent: 'flex-start' }}
                             >
-                                <LogOut />
+                                {t('common.sign_out')}
                             </Button>
-                        </div>
-                    </div>
-                </header>
+                        </Box>
+                    </Box>
+                </Stack>
+            </SwipeableDrawer>
 
-                <main className="page-enter content-stagger mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pb-12 lg:pt-8">
-                    {(title || subtitle) && (
-                        <div className="mb-6 lg:hidden">
-                            {title && (
-                                <h1 className="text-[1.7rem] font-semibold tracking-[-0.035em]">
-                                    {title}
-                                </h1>
-                            )}
-                            {subtitle && (
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    {subtitle}
-                                </p>
-                            )}
-                        </div>
-                    )}
-                    {children}
-                </main>
-            </div>
-
-            <nav className="mobile-tab-glass fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 rounded-3xl p-1.5 lg:hidden">
-                <div className="relative z-10 mx-auto grid max-w-md grid-cols-4">
-                    {navigation.map((item) => {
-                        const active = isActive(item.match);
-                        const Icon = item.icon;
-
-                        return (
-                            <Button
-                                key={item.href}
-                                asChild
-                                variant={active ? 'secondary' : 'ghost'}
-                                className="h-14 flex-col gap-1 px-2 text-[11px]"
-                            >
-                                <Link href={item.href}>
-                                    <Icon className="size-5 stroke-[1.8]" />
-                                    {t(item.labelKey)}
-                                </Link>
-                            </Button>
-                        );
+            <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                <AppBar
+                    position="sticky"
+                    color="transparent"
+                    elevation={0}
+                    sx={(theme) => ({
+                        bgcolor: alpha(theme.palette.background.default, 0.84),
+                        backdropFilter: 'blur(16px)',
+                        borderBottom: 1,
+                        borderColor: 'divider',
                     })}
-                </div>
-            </nav>
-        </div>
+                >
+                    <Toolbar
+                        sx={{
+                            minHeight: { xs: 72, lg: 88 },
+                            px: { xs: 2, sm: 3, lg: 5 },
+                        }}
+                    >
+                        <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
+                            <BrandMark />
+                        </Box>
+                        <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
+                            {title && <Typography variant="h5">{title}</Typography>}
+                            {subtitle && (
+                                <Typography variant="body2" color="text.secondary">
+                                    {subtitle}
+                                </Typography>
+                            )}
+                        </Box>
+                        <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={1}
+                            sx={{ ml: 'auto' }}
+                        >
+                            {actions}
+                            <Stack
+                                direction="row"
+                                alignItems="center"
+                                spacing={0.5}
+                                sx={{
+                                    display: { xs: 'none', lg: 'flex' },
+                                }}
+                            >
+                                <LanguageSwitcher compact />
+                                <ColorModeButton />
+                            </Stack>
+                            <IconButton
+                                color="inherit"
+                                onClick={() => setMobileDrawerOpen(true)}
+                                aria-label={t('common.open_menu')}
+                                sx={{
+                                    display: { lg: 'none' },
+                                    width: 44,
+                                    height: 44,
+                                }}
+                            >
+                                <MenuRounded />
+                            </IconButton>
+                        </Stack>
+                    </Toolbar>
+                </AppBar>
+
+                <Container
+                    component="main"
+                    maxWidth="xl"
+                    sx={{ py: { xs: 3, lg: 5 }, pb: { xs: 13, lg: 5 } }}
+                >
+                    {(title || subtitle) && (
+                        <Box sx={{ display: { lg: 'none' }, mb: 3 }}>
+                            {title && <Typography variant="h4">{title}</Typography>}
+                            {subtitle && (
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{ mt: 0.5 }}
+                                >
+                                    {subtitle}
+                                </Typography>
+                            )}
+                        </Box>
+                    )}
+                    <PageTransition>{children}</PageTransition>
+                </Container>
+            </Box>
+
+            <MobileBottomNavigation
+                ariaLabel={t('common.primary_navigation')}
+                value={activeIndex}
+                items={navigation.map((item) => ({
+                    href: item.href,
+                    label: t(item.labelKey),
+                    icon: item.icon,
+                }))}
+                onNavigate={(href) => router.visit(href)}
+            />
+
+        </Box>
     );
 }

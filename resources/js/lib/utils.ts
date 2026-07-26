@@ -1,10 +1,3 @@
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-export function cn(...inputs: ClassValue[]) {
-    return twMerge(clsx(inputs));
-}
-
 export function formatNumber(value: number, maximumFractionDigits = 0) {
     return new Intl.NumberFormat(document.documentElement.lang, {
         maximumFractionDigits,
@@ -18,4 +11,10 @@ export function formatDate(date: string, options?: Intl.DateTimeFormatOptions) {
         year: 'numeric',
         ...options,
     }).format(new Date(`${date}T12:00:00`));
+}
+
+export type NumberInputValue = number | '';
+
+export function parseNumberInput(value: string): NumberInputValue {
+    return value === '' ? '' : Number(value);
 }

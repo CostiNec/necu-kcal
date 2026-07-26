@@ -34,7 +34,12 @@ class DiaryController extends Controller
         $day = DiaryDay::query()
             ->where('user_id', $user->id)
             ->whereDate('date', $selectedDate)
-            ->with(['entries' => fn ($query) => $query->orderBy('position')->orderBy('id')])
+            ->with([
+                'entries' => fn ($query) => $query
+                    ->with('food.translation')
+                    ->orderBy('position')
+                    ->orderBy('id'),
+            ])
             ->first();
 
         $entries = $day?->entries ?? new Collection;
@@ -52,9 +57,8 @@ class DiaryController extends Controller
             'nextDate' => $selectedDate->addDay()->toDateString(),
             'entries' => $entries->values()->map(fn ($entry) => [
                 ...$entry->toArray(),
-                'food_name' => $entry->food_translation_key
-                    ? __($entry->food_translation_key)
-                    : $entry->food_name,
+                'food_name' => $entry->food?->localizedName()
+                    ?? $entry->food_name,
                 'serving_name' => $entry->serving_translation_key
                     ? __($entry->serving_translation_key)
                     : $entry->serving_name,

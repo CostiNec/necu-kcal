@@ -1,210 +1,489 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
+import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded';
+import CheckRounded from '@mui/icons-material/CheckRounded';
+import InsightsRounded from '@mui/icons-material/InsightsRounded';
+import SearchRounded from '@mui/icons-material/SearchRounded';
+import TrackChangesRounded from '@mui/icons-material/TrackChangesRounded';
+import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded';
 import {
-    ArrowRight,
-    BarChart3,
-    Check,
-    CircleGauge,
-    Search,
-    Sparkles,
-} from 'lucide-react';
+    AppBar,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    Chip,
+    CircularProgress,
+    Container,
+    Grid,
+    LinearProgress,
+    Stack,
+    Toolbar,
+    Typography,
+} from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { BrandMark } from '@/components/brand-mark';
+import { ColorModeButton } from '@/components/color-mode-button';
 import { LanguageSwitcher } from '@/components/language-switcher';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { RouterLink } from '@/components/router-link';
 import type { SharedProps } from '@/types';
+
+const featureIcons = [SearchRounded, TrackChangesRounded, InsightsRounded];
 
 export default function Welcome() {
     const { auth } = usePage<SharedProps>().props;
     const { t } = useTranslation();
 
     return (
-        <div className="relative isolate min-h-screen overflow-hidden">
+        <Box sx={{ minHeight: '100vh', overflow: 'hidden' }}>
             <Head title={t('landing.head_title')} />
-            <header className="sticky top-0 z-20 border-b border-white/55 bg-background/60 backdrop-blur-2xl">
-                <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8">
+
+            <AppBar
+                position="sticky"
+                color="transparent"
+                elevation={0}
+                sx={(theme) => ({
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    bgcolor: alpha(theme.palette.background.paper, 0.82),
+                    backdropFilter: 'blur(16px)',
+                })}
+            >
+                <Toolbar
+                    sx={{
+                        width: 1,
+                        maxWidth: 1280,
+                        minHeight: { xs: 72, sm: 80 },
+                        mx: 'auto',
+                        px: { xs: 2.5, sm: 4 },
+                    }}
+                >
                     <BrandMark />
-                    <div className="flex items-center gap-2">
+                    <Stack
+                        direction="row"
+                        alignItems="center"
+                        spacing={1}
+                        sx={{ ml: 'auto' }}
+                    >
                         <LanguageSwitcher compact />
+                        <ColorModeButton />
                         {auth.user ? (
-                            <Button asChild>
-                                <Link href="/today">
-                                    {t('landing.open_diary')} <ArrowRight />
-                                </Link>
-                            </Button>
+                            <RouterLink href="/today">
+                                <Button
+                                    variant="contained"
+                                    endIcon={<ArrowForwardRounded />}
+                                >
+                                    {t('landing.open_diary')}
+                                </Button>
+                            </RouterLink>
                         ) : (
                             <>
-                                <Button
-                                    variant="ghost"
-                                    asChild
-                                    className="hidden sm:inline-flex"
-                                >
-                                    <Link href="/login">
+                                <RouterLink href="/login">
+                                    <Button
+                                        color="inherit"
+                                        sx={{
+                                            display: { xs: 'none', sm: 'inline-flex' },
+                                        }}
+                                    >
                                         {t('landing.sign_in')}
-                                    </Link>
-                                </Button>
-                                <Button asChild>
-                                    <Link href="/register">
+                                    </Button>
+                                </RouterLink>
+                                <RouterLink href="/register">
+                                    <Button variant="contained">
                                         {t('landing.start_tracking')}
-                                    </Link>
-                                </Button>
+                                    </Button>
+                                </RouterLink>
                             </>
                         )}
-                    </div>
-                </div>
-            </header>
+                    </Stack>
+                </Toolbar>
+            </AppBar>
 
-            <main>
-                <section className="page-enter relative mx-auto grid max-w-7xl items-center gap-14 px-5 pb-24 pt-14 sm:px-8 lg:grid-cols-[1fr_0.9fr] lg:pb-32 lg:pt-24">
-                    <div className="absolute -left-48 -top-64 -z-10 size-[42rem] rounded-full bg-secondary/70 blur-3xl" />
-                    <div className="absolute -right-64 top-12 -z-10 size-[38rem] rounded-full bg-primary/8 blur-3xl" />
-                    <div className="stagger-in">
-                        <div className="glass-subtle mb-6 inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold">
-                            <Sparkles className="size-4 text-primary" />
-                            {t('landing.badge')}
-                        </div>
-                        <h1 className="text-balance text-5xl font-semibold leading-[1.01] tracking-[-0.055em] sm:text-6xl lg:text-[4.6rem]">
-                            {t('landing.headline')}
-                        </h1>
-                        <p className="mt-7 max-w-xl text-lg leading-8 text-muted-foreground">
-                            {t('landing.description')}
-                        </p>
-                        <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                            <Button size="lg" asChild>
-                                <Link href={auth.user ? '/today' : '/register'}>
-                                    {auth.user
-                                        ? t('landing.open_your_diary')
-                                        : t('landing.create_free_account')}
-                                    <ArrowRight />
-                                </Link>
-                            </Button>
-                            {!auth.user && (
-                                <Button size="lg" variant="outline" asChild>
-                                    <Link href="/login">
-                                        {t('landing.already_have_account')}
-                                    </Link>
-                                </Button>
-                            )}
-                        </div>
-                        <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                            {[
-                                'landing.private_default',
-                                'landing.no_subscription',
-                                'landing.mobile_first',
-                            ].map((key) => (
-                                    <span
-                                        key={key}
-                                        className="glass-subtle flex items-center gap-2 rounded-full px-3 py-1.5"
-                                    >
-                                        <span className="grid size-5 place-items-center rounded-full bg-secondary text-primary">
-                                            <Check className="size-3.5" />
-                                        </span>
-                                        {t(key)}
-                                    </span>
-                                ))}
-                        </div>
-                    </div>
-
-                    <div className="auth-card-enter relative mx-auto w-full max-w-md">
-                        <div className="absolute -inset-10 -z-10 rounded-[3rem] bg-primary/10 blur-3xl" />
-                        <Card className="relative overflow-hidden border-primary/12 p-5 shadow-[0_32px_80px_rgb(22_84_61_/_0.16)] before:pointer-events-none before:absolute before:-right-20 before:-top-24 before:size-64 before:rounded-full before:bg-secondary/80 before:blur-3xl sm:p-6">
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t('common.today')}
-                                    </p>
-                                    <h2 className="mt-1 text-2xl font-semibold">
-                                        {t('landing.good_afternoon')}
-                                    </h2>
-                                </div>
-                                <span className="soft-well rounded-full px-3 py-1 text-xs font-semibold text-primary">
-                                    {t('landing.on_track')}
-                                </span>
-                            </div>
-                            <div className="my-7 grid place-items-center">
-                                <div className="relative grid size-48 place-items-center rounded-full bg-[conic-gradient(var(--primary)_0_68%,var(--secondary)_68%_100%)]">
-                                    <div className="grid size-40 place-items-center rounded-full bg-card text-center">
-                                        <div>
-                                            <p className="text-4xl font-semibold tracking-tight">
-                                                1,368
-                                            </p>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {t('landing.of_target', {
-                                                    target: '2,000',
-                                                })}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-3">
-                                {[
-                                    ['common.protein', '84 / 120g', 'var(--protein)'],
-                                    ['common.carbs', '146 / 220g', 'var(--carbs)'],
-                                    ['common.fat', '42 / 65g', 'var(--fat)'],
-                                ].map(([label, value, color]) => (
-                                    <div
-                                        key={label}
-                                        className="soft-well rounded-2xl p-3"
-                                    >
-                                        <span
-                                            className="mb-2 block size-2 rounded-full"
-                                            style={{ background: color }}
-                                        />
-                                        <p className="text-xs text-muted-foreground">
-                                            {t(label)}
-                                        </p>
-                                        <p className="mt-0.5 text-xs font-semibold">{value}</p>
-                                    </div>
-                                ))}
-                            </div>
-                            <Button className="mt-5 w-full">
-                                <Search /> {t('landing.add_food')}
-                            </Button>
-                        </Card>
-                    </div>
-                </section>
-
-                <section className="border-y border-white/60 bg-card/48 backdrop-blur-xl">
-                    <div className="stagger-in mx-auto grid max-w-7xl gap-8 px-5 py-16 sm:px-8 md:grid-cols-3">
-                        {[
-                            [
-                                Search,
-                                'landing.feature_log_title',
-                                'landing.feature_log_copy',
-                            ],
-                            [
-                                CircleGauge,
-                                'landing.feature_targets_title',
-                                'landing.feature_targets_copy',
-                            ],
-                            [
-                                BarChart3,
-                                'landing.feature_reports_title',
-                                'landing.feature_reports_copy',
-                            ],
-                        ].map(([Icon, title, copy]) => {
-                            const ItemIcon = Icon as typeof Search;
-                            return (
-                                <div
-                                    key={title as string}
-                                    className="glass-subtle rounded-2xl p-5 transition-[transform,box-shadow] hover:-translate-y-1 hover:shadow-[0_18px_42px_rgb(25_72_55_/_0.08)]"
+            <Box
+                component="main"
+                sx={{
+                    position: 'relative',
+                    '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        zIndex: -1,
+                        top: -260,
+                        left: -260,
+                        width: 620,
+                        height: 620,
+                        borderRadius: '50%',
+                        bgcolor: 'primary.lighter',
+                        filter: 'blur(90px)',
+                        opacity: 0.55,
+                    },
+                    '&::after': {
+                        content: '""',
+                        position: 'absolute',
+                        zIndex: -1,
+                        top: 80,
+                        right: -280,
+                        width: 560,
+                        height: 560,
+                        borderRadius: '50%',
+                        bgcolor: 'secondary.light',
+                        filter: 'blur(120px)',
+                        opacity: 0.18,
+                    },
+                }}
+            >
+                <Container maxWidth="lg" sx={{ py: { xs: 7, md: 13 } }}>
+                    <Grid container spacing={{ xs: 7, lg: 10 }} alignItems="center">
+                        <Grid size={{ xs: 12, lg: 7 }}>
+                            <motion.div
+                                initial={{ opacity: 0, y: 18 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.55, ease: 'easeOut' }}
+                            >
+                                <Chip
+                                    icon={<AutoAwesomeRounded />}
+                                    label={t('landing.badge')}
+                                    color="primary"
+                                    sx={{ mb: 3 }}
+                                />
+                                <Typography
+                                    component="h1"
+                                    variant="h1"
+                                    sx={{
+                                        maxWidth: 700,
+                                        fontSize: {
+                                            xs: '2.75rem',
+                                            sm: '3.75rem',
+                                            md: '4.5rem',
+                                        },
+                                        lineHeight: 1.04,
+                                    }}
                                 >
-                                    <div className="soft-well mb-4 grid size-11 place-items-center rounded-xl text-primary">
-                                        <ItemIcon />
-                                    </div>
-                                    <h3 className="font-semibold">
-                                        {t(title as string)}
-                                    </h3>
-                                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                                        {t(copy as string)}
-                                    </p>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </section>
-            </main>
-        </div>
+                                    {t('landing.headline')}
+                                </Typography>
+                                <Typography
+                                    variant="h6"
+                                    color="text.secondary"
+                                    sx={{
+                                        mt: 3,
+                                        maxWidth: 620,
+                                        fontWeight: 400,
+                                        lineHeight: 1.65,
+                                    }}
+                                >
+                                    {t('landing.description')}
+                                </Typography>
+
+                                <Stack
+                                    direction={{ xs: 'column', sm: 'row' }}
+                                    spacing={1.5}
+                                    sx={{ mt: 4 }}
+                                >
+                                    <RouterLink
+                                        href={auth.user ? '/today' : '/register'}
+                                    >
+                                        <Button
+                                            size="large"
+                                            variant="contained"
+                                            endIcon={<ArrowForwardRounded />}
+                                        >
+                                            {auth.user
+                                                ? t('landing.open_your_diary')
+                                                : t(
+                                                      'landing.create_free_account',
+                                                  )}
+                                        </Button>
+                                    </RouterLink>
+                                    {!auth.user && (
+                                        <RouterLink href="/login">
+                                            <Button size="large" variant="outlined">
+                                                {t(
+                                                    'landing.already_have_account',
+                                                )}
+                                            </Button>
+                                        </RouterLink>
+                                    )}
+                                </Stack>
+
+                                <Stack
+                                    direction="row"
+                                    flexWrap="wrap"
+                                    gap={1.25}
+                                    sx={{ mt: 4 }}
+                                >
+                                    {[
+                                        'landing.private_default',
+                                        'landing.no_subscription',
+                                        'landing.mobile_first',
+                                    ].map((key) => (
+                                        <Chip
+                                            key={key}
+                                            variant="outlined"
+                                            icon={<CheckRounded color="primary" />}
+                                            label={t(key)}
+                                            sx={{ bgcolor: 'background.paper' }}
+                                        />
+                                    ))}
+                                </Stack>
+                            </motion.div>
+                        </Grid>
+
+                        <Grid size={{ xs: 12, lg: 5 }}>
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.96, y: 24 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                transition={{
+                                    duration: 0.65,
+                                    delay: 0.12,
+                                    ease: 'easeOut',
+                                }}
+                            >
+                                <Card
+                                    sx={{
+                                        maxWidth: 460,
+                                        mx: 'auto',
+                                        boxShadow:
+                                            '0 32px 80px rgba(0, 167, 111, 0.18)',
+                                    }}
+                                >
+                                    <CardContent>
+                                        <Stack
+                                            direction="row"
+                                            justifyContent="space-between"
+                                            alignItems="flex-start"
+                                        >
+                                            <Box>
+                                                <Typography
+                                                    variant="body2"
+                                                    color="text.secondary"
+                                                >
+                                                    {t('common.today')}
+                                                </Typography>
+                                                <Typography variant="h5" sx={{ mt: 0.5 }}>
+                                                    {t(
+                                                        'landing.good_afternoon',
+                                                    )}
+                                                </Typography>
+                                            </Box>
+                                            <Chip
+                                                size="small"
+                                                color="success"
+                                                label={t('landing.on_track')}
+                                            />
+                                        </Stack>
+
+                                        <Box
+                                            sx={{
+                                                position: 'relative',
+                                                display: 'grid',
+                                                placeItems: 'center',
+                                                width: 196,
+                                                height: 196,
+                                                mx: 'auto',
+                                                my: 4,
+                                            }}
+                                        >
+                                            <CircularProgress
+                                                variant="determinate"
+                                                value={100}
+                                                size={196}
+                                                thickness={4}
+                                                sx={{
+                                                    position: 'absolute',
+                                                    color: 'primary.lighter',
+                                                }}
+                                            />
+                                            <CircularProgress
+                                                variant="determinate"
+                                                value={68}
+                                                size={196}
+                                                thickness={4}
+                                                sx={{
+                                                    position: 'absolute',
+                                                    color: 'primary.main',
+                                                    '& .MuiCircularProgress-circle':
+                                                        { strokeLinecap: 'round' },
+                                                }}
+                                            />
+                                            <Box sx={{ textAlign: 'center' }}>
+                                                <Typography variant="h3">
+                                                    1,368
+                                                </Typography>
+                                                <Typography
+                                                    variant="caption"
+                                                    color="text.secondary"
+                                                >
+                                                    {t('landing.of_target', {
+                                                        target: '2,000',
+                                                    })}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+
+                                        <Grid container spacing={1.5}>
+                                            {[
+                                                [
+                                                    'common.protein',
+                                                    '84 / 120g',
+                                                    70,
+                                                    '#8E33FF',
+                                                ],
+                                                [
+                                                    'common.carbs',
+                                                    '146 / 220g',
+                                                    66,
+                                                    '#FFAB00',
+                                                ],
+                                                [
+                                                    'common.fat',
+                                                    '42 / 65g',
+                                                    65,
+                                                    '#FF5630',
+                                                ],
+                                            ].map(([label, value, progress, color]) => (
+                                                <Grid
+                                                    key={String(label)}
+                                                    size={{ xs: 4 }}
+                                                >
+                                                    <Box
+                                                        sx={{
+                                                            p: 1.5,
+                                                            borderRadius: 2,
+                                                            bgcolor:
+                                                                'background.default',
+                                                        }}
+                                                    >
+                                                        <Typography
+                                                            variant="caption"
+                                                            color="text.secondary"
+                                                        >
+                                                            {t(String(label))}
+                                                        </Typography>
+                                                        <Typography
+                                                            variant="subtitle2"
+                                                            noWrap
+                                                            sx={{ mt: 0.25 }}
+                                                        >
+                                                            {String(value)}
+                                                        </Typography>
+                                                        <LinearProgress
+                                                            variant="determinate"
+                                                            value={Number(progress)}
+                                                            sx={{
+                                                                mt: 1,
+                                                                height: 5,
+                                                                bgcolor:
+                                                                    'action.hover',
+                                                                '& .MuiLinearProgress-bar':
+                                                                    {
+                                                                        bgcolor:
+                                                                            String(
+                                                                                color,
+                                                                            ),
+                                                                    },
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                </Grid>
+                                            ))}
+                                        </Grid>
+                                        <Button
+                                            fullWidth
+                                            variant="contained"
+                                            startIcon={<SearchRounded />}
+                                            sx={{ mt: 2.5 }}
+                                        >
+                                            {t('landing.add_food')}
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        </Grid>
+                    </Grid>
+                </Container>
+
+                <Box
+                    sx={(theme) => ({
+                        borderTop: 1,
+                        borderBottom: 1,
+                        borderColor: 'divider',
+                        bgcolor: alpha(theme.palette.background.paper, 0.7),
+                        backdropFilter: 'blur(16px)',
+                    })}
+                >
+                    <Container maxWidth="lg" sx={{ py: 8 }}>
+                        <Grid container spacing={3}>
+                            {[
+                                [
+                                    'landing.feature_log_title',
+                                    'landing.feature_log_copy',
+                                ],
+                                [
+                                    'landing.feature_targets_title',
+                                    'landing.feature_targets_copy',
+                                ],
+                                [
+                                    'landing.feature_reports_title',
+                                    'landing.feature_reports_copy',
+                                ],
+                            ].map(([title, copy], index) => {
+                                const Icon = featureIcons[index];
+
+                                return (
+                                    <Grid key={title} size={{ xs: 12, md: 4 }}>
+                                        <Card
+                                            variant="outlined"
+                                            sx={{
+                                                height: 1,
+                                                boxShadow: 'none',
+                                                transition: (theme) =>
+                                                    theme.transitions.create([
+                                                        'transform',
+                                                        'box-shadow',
+                                                    ]),
+                                                '&:hover': {
+                                                    transform:
+                                                        'translateY(-4px)',
+                                                    boxShadow: (theme) =>
+                                                        theme.shadows[8],
+                                                },
+                                            }}
+                                        >
+                                            <CardContent>
+                                                <Box
+                                                    sx={{
+                                                        display: 'grid',
+                                                        placeItems: 'center',
+                                                        width: 48,
+                                                        height: 48,
+                                                        mb: 2,
+                                                        borderRadius: 2,
+                                                        color: 'primary.main',
+                                                        bgcolor:
+                                                            'primary.lighter',
+                                                    }}
+                                                >
+                                                    <Icon />
+                                                </Box>
+                                                <Typography variant="h6">
+                                                    {t(title)}
+                                                </Typography>
+                                                <Typography
+                                                    variant="body2"
+                                                    color="text.secondary"
+                                                    sx={{ mt: 1, lineHeight: 1.7 }}
+                                                >
+                                                    {t(copy)}
+                                                </Typography>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                );
+                            })}
+                        </Grid>
+                    </Container>
+                </Box>
+            </Box>
+        </Box>
     );
 }

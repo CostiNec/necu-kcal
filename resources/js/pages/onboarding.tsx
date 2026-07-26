@@ -1,14 +1,29 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { ArrowRight, Check, LoaderCircle } from 'lucide-react';
+import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded';
+import CheckCircleRounded from '@mui/icons-material/CheckCircleRounded';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
+import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
+import Container from '@mui/material/Container';
+import Grid from '@mui/material/Grid';
+import InputAdornment from '@mui/material/InputAdornment';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import { motion } from 'framer-motion';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrandMark } from '@/components/brand-mark';
 import { LanguageSwitcher } from '@/components/language-switcher';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { FieldError } from '@/components/field-error';
+import {
+    parseNumberInput,
+    type NumberInputValue,
+} from '@/lib/utils';
 import type { NutritionTargets, SharedProps } from '@/types';
 
 export default function Onboarding({
@@ -20,7 +35,14 @@ export default function Onboarding({
 }) {
     const { auth } = usePage<SharedProps>().props;
     const { t } = useTranslation();
-    const form = useForm({
+    const form = useForm<{
+        name: string;
+        calories: NumberInputValue;
+        protein: NumberInputValue;
+        carbohydrates: NumberInputValue;
+        fat: NumberInputValue;
+        timezone: string;
+    }>({
         name: auth.user?.name ?? '',
         calories: targets?.calories ?? 2000,
         protein: targets?.protein ?? 120,
@@ -35,143 +57,138 @@ export default function Onboarding({
     };
 
     return (
-        <main className="relative isolate min-h-screen overflow-hidden px-4 py-6 sm:px-6 sm:py-10">
+        <Box component="main" sx={{ minHeight: '100vh', py: { xs: 2, sm: 5 } }}>
             <Head title={t('onboarding.head_title')} />
-            <div className="pointer-events-none absolute -left-40 -top-52 -z-10 size-[34rem] rounded-full bg-secondary/75 blur-3xl" />
-            <div className="pointer-events-none absolute -right-48 top-1/3 -z-10 size-[30rem] rounded-full bg-primary/7 blur-3xl" />
-            <div className="page-enter mx-auto max-w-2xl">
-                <div className="flex items-center justify-between gap-4">
+            <Container maxWidth="md" component={motion.div} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between">
                     <BrandMark />
                     <LanguageSwitcher compact />
-                </div>
-                <div className="my-10 sm:my-14">
-                    <span className="glass-subtle inline-flex rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-primary">
-                        {t('onboarding.step')}
-                    </span>
-                    <h1 className="mt-4 text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-[2.65rem]">
+                </Stack>
+                <Box sx={{ my: { xs: 5, sm: 7 } }}>
+                    <Chip label={t('onboarding.step')} color="primary" variant="outlined" />
+                    <Typography variant="h3" sx={{ mt: 2 }}>
                         {t('onboarding.title')}
-                    </h1>
-                    <p className="mt-3 max-w-xl leading-7 text-muted-foreground">
+                    </Typography>
+                    <Typography color="text.secondary" sx={{ mt: 1.5, maxWidth: 620 }}>
                         {t('onboarding.description')}
-                    </p>
-                </div>
+                    </Typography>
+                </Box>
 
-                <form className="auth-card-enter" onSubmit={submit}>
-                    <Card className="overflow-hidden">
-                        <CardHeader className="border-b border-white/60 bg-white/18">
-                            <CardTitle>{t('onboarding.card_title')}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">
-                                    {t('onboarding.name_question')}
-                                </Label>
-                                <Input
-                                    id="name"
+                <Stack component="form" spacing={2.5} onSubmit={submit}>
+                    <Card>
+                        <CardHeader title={t('onboarding.card_title')} />
+                        <CardContent>
+                            <Stack spacing={3}>
+                                <TextField
+                                    label={t('onboarding.name_question')}
                                     value={form.data.name}
                                     onChange={(event) =>
                                         form.setData('name', event.target.value)
                                     }
+                                    error={Boolean(form.errors.name)}
+                                    helperText={form.errors.name}
                                 />
-                                <FieldError message={form.errors.name} />
-                            </div>
-                            <div className="grid gap-5 sm:grid-cols-2">
-                                <TargetInput
-                                    id="calories"
-                                    label={t('common.calories')}
-                                    suffix="kcal"
-                                    value={form.data.calories}
-                                    error={form.errors.calories}
-                                    onChange={(value) => form.setData('calories', value)}
-                                />
-                                <TargetInput
-                                    id="protein"
-                                    label={t('common.protein')}
-                                    suffix={t('common.grams')}
-                                    value={form.data.protein}
-                                    error={form.errors.protein}
-                                    onChange={(value) => form.setData('protein', value)}
-                                />
-                                <TargetInput
-                                    id="carbohydrates"
-                                    label={t('common.carbohydrates')}
-                                    suffix={t('common.grams')}
-                                    value={form.data.carbohydrates}
-                                    error={form.errors.carbohydrates}
-                                    onChange={(value) =>
-                                        form.setData('carbohydrates', value)
-                                    }
-                                />
-                                <TargetInput
-                                    id="fat"
-                                    label={t('common.fat')}
-                                    suffix={t('common.grams')}
-                                    value={form.data.fat}
-                                    error={form.errors.fat}
-                                    onChange={(value) => form.setData('fat', value)}
-                                />
-                            </div>
-                            <div className="soft-well rounded-2xl p-4">
-                                <div className="flex gap-3">
-                                    <Check className="mt-0.5 size-5 shrink-0 text-primary" />
-                                    <p className="text-sm leading-6 text-muted-foreground">
-                                        {t('onboarding.hint')}
-                                    </p>
-                                </div>
-                            </div>
+                                <Grid container spacing={2.5}>
+                                    <TargetInput
+                                        label={t('common.calories')}
+                                        suffix="kcal"
+                                        value={form.data.calories}
+                                        error={form.errors.calories}
+                                        onChange={(value) =>
+                                            form.setData('calories', value)
+                                        }
+                                    />
+                                    <TargetInput
+                                        label={t('common.protein')}
+                                        suffix={t('common.grams')}
+                                        value={form.data.protein}
+                                        error={form.errors.protein}
+                                        onChange={(value) =>
+                                            form.setData('protein', value)
+                                        }
+                                    />
+                                    <TargetInput
+                                        label={t('common.carbohydrates')}
+                                        suffix={t('common.grams')}
+                                        value={form.data.carbohydrates}
+                                        error={form.errors.carbohydrates}
+                                        onChange={(value) =>
+                                            form.setData('carbohydrates', value)
+                                        }
+                                    />
+                                    <TargetInput
+                                        label={t('common.fat')}
+                                        suffix={t('common.grams')}
+                                        value={form.data.fat}
+                                        error={form.errors.fat}
+                                        onChange={(value) =>
+                                            form.setData('fat', value)
+                                        }
+                                    />
+                                </Grid>
+                                <Alert
+                                    severity="success"
+                                    icon={<CheckCircleRounded />}
+                                >
+                                    {t('onboarding.hint')}
+                                </Alert>
+                            </Stack>
                         </CardContent>
                     </Card>
                     <Button
-                        size="lg"
+                        size="large"
                         type="submit"
-                        className="mt-5 w-full"
+                        variant="contained"
                         disabled={form.processing}
+                        endIcon={
+                            form.processing ? (
+                                <CircularProgress size={18} color="inherit" />
+                            ) : (
+                                <ArrowForwardRounded />
+                            )
+                        }
                     >
-                        {form.processing ? (
-                            <LoaderCircle className="animate-spin" />
-                        ) : (
-                            <ArrowRight />
-                        )}
                         {t('onboarding.open_diary')}
                     </Button>
-                </form>
-            </div>
-        </main>
+                </Stack>
+            </Container>
+        </Box>
     );
 }
 
 function TargetInput({
-    id,
     label,
     suffix,
     value,
     error,
     onChange,
 }: {
-    id: string;
     label: string;
     suffix: string;
-    value: number;
+    value: NumberInputValue;
     error?: string;
-    onChange: (value: number) => void;
+    onChange: (value: NumberInputValue) => void;
 }) {
     return (
-        <div className="space-y-2">
-            <Label htmlFor={id}>{label}</Label>
-            <div className="relative">
-                <Input
-                    id={id}
-                    type="number"
-                    min="0"
-                    value={value}
-                    onChange={(event) => onChange(Number(event.target.value))}
-                    className="pr-20"
-                />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted-foreground">
-                    {suffix}
-                </span>
-            </div>
-            <FieldError message={error} />
-        </div>
+        <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+                label={label}
+                type="number"
+                value={value}
+                onChange={(event) =>
+                    onChange(parseNumberInput(event.target.value))
+                }
+                error={Boolean(error)}
+                helperText={error}
+                slotProps={{
+                    htmlInput: { min: 0 },
+                    input: {
+                        endAdornment: (
+                            <InputAdornment position="end">{suffix}</InputAdornment>
+                        ),
+                    },
+                }}
+            />
+        </Grid>
     );
 }

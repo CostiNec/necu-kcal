@@ -1,12 +1,11 @@
 import { Head, useForm } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AuthLayout } from '@/layouts/auth-layout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { FieldError } from '@/components/field-error';
 
 export default function ResetPassword({
     email,
@@ -36,48 +35,50 @@ export default function ResetPassword({
             description={t('auth.choose_password_description')}
         >
             <Head title={t('auth.reset_password')} />
-            <form onSubmit={submit} className="space-y-5">
-                <div className="space-y-2">
-                    <Label htmlFor="email">{t('common.email_address')}</Label>
-                    <Input id="email" type="email" value={form.data.email} readOnly />
-                    <FieldError message={form.errors.email} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="password">{t('common.new_password')}</Label>
-                    <Input
-                        id="password"
-                        type="password"
-                        autoFocus
-                        autoComplete="new-password"
-                        value={form.data.password}
-                        onChange={(event) =>
-                            form.setData('password', event.target.value)
-                        }
-                    />
-                    <FieldError message={form.errors.password} />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="password_confirmation">
-                        {t('common.confirm_password')}
-                    </Label>
-                    <Input
-                        id="password_confirmation"
-                        type="password"
-                        autoComplete="new-password"
-                        value={form.data.password_confirmation}
-                        onChange={(event) =>
-                            form.setData(
-                                'password_confirmation',
-                                event.target.value,
-                            )
-                        }
-                    />
-                </div>
-                <Button type="submit" size="lg" className="w-full" disabled={form.processing}>
-                    {form.processing && <LoaderCircle className="animate-spin" />}
+            <Stack component="form" spacing={2.5} onSubmit={submit}>
+                <TextField
+                    label={t('common.email_address')}
+                    type="email"
+                    value={form.data.email}
+                    slotProps={{ input: { readOnly: true } }}
+                    error={Boolean(form.errors.email)}
+                    helperText={form.errors.email}
+                />
+                <TextField
+                    label={t('common.new_password')}
+                    type="password"
+                    autoFocus
+                    autoComplete="new-password"
+                    value={form.data.password}
+                    onChange={(event) =>
+                        form.setData('password', event.target.value)
+                    }
+                    error={Boolean(form.errors.password)}
+                    helperText={form.errors.password}
+                />
+                <TextField
+                    label={t('common.confirm_password')}
+                    type="password"
+                    autoComplete="new-password"
+                    value={form.data.password_confirmation}
+                    onChange={(event) =>
+                        form.setData('password_confirmation', event.target.value)
+                    }
+                />
+                <Button
+                    type="submit"
+                    size="large"
+                    variant="contained"
+                    disabled={form.processing}
+                    startIcon={
+                        form.processing ? (
+                            <CircularProgress size={18} color="inherit" />
+                        ) : undefined
+                    }
+                >
                     {t('auth.reset_password')}
                 </Button>
-            </form>
+            </Stack>
         </AuthLayout>
     );
 }

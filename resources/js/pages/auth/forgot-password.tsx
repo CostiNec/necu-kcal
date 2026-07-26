@@ -1,12 +1,14 @@
-import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, LoaderCircle } from 'lucide-react';
+import { Head, useForm } from '@inertiajs/react';
+import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
+import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AuthLayout } from '@/layouts/auth-layout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { FieldError } from '@/components/field-error';
+import { RouterLink } from '@/components/router-link';
 
 export default function ForgotPassword({ status }: { status?: string }) {
     const { t } = useTranslation();
@@ -23,35 +25,45 @@ export default function ForgotPassword({ status }: { status?: string }) {
             description={t('auth.reset_description')}
         >
             <Head title={t('auth.forgot_head')} />
-            {status && (
-                <div className="mb-5 rounded-xl bg-secondary p-4 text-sm text-secondary-foreground">
-                    {status}
-                </div>
-            )}
-            <form onSubmit={submit} className="space-y-5">
-                <div className="space-y-2">
-                    <Label htmlFor="email">{t('common.email_address')}</Label>
-                    <Input
-                        id="email"
+            <Stack spacing={2.5}>
+                {status && <Alert severity="success">{status}</Alert>}
+                <Stack component="form" spacing={2.5} onSubmit={submit}>
+                    <TextField
+                        label={t('common.email_address')}
                         type="email"
                         autoComplete="email"
                         autoFocus
                         value={form.data.email}
-                        onChange={(event) => form.setData('email', event.target.value)}
+                        onChange={(event) =>
+                            form.setData('email', event.target.value)
+                        }
+                        error={Boolean(form.errors.email)}
+                        helperText={form.errors.email}
                     />
-                    <FieldError message={form.errors.email} />
-                </div>
-                <Button type="submit" size="lg" className="w-full" disabled={form.processing}>
-                    {form.processing && <LoaderCircle className="animate-spin" />}
-                    {t('auth.email_reset_link')}
-                </Button>
-            </form>
-            <Button variant="ghost" asChild className="mt-5 w-full">
-                <Link href="/login">
-                    <ArrowLeft />
-                    {t('auth.back_to_sign_in')}
-                </Link>
-            </Button>
+                    <Button
+                        type="submit"
+                        size="large"
+                        variant="contained"
+                        disabled={form.processing}
+                        startIcon={
+                            form.processing ? (
+                                <CircularProgress size={18} color="inherit" />
+                            ) : undefined
+                        }
+                    >
+                        {t('auth.email_reset_link')}
+                    </Button>
+                </Stack>
+                <RouterLink href="/login" style={{ textDecoration: 'none' }}>
+                    <Button
+                        fullWidth
+                        color="inherit"
+                        startIcon={<ArrowBackRounded />}
+                    >
+                        {t('auth.back_to_sign_in')}
+                    </Button>
+                </RouterLink>
+            </Stack>
         </AuthLayout>
     );
 }

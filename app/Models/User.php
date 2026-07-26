@@ -40,6 +40,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Food::class);
     }
 
+    public function recipes(): HasMany
+    {
+        return $this->hasMany(Recipe::class);
+    }
+
     public function diaryDays(): HasMany
     {
         return $this->hasMany(DiaryDay::class);

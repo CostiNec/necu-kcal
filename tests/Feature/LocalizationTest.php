@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Food;
 use App\Models\User;
 use Database\Seeders\FoodSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -60,6 +61,65 @@ class LocalizationTest extends TestCase
                 ->where('foods.0.name', 'Piept de pui, gătit')
                 ->where('foods.0.serving.name', '100 g')
             );
+    }
+
+    public function test_translated_food_search_uses_word_prefixes_not_substrings(): void
+    {
+        $this->seed(FoodSeeder::class);
+        $user = $this->onboardedUser();
+
+        $this->actingAs($user)
+            ->withSession(['locale' => 'ro'])
+            ->getJson('/foods/search?search=t')
+            ->assertOk()
+            ->assertJsonMissing([
+                'name' => 'Piept de pui, gătit',
+            ]);
+
+        $this->actingAs($user)
+            ->withSession(['locale' => 'ro'])
+            ->getJson('/foods/search?search=pie')
+            ->assertOk()
+            ->assertJsonFragment([
+                'name' => 'Piept de pui, gătit',
+            ]);
+
+        $this->actingAs($user)
+            ->withSession(['locale' => 'ro'])
+            ->getJson('/foods/search?search=piept%20de')
+            ->assertOk()
+            ->assertJsonFragment([
+                'name' => 'Piept de pui, gătit',
+            ]);
+    }
+
+    public function test_food_name_is_used_when_current_locale_translation_is_missing(): void
+    {
+        $user = $this->onboardedUser();
+        $food = Food::query()->create([
+            'user_id' => null,
+            'name' => 'Fallback food',
+            'calories' => 100,
+            'unit_type' => 'g',
+            'is_public' => true,
+        ]);
+        $food->translations()->create([
+            'locale' => 'en',
+            'name' => 'English translated food',
+        ]);
+        $food->servings()->create([
+            'name' => '100 g',
+            'amount' => 100,
+            'is_default' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['locale' => 'ro'])
+            ->getJson('/foods/search?search=Fallback')
+            ->assertOk()
+            ->assertJsonFragment([
+                'name' => 'Fallback food',
+            ]);
     }
 
     public function test_flash_messages_follow_the_selected_locale(): void

@@ -22,7 +22,7 @@ class ReportController extends Controller
         $days = DiaryDay::query()
             ->where('user_id', $request->user()->id)
             ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
-            ->with('entries')
+            ->with('entries.food.translation')
             ->get()
             ->keyBy(fn (DiaryDay $day) => $day->date->toDateString());
 
@@ -47,11 +47,12 @@ class ReportController extends Controller
 
         $topFoods = $days
             ->flatMap->entries
-            ->groupBy(fn ($entry) => $entry->food_translation_key ?: "custom:{$entry->food_name}")
-            ->map(fn ($entries, $key) => [
-                'name' => str_starts_with($key, 'custom:')
-                    ? $entries->first()->food_name
-                    : __($key),
+            ->groupBy(fn ($entry) => $entry->food_id
+                ? "food:{$entry->food_id}"
+                : "snapshot:{$entry->food_name}")
+            ->map(fn ($entries) => [
+                'name' => $entries->first()->food?->localizedName()
+                    ?? $entries->first()->food_name,
                 'times' => $entries->count(),
                 'calories' => round((float) $entries->sum('calories')),
             ])

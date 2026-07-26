@@ -1,14 +1,28 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { LoaderCircle, LogOut, Save, Trash2 } from 'lucide-react';
+import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
+import LogoutRounded from '@mui/icons-material/LogoutRounded';
+import SaveRounded from '@mui/icons-material/SaveRounded';
+import {
+    Alert,
+    Box,
+    Button,
+    Card,
+    CardContent,
+    CardHeader,
+    CircularProgress,
+    Grid,
+    Stack,
+    TextField,
+    Typography,
+} from '@mui/material';
 import type { FormEvent } from 'react';
-import { AppLayout } from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { FieldError } from '@/components/field-error';
-import type { NutritionTargets, SharedProps } from '@/types';
 import { useTranslation } from 'react-i18next';
+import { AppLayout } from '@/layouts/app-layout';
+import {
+    parseNumberInput,
+    type NumberInputValue,
+} from '@/lib/utils';
+import type { NutritionTargets, SharedProps } from '@/types';
 
 export default function SettingsIndex({
     profile,
@@ -23,7 +37,13 @@ export default function SettingsIndex({
         name: auth.user?.name ?? '',
         email: auth.user?.email ?? '',
     });
-    const targetForm = useForm({
+    const targetForm = useForm<{
+        calories: NumberInputValue;
+        protein: NumberInputValue;
+        carbohydrates: NumberInputValue;
+        fat: NumberInputValue;
+        timezone: string;
+    }>({
         calories: targets.calories,
         protein: targets.protein,
         carbohydrates: targets.carbohydrates,
@@ -35,118 +55,110 @@ export default function SettingsIndex({
         password: '',
         password_confirmation: '',
     });
-    const deleteForm = useForm({
-        current_password: '',
-    });
+    const deleteForm = useForm({ current_password: '' });
+    const targetFields = [
+        ['calories', t('common.calories')],
+        ['protein', t('settings.protein_g')],
+        ['carbohydrates', t('settings.carbs_g')],
+        ['fat', t('settings.fat_g')],
+    ] as const;
 
     return (
-        <AppLayout
-            title={t('settings.title')}
-            subtitle={t('settings.description')}
-        >
+        <AppLayout title={t('settings.title')} subtitle={t('settings.description')}>
             <Head title={t('settings.title')} />
-            <div className="stagger-in grid gap-6 lg:grid-cols-2">
-                <Card className="overflow-hidden">
-                    <CardHeader className="border-b border-white/60 bg-white/18">
-                        <CardTitle>{t('settings.personal_information')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form
-                            className="space-y-5"
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                profileForm.put('/user/profile-information', {
-                                    preserveScroll: true,
-                                });
-                            }}
-                        >
-                            <SettingsField
-                                label={t('common.name')}
-                                id="profile-name"
-                                value={profileForm.data.name}
-                                error={profileForm.errors.name}
-                                onChange={(value) =>
-                                    profileForm.setData('name', value)
-                                }
-                            />
-                            <SettingsField
-                                label={t('common.email')}
-                                id="profile-email"
-                                type="email"
-                                value={profileForm.data.email}
-                                error={profileForm.errors.email}
-                                onChange={(value) =>
-                                    profileForm.setData('email', value)
-                                }
-                            />
-                            <Button type="submit" disabled={profileForm.processing}>
-                                {profileForm.processing ? (
-                                    <LoaderCircle className="animate-spin" />
-                                ) : (
-                                    <Save />
-                                )}
-                                {t('settings.save_profile')}
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
 
-                <Card className="overflow-hidden">
-                    <CardHeader className="border-b border-white/60 bg-white/18">
-                        <CardTitle>{t('settings.daily_targets')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form
-                            className="space-y-5"
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                targetForm.put('/settings/targets', {
-                                    preserveScroll: true,
-                                });
-                            }}
-                        >
-                            <div className="grid grid-cols-2 gap-4">
-                                {[
-                                    ['calories', t('common.calories')],
-                                    ['protein', t('settings.protein_g')],
-                                    ['carbohydrates', t('settings.carbs_g')],
-                                    ['fat', t('settings.fat_g')],
-                                ].map(([key, label]) => (
-                                    <div className="space-y-2" key={key}>
-                                        <Label htmlFor={`target-${key}`}>{label}</Label>
-                                        <Input
-                                            id={`target-${key}`}
-                                            type="number"
-                                            min="0"
-                                            value={
-                                                targetForm.data[
-                                                    key as keyof NutritionTargets
-                                                ]
-                                            }
-                                            onChange={(event) =>
-                                                targetForm.setData(
-                                                    key as keyof NutritionTargets,
-                                                    Number(event.target.value),
-                                                )
-                                            }
-                                        />
-                                        <FieldError
-                                            message={
-                                                targetForm.errors[
-                                                    key as keyof NutritionTargets
-                                                ]
-                                            }
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="timezone">
-                                    {t('common.timezone')}
-                                </Label>
-                                <Input
-                                    id="timezone"
+            <Grid container spacing={3}>
+                <Grid size={{ xs: 12, lg: 6 }}>
+                    <Card sx={{ height: 1 }}>
+                        <CardHeader title={t('settings.personal_information')} />
+                        <CardContent>
+                            <Stack
+                                component="form"
+                                spacing={2.5}
+                                onSubmit={(event: FormEvent) => {
+                                    event.preventDefault();
+                                    profileForm.put('/user/profile-information', {
+                                        preserveScroll: true,
+                                    });
+                                }}
+                            >
+                                <SettingsField
+                                    label={t('common.name')}
+                                    value={profileForm.data.name}
+                                    error={profileForm.errors.name}
+                                    onChange={(value) =>
+                                        profileForm.setData('name', value)
+                                    }
+                                />
+                                <SettingsField
+                                    label={t('common.email')}
+                                    type="email"
+                                    value={profileForm.data.email}
+                                    error={profileForm.errors.email}
+                                    onChange={(value) =>
+                                        profileForm.setData('email', value)
+                                    }
+                                />
+                                <Box>
+                                    <LoadingButton
+                                        processing={profileForm.processing}
+                                        label={t('settings.save_profile')}
+                                    />
+                                </Box>
+                            </Stack>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                <Grid size={{ xs: 12, lg: 6 }}>
+                    <Card sx={{ height: 1 }}>
+                        <CardHeader title={t('settings.daily_targets')} />
+                        <CardContent>
+                            <Stack
+                                component="form"
+                                spacing={2.5}
+                                onSubmit={(event: FormEvent) => {
+                                    event.preventDefault();
+                                    targetForm.put('/settings/targets', {
+                                        preserveScroll: true,
+                                    });
+                                }}
+                            >
+                                <Grid container spacing={2}>
+                                    {targetFields.map(([key, label]) => (
+                                        <Grid key={key} size={{ xs: 6 }}>
+                                            <TextField
+                                                fullWidth
+                                                label={label}
+                                                type="number"
+                                                value={targetForm.data[key]}
+                                                error={Boolean(
+                                                    targetForm.errors[key],
+                                                )}
+                                                helperText={
+                                                    targetForm.errors[key]
+                                                }
+                                                slotProps={{
+                                                    htmlInput: { min: 0 },
+                                                }}
+                                                onChange={(event) =>
+                                                    targetForm.setData(
+                                                        key,
+                                                        parseNumberInput(
+                                                            event.target.value,
+                                                        ),
+                                                    )
+                                                }
+                                            />
+                                        </Grid>
+                                    ))}
+                                </Grid>
+                                <TextField
+                                    fullWidth
+                                    label={t('common.timezone')}
                                     value={targetForm.data.timezone}
+                                    error={Boolean(targetForm.errors.timezone)}
+                                    helperText={targetForm.errors.timezone}
                                     onChange={(event) =>
                                         targetForm.setData(
                                             'timezone',
@@ -154,180 +166,238 @@ export default function SettingsIndex({
                                         )
                                     }
                                 />
-                                <FieldError message={targetForm.errors.timezone} />
-                            </div>
-                            <Button type="submit" disabled={targetForm.processing}>
-                                {targetForm.processing ? (
-                                    <LoaderCircle className="animate-spin" />
-                                ) : (
-                                    <Save />
-                                )}
-                                {t('settings.save_targets')}
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
+                                <Box>
+                                    <LoadingButton
+                                        processing={targetForm.processing}
+                                        label={t('settings.save_targets')}
+                                    />
+                                </Box>
+                            </Stack>
+                        </CardContent>
+                    </Card>
+                </Grid>
 
-                <Card className="overflow-hidden">
-                    <CardHeader className="border-b border-white/60 bg-white/18">
-                        <CardTitle>{t('settings.change_password')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form
-                            className="space-y-5"
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                passwordForm.put('/user/password', {
-                                    preserveScroll: true,
-                                    onSuccess: () => passwordForm.reset(),
-                                });
-                            }}
-                        >
-                            <SettingsField
-                                label={t('common.current_password')}
-                                id="current-password"
-                                type="password"
-                                value={passwordForm.data.current_password}
-                                error={passwordForm.errors.current_password}
-                                onChange={(value) =>
-                                    passwordForm.setData('current_password', value)
-                                }
-                            />
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <SettingsField
-                                    label={t('common.new_password')}
-                                    id="new-password"
-                                    type="password"
-                                    value={passwordForm.data.password}
-                                    error={passwordForm.errors.password}
-                                    onChange={(value) =>
-                                        passwordForm.setData('password', value)
-                                    }
-                                />
-                                <SettingsField
-                                    label={t('common.confirm_password')}
-                                    id="confirm-password"
-                                    type="password"
-                                    value={passwordForm.data.password_confirmation}
-                                    onChange={(value) =>
-                                        passwordForm.setData(
-                                            'password_confirmation',
-                                            value,
-                                        )
-                                    }
-                                />
-                            </div>
-                            <Button type="submit" disabled={passwordForm.processing}>
-                                {t('settings.update_password')}
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
-
-                <Card className="overflow-hidden">
-                    <CardHeader className="border-b border-white/60 bg-white/18">
-                        <CardTitle>{t('settings.session')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="mb-5 text-sm leading-6 text-muted-foreground">
-                            {t('settings.session_copy')}
-                        </p>
-                        <Button
-                            variant="outline"
-                            onClick={() => router.post('/logout')}
-                        >
-                            <LogOut />
-                            {t('common.sign_out')}
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                <Card className="overflow-hidden border-destructive/20 bg-destructive/[0.018] lg:col-span-2">
-                    <CardHeader className="border-b border-destructive/10 bg-destructive/[0.025]">
-                        <CardTitle>{t('settings.delete_account')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid gap-5 lg:grid-cols-[1fr_22rem] lg:items-end">
-                            <div>
-                                <p className="text-sm leading-6 text-muted-foreground">
-                                    {t('settings.delete_copy')}
-                                </p>
-                            </div>
-                            <form
-                                className="space-y-3"
-                                onSubmit={(event) => {
+                <Grid size={{ xs: 12, lg: 6 }}>
+                    <Card sx={{ height: 1 }}>
+                        <CardHeader title={t('settings.change_password')} />
+                        <CardContent>
+                            <Stack
+                                component="form"
+                                spacing={2.5}
+                                onSubmit={(event: FormEvent) => {
                                     event.preventDefault();
-                                    if (
-                                        !window.confirm(
-                                            t('settings.delete_confirm'),
-                                        )
-                                    ) {
-                                        return;
-                                    }
-
-                                    deleteForm.delete('/settings/account');
+                                    passwordForm.put('/user/password', {
+                                        preserveScroll: true,
+                                        onSuccess: () => passwordForm.reset(),
+                                    });
                                 }}
                             >
                                 <SettingsField
                                     label={t('common.current_password')}
-                                    id="delete-current-password"
                                     type="password"
-                                    value={deleteForm.data.current_password}
-                                    error={deleteForm.errors.current_password}
+                                    value={passwordForm.data.current_password}
+                                    error={passwordForm.errors.current_password}
                                     onChange={(value) =>
-                                        deleteForm.setData('current_password', value)
+                                        passwordForm.setData(
+                                            'current_password',
+                                            value,
+                                        )
                                     }
                                 />
+                                <Grid container spacing={2}>
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <SettingsField
+                                            label={t('common.new_password')}
+                                            type="password"
+                                            value={passwordForm.data.password}
+                                            error={passwordForm.errors.password}
+                                            onChange={(value) =>
+                                                passwordForm.setData(
+                                                    'password',
+                                                    value,
+                                                )
+                                            }
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <SettingsField
+                                            label={t('common.confirm_password')}
+                                            type="password"
+                                            value={
+                                                passwordForm.data
+                                                    .password_confirmation
+                                            }
+                                            onChange={(value) =>
+                                                passwordForm.setData(
+                                                    'password_confirmation',
+                                                    value,
+                                                )
+                                            }
+                                        />
+                                    </Grid>
+                                </Grid>
+                                <Box>
+                                    <LoadingButton
+                                        processing={passwordForm.processing}
+                                        label={t('settings.update_password')}
+                                    />
+                                </Box>
+                            </Stack>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                <Grid size={{ xs: 12, lg: 6 }}>
+                    <Card sx={{ height: 1 }}>
+                        <CardHeader title={t('settings.session')} />
+                        <CardContent>
+                            <Stack spacing={2.5} alignItems="flex-start">
+                                <Typography variant="body2" color="text.secondary">
+                                    {t('settings.session_copy')}
+                                </Typography>
                                 <Button
-                                    type="submit"
-                                    variant="destructive"
-                                    disabled={
-                                        deleteForm.processing ||
-                                        !deleteForm.data.current_password
-                                    }
-                                    className="w-full"
+                                    variant="outlined"
+                                    startIcon={<LogoutRounded />}
+                                    onClick={() => router.post('/logout')}
                                 >
-                                    {deleteForm.processing ? (
-                                        <LoaderCircle className="animate-spin" />
-                                    ) : (
-                                        <Trash2 />
-                                    )}
-                                    {t('settings.delete_button')}
+                                    {t('common.sign_out')}
                                 </Button>
-                            </form>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+                            </Stack>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                <Grid size={{ xs: 12 }}>
+                    <Card
+                        variant="outlined"
+                        sx={{
+                            borderColor: 'error.light',
+                            bgcolor: 'error.lighter',
+                        }}
+                    >
+                        <CardHeader
+                            title={t('settings.delete_account')}
+                            titleTypographyProps={{ color: 'error.dark' }}
+                        />
+                        <CardContent>
+                            <Grid container spacing={3} alignItems="flex-end">
+                                <Grid size={{ xs: 12, lg: 7 }}>
+                                    <Alert severity="error" variant="outlined">
+                                        {t('settings.delete_copy')}
+                                    </Alert>
+                                </Grid>
+                                <Grid size={{ xs: 12, lg: 5 }}>
+                                    <Stack
+                                        component="form"
+                                        spacing={1.5}
+                                        onSubmit={(event: FormEvent) => {
+                                            event.preventDefault();
+                                            if (
+                                                window.confirm(
+                                                    t('settings.delete_confirm'),
+                                                )
+                                            ) {
+                                                deleteForm.delete(
+                                                    '/settings/account',
+                                                );
+                                            }
+                                        }}
+                                    >
+                                        <SettingsField
+                                            label={t('common.current_password')}
+                                            type="password"
+                                            value={deleteForm.data.current_password}
+                                            error={
+                                                deleteForm.errors.current_password
+                                            }
+                                            onChange={(value) =>
+                                                deleteForm.setData(
+                                                    'current_password',
+                                                    value,
+                                                )
+                                            }
+                                        />
+                                        <Button
+                                            type="submit"
+                                            color="error"
+                                            variant="soft"
+                                            fullWidth
+                                            disabled={
+                                                deleteForm.processing ||
+                                                !deleteForm.data.current_password
+                                            }
+                                            startIcon={
+                                                deleteForm.processing ? (
+                                                    <CircularProgress
+                                                        size={18}
+                                                        color="inherit"
+                                                    />
+                                                ) : (
+                                                    <DeleteOutlineRounded />
+                                                )
+                                            }
+                                        >
+                                            {t('settings.delete_button')}
+                                        </Button>
+                                    </Stack>
+                                </Grid>
+                            </Grid>
+                        </CardContent>
+                    </Card>
+                </Grid>
+            </Grid>
         </AppLayout>
     );
 }
 
 function SettingsField({
     label,
-    id,
     type = 'text',
     value,
     error,
     onChange,
 }: {
     label: string;
-    id: string;
     type?: string;
     value: string;
     error?: string;
     onChange: (value: string) => void;
 }) {
     return (
-        <div className="space-y-2">
-            <Label htmlFor={id}>{label}</Label>
-            <Input
-                id={id}
-                type={type}
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-            />
-            <FieldError message={error} />
-        </div>
+        <TextField
+            fullWidth
+            label={label}
+            type={type}
+            value={value}
+            error={Boolean(error)}
+            helperText={error}
+            onChange={(event) => onChange(event.target.value)}
+        />
+    );
+}
+
+function LoadingButton({
+    processing,
+    label,
+}: {
+    processing: boolean;
+    label: string;
+}) {
+    return (
+        <Button
+            type="submit"
+            variant="soft"
+            color="primary"
+            disabled={processing}
+            startIcon={
+                processing ? (
+                    <CircularProgress size={18} color="inherit" />
+                ) : (
+                    <SaveRounded />
+                )
+            }
+        >
+            {label}
+        </Button>
     );
 }

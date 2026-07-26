@@ -1,11 +1,12 @@
 import '../css/app.css';
 import './i18n';
+import '@fontsource-variable/public-sans';
 
 import { createInertiaApp } from '@inertiajs/react';
 import type { ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Toaster } from '@/components/ui/sonner';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { ThemeProvider } from '@/theme/theme-provider';
+import { Snackbar } from '@/components/snackbar';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Kcal';
 const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx');
@@ -25,13 +26,13 @@ createInertiaApp({
         if (!el) return;
 
         createRoot(el).render(
-            <TooltipProvider>
+            <ThemeProvider>
                 <App {...props} />
-                <Toaster />
-            </TooltipProvider>,
+                <Snackbar />
+            </ThemeProvider>,
         );
     },
     progress: {
-        color: '#2d7764',
+        color: '#00A76F',
     },
 });
