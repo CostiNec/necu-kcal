@@ -92,6 +92,86 @@ class LocalizationTest extends TestCase
             ]);
     }
 
+    public function test_romanian_search_ranks_exact_then_prefix_then_other_matches(): void
+    {
+        $user = $this->onboardedUser();
+        $foods = collect([
+            'other' => ['Egg salad', 'Salată cu ouă'],
+            'prefix' => ['Boiled eggs', 'Ouă fierte'],
+            'exact' => ['Eggs', 'Ouă'],
+        ])->map(function (array $names) {
+            $food = Food::create([
+                'name' => $names[0],
+                'food_type' => 'generic',
+                'calories' => 100,
+                'is_public' => true,
+            ]);
+            $food->translations()->create([
+                'locale' => 'ro',
+                'name' => $names[1],
+            ]);
+            $food->forceFill([
+                'search_text' => implode(' ', $names),
+            ])->save();
+
+            return $food;
+        });
+
+        $response = $this->actingAs($user)
+            ->withSession(['locale' => 'ro'])
+            ->getJson('/foods/search?search='.urlencode('ouă'))
+            ->assertOk()
+            ->assertJsonCount(3, 'foods');
+
+        $this->assertSame([
+            $foods['exact']->id,
+            $foods['prefix']->id,
+            $foods['other']->id,
+        ], collect($response->json('foods'))->pluck('id')->all());
+    }
+
+    public function test_search_ranking_checks_translations_outside_the_display_locale(): void
+    {
+        $user = $this->onboardedUser();
+        $other = Food::create([
+            'name' => 'Egg salad',
+            'food_type' => 'generic',
+            'calories' => 100,
+            'is_public' => true,
+        ]);
+        $other->translations()->create([
+            'locale' => 'ro',
+            'name' => 'Salată cu ouă',
+        ]);
+        $other->forceFill([
+            'search_text' => 'Egg salad Salată cu ouă',
+        ])->save();
+        $exact = Food::create([
+            'name' => 'Whole eggs',
+            'food_type' => 'generic',
+            'calories' => 100,
+            'is_public' => true,
+        ]);
+        $exact->translations()->create([
+            'locale' => 'ro',
+            'name' => 'Ouă',
+        ]);
+        $exact->forceFill([
+            'search_text' => 'Whole eggs Ouă',
+        ])->save();
+
+        $response = $this->actingAs($user)
+            ->withSession(['locale' => 'en'])
+            ->getJson('/foods/search?search='.urlencode('ouă'))
+            ->assertOk()
+            ->assertJsonCount(2, 'foods');
+
+        $this->assertSame(
+            [$exact->id, $other->id],
+            collect($response->json('foods'))->pluck('id')->all()
+        );
+    }
+
     public function test_food_name_is_used_when_current_locale_translation_is_missing(): void
     {
         $user = $this->onboardedUser();

@@ -6,6 +6,7 @@ use App\Models\Food;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class FoodSearch
 {
@@ -34,46 +35,142 @@ class FoodSearch
         }
 
         $useSqliteWordFallback = DB::getDriverName() === 'sqlite';
-        $locale = app()->getLocale();
 
         return $query->where(function (Builder $builder) use (
-            $locale,
             $search,
             $useSqliteWordFallback
         ) {
             $builder->whereHas(
                 'translations',
                 function (Builder $translationQuery) use (
-                    $locale,
                     $search,
                     $useSqliteWordFallback
                 ) {
-                    $translationQuery
-                        ->where('locale', $locale)
-                        ->where(function (Builder $nameQuery) use (
-                            $search,
-                            $useSqliteWordFallback
-                        ) {
-                            $nameQuery->where(
-                                'food_translations.name',
-                                'like',
-                                "{$search}%"
-                            );
+                    $translationQuery->where(function (
+                        Builder $nameQuery
+                    ) use ($search, $useSqliteWordFallback) {
+                        $nameQuery->where(
+                            'food_translations.name',
+                            'like',
+                            "{$search}%"
+                        );
 
-                            if ($useSqliteWordFallback) {
-                                $nameQuery->orWhereRaw(
-                                    'instr(lower(food_translations.name), lower(?)) > 0',
-                                    [" {$search}"]
-                                );
-                            }
-                        });
+                        if ($useSqliteWordFallback) {
+                            $nameQuery->orWhereRaw(
+                                'instr(lower(food_translations.name), lower(?)) > 0',
+                                [" {$search}"]
+                            );
+                        }
+                    });
                 }
             );
 
-            $builder
-                ->orWhere('foods.name', 'like', "{$search}%")
-                ->orWhere('foods.brand', 'like', "{$search}%");
+            $builder->orWhere(function (Builder $foodQuery) use (
+                $search,
+                $useSqliteWordFallback
+            ) {
+                $foodQuery
+                    ->where('foods.name', 'like', "{$search}%")
+                    ->orWhere('foods.brand', 'like', "{$search}%");
+
+                if ($useSqliteWordFallback) {
+                    $foodQuery
+                        ->orWhereRaw(
+                            'instr(lower(foods.name), lower(?)) > 0',
+                            [" {$search}"]
+                        )
+                        ->orWhereRaw(
+                            'instr(lower(foods.brand), lower(?)) > 0',
+                            [" {$search}"]
+                        );
+                }
+            });
         });
+    }
+
+    public function order(Builder $query, string $search = ''): Builder
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return $query
+                ->orderBy('foods.name')
+                ->orderBy('foods.id');
+        }
+
+        if ($this->isBarcode($search)) {
+            return $query->orderBy('foods.id');
+        }
+
+        $locale = app()->getLocale();
+        $query->leftJoin(
+            'food_translations as ranked_translation',
+            function ($join) use ($locale): void {
+                $join
+                    ->on(
+                        'ranked_translation.food_id',
+                        '=',
+                        'foods.id'
+                    )
+                    ->where('ranked_translation.locale', $locale);
+            }
+        );
+
+        $localizedName = 'COALESCE(ranked_translation.name, foods.name)';
+        $normalizedSearch = mb_strtolower($search);
+        $exact = $this->quote($normalizedSearch);
+        $prefix = $this->quote(
+            $this->escapeLike($normalizedSearch).'%'
+        );
+        $localizedLower = "LOWER({$localizedName})";
+        $baseLower = 'LOWER(foods.name)';
+        $translatedExact = implode(' ', [
+            'EXISTS (SELECT 1 FROM food_translations AS exact_translation',
+            'WHERE exact_translation.food_id = foods.id',
+            "AND LOWER(exact_translation.name) = {$exact})",
+        ]);
+        $translatedPrefix = implode(' ', [
+            'EXISTS (SELECT 1 FROM food_translations AS prefix_translation',
+            'WHERE prefix_translation.food_id = foods.id',
+            "AND LOWER(prefix_translation.name) LIKE {$prefix} ESCAPE '=')",
+        ]);
+        $exactMatch = implode(' OR ', [
+            "{$localizedLower} = {$exact}",
+            "{$baseLower} = {$exact}",
+            $translatedExact,
+        ]);
+        $prefixMatch = implode(' OR ', [
+            "{$localizedLower} LIKE {$prefix} ESCAPE '='",
+            "{$baseLower} LIKE {$prefix} ESCAPE '='",
+            $translatedPrefix,
+        ]);
+        $lengthFunction = DB::getDriverName() === 'sqlite'
+            ? 'LENGTH'
+            : 'CHAR_LENGTH';
+        $matchPriority = implode(' ', [
+            'CASE',
+            "WHEN ({$exactMatch}) THEN 0",
+            "WHEN ({$prefixMatch}) THEN 1",
+            'ELSE 2',
+            'END',
+        ]);
+
+        return $query
+            ->selectRaw(
+                "{$matchPriority} AS search_match_priority"
+            )
+            ->selectRaw(
+                "{$lengthFunction}({$localizedName}) AS search_name_length"
+            )
+            ->selectRaw(
+                "{$localizedLower} AS search_sort_name"
+            )
+            ->orderBy('foods.search_priority')
+            ->orderBy('search_match_priority')
+            ->orderBy('search_name_length')
+            ->orderByDesc('foods.popularity_score')
+            ->orderBy('search_sort_name')
+            ->orderBy('foods.id');
     }
 
     private function booleanSearch(string $search): string
@@ -90,5 +187,27 @@ class FoodSearch
     private function isBarcode(string $search): bool
     {
         return preg_match('/^\d{6,18}$/', $search) === 1;
+    }
+
+    private function escapeLike(string $value): string
+    {
+        return str_replace(
+            ['=', '%', '_'],
+            ['==', '=%', '=_'],
+            $value
+        );
+    }
+
+    private function quote(string $value): string
+    {
+        $quoted = DB::connection()->getPdo()->quote($value);
+
+        if ($quoted === false) {
+            throw new RuntimeException(
+                'Unable to prepare the food search ranking.'
+            );
+        }
+
+        return $quoted;
     }
 }

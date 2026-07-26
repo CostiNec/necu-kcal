@@ -499,6 +499,79 @@ class NutritionTrackingTest extends TestCase
             ->assertJsonPath('foods.1.id', $product->id);
     }
 
+    public function test_food_search_orders_each_type_by_relevance_and_stable_tiebreakers(): void
+    {
+        $user = $this->onboardedUser();
+        $foods = collect([
+            [
+                'key' => 'product_exact',
+                'name' => 'Bread',
+                'food_type' => 'product',
+                'popularity_score' => 100,
+            ],
+            [
+                'key' => 'generic_other',
+                'name' => 'Toasted rye bread',
+                'food_type' => 'generic',
+                'popularity_score' => 100,
+            ],
+            [
+                'key' => 'generic_prefix_long',
+                'name' => 'Bread, whole wheat',
+                'food_type' => 'generic',
+                'popularity_score' => 100,
+            ],
+            [
+                'key' => 'generic_prefix_less_popular',
+                'name' => 'Bread aa',
+                'food_type' => 'generic',
+                'popularity_score' => 5,
+            ],
+            [
+                'key' => 'generic_prefix_popular',
+                'name' => 'Bread bb',
+                'food_type' => 'generic',
+                'popularity_score' => 10,
+            ],
+            [
+                'key' => 'generic_exact',
+                'name' => 'Bread',
+                'food_type' => 'generic',
+                'popularity_score' => 0,
+            ],
+        ])->mapWithKeys(function (array $attributes) {
+            $key = $attributes['key'];
+            $popularity = $attributes['popularity_score'];
+            unset($attributes['key']);
+            unset($attributes['popularity_score']);
+
+            $food = Food::create([
+                ...$attributes,
+                'calories' => 100,
+                'is_public' => true,
+            ]);
+            $food->forceFill([
+                'popularity_score' => $popularity,
+            ])->save();
+
+            return [$key => $food];
+        });
+
+        $response = $this->actingAs($user)
+            ->getJson('/foods/search?search=Bread')
+            ->assertOk()
+            ->assertJsonCount(6, 'foods');
+
+        $this->assertSame([
+            $foods['generic_exact']->id,
+            $foods['generic_prefix_popular']->id,
+            $foods['generic_prefix_less_popular']->id,
+            $foods['generic_prefix_long']->id,
+            $foods['generic_other']->id,
+            $foods['product_exact']->id,
+        ], collect($response->json('foods'))->pluck('id')->all());
+    }
+
     public function test_food_search_finds_an_exact_barcode(): void
     {
         $user = $this->onboardedUser();

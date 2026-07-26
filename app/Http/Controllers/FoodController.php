@@ -116,7 +116,7 @@ class FoodController extends Controller
         string $search,
         bool $favouritesOnly
     ): Builder {
-        return $this->foodSearch
+        $query = $this->foodSearch
             ->query($user, $search)
             ->leftJoin('food_favourites as favourite', function ($join) use ($user) {
                 $join
@@ -131,14 +131,9 @@ class FoodController extends Controller
             ->when(
                 $favouritesOnly,
                 fn (Builder $query) => $query->whereNotNull('favourite.id')
-            )
-            ->when(
-                $search !== '',
-                fn (Builder $query) => $query
-                    ->orderBy('foods.search_priority')
-            )
-            ->orderBy('foods.name')
-            ->orderBy('foods.id');
+            );
+
+        return $this->foodSearch->order($query, $search);
     }
 
     /**

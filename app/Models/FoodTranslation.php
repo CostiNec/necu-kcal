@@ -13,7 +13,16 @@ class FoodTranslation extends Model
         'food_id',
         'locale',
         'name',
+        'translation_source',
+        'reviewed_at',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'reviewed_at' => 'datetime',
+        ];
+    }
 
     protected function name(): Attribute
     {
