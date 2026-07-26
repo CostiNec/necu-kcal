@@ -37,6 +37,7 @@ class ReportController extends Controller
                 'protein' => round((float) $entries->sum('protein'), 1),
                 'carbohydrates' => round((float) $entries->sum('carbohydrates'), 1),
                 'fat' => round((float) $entries->sum('fat'), 1),
+                'fibre' => round((float) $entries->sum('fibre'), 1),
             ];
         });
 
@@ -73,6 +74,7 @@ class ReportController extends Controller
                 'protein' => $average('protein'),
                 'carbohydrates' => $average('carbohydrates'),
                 'fat' => $average('fat'),
+                'fibre' => $average('fibre'),
             ],
             'loggedDays' => $loggedDays->count(),
             'topFoods' => $topFoods,

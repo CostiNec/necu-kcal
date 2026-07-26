@@ -42,12 +42,14 @@ export default function SettingsIndex({
         protein: NumberInputValue;
         carbohydrates: NumberInputValue;
         fat: NumberInputValue;
+        fibre: NumberInputValue;
         timezone: string;
     }>({
         calories: targets.calories,
         protein: targets.protein,
         carbohydrates: targets.carbohydrates,
         fat: targets.fat,
+        fibre: targets.fibre,
         timezone: profile.timezone,
     });
     const passwordForm = useForm({
@@ -61,6 +63,7 @@ export default function SettingsIndex({
         ['protein', t('settings.protein_g')],
         ['carbohydrates', t('settings.carbs_g')],
         ['fat', t('settings.fat_g')],
+        ['fibre', t('settings.fibre_g')],
     ] as const;
 
     return (

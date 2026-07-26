@@ -134,10 +134,16 @@ class LocalizationTest extends TestCase
                 'protein' => 140,
                 'carbohydrates' => 230,
                 'fat' => 70,
+                'fibre' => 35,
                 'timezone' => 'Europe/Bucharest',
             ])
             ->assertRedirect('/settings')
             ->assertSessionHas('success', 'Obiectivele au fost actualizate.');
+
+        $this->assertDatabaseHas('nutrition_targets', [
+            'user_id' => $user->id,
+            'fibre' => 35,
+        ]);
     }
 
     private function onboardedUser(): User

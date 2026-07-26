@@ -22,6 +22,7 @@ class DiaryEntry extends Model
         'protein',
         'carbohydrates',
         'fat',
+        'fibre',
         'position',
     ];
 
@@ -34,6 +35,7 @@ class DiaryEntry extends Model
             'protein' => 'float',
             'carbohydrates' => 'float',
             'fat' => 'float',
+            'fibre' => 'float',
             'position' => 'integer',
         ];
     }

@@ -34,6 +34,7 @@ const chartColors = {
     protein: '#8E33FF',
     carbohydrates: '#FFAB00',
     fat: '#FF5630',
+    fibre: '#22C55E',
     grid: 'var(--mui-palette-divider)',
     muted: 'var(--mui-palette-text-secondary)',
 };
@@ -45,6 +46,7 @@ type ChartPoint = {
     protein: number;
     carbohydrates: number;
     fat: number;
+    fibre: number;
 };
 
 export default function ReportsIndex({
@@ -88,7 +90,7 @@ export default function ReportsIndex({
                 />
 
                 <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
                         <StatCard
                             label={t('reports.daily_average')}
                             value={`${formatNumber(averages.calories)} kcal`}
@@ -96,7 +98,7 @@ export default function ReportsIndex({
                             color={chartColors.calories}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
                         <StatCard
                             label={t('reports.protein_average')}
                             value={`${formatNumber(averages.protein, 1)} g`}
@@ -106,7 +108,7 @@ export default function ReportsIndex({
                             color={chartColors.protein}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
                         <StatCard
                             label={t('reports.carb_average')}
                             value={`${formatNumber(averages.carbohydrates, 1)} g`}
@@ -116,7 +118,7 @@ export default function ReportsIndex({
                             color={chartColors.carbohydrates}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
                         <StatCard
                             label={t('reports.fat_average')}
                             value={`${formatNumber(averages.fat, 1)} g`}
@@ -124,6 +126,16 @@ export default function ReportsIndex({
                                 target: formatNumber(targets.fat),
                             })}
                             color={chartColors.fat}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
+                        <StatCard
+                            label={t('reports.fibre_average')}
+                            value={`${formatNumber(averages.fibre, 1)} g`}
+                            context={t('reports.target', {
+                                target: formatNumber(targets.fibre),
+                            })}
+                            color={chartColors.fibre}
                         />
                     </Grid>
                 </Grid>
@@ -368,10 +380,12 @@ export default function ReportsIndex({
                                                 targets.protein,
                                                 targets.carbohydrates,
                                                 targets.fat,
+                                                targets.fibre,
                                                 ...chart.flatMap((point) => [
                                                     point.protein,
                                                     point.carbohydrates,
                                                     point.fat,
+                                                    point.fibre,
                                                 ]),
                                             ),
                                         ]}
@@ -398,6 +412,11 @@ export default function ReportsIndex({
                                         fill={chartColors.fat}
                                         radius={[8, 8, 2, 2]}
                                     />
+                                    <Bar
+                                        dataKey="fibre"
+                                        fill={chartColors.fibre}
+                                        radius={[8, 8, 2, 2]}
+                                    />
                                 </BarChart>
                             </ResponsiveContainer>
                         </Box>
@@ -419,6 +438,10 @@ export default function ReportsIndex({
                             <Legend
                                 color={chartColors.fat}
                                 label={t('common.fat')}
+                            />
+                            <Legend
+                                color={chartColors.fibre}
+                                label={t('common.fibre')}
                             />
                         </Stack>
                     </CardContent>

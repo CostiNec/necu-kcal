@@ -8,6 +8,7 @@ const colors = {
     protein: '#00B8D9',
     carbohydrates: '#FFAB00',
     fat: '#8E33FF',
+    fibre: '#22C55E',
 };
 
 export function MacroProgress({

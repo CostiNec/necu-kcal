@@ -12,6 +12,7 @@ export type NutritionTargets = {
     protein: number;
     carbohydrates: number;
     fat: number;
+    fibre: number;
 };
 
 export type SharedProps = InertiaPageProps & {
@@ -68,4 +69,5 @@ export type DiaryEntry = {
     protein: number;
     carbohydrates: number;
     fat: number;
+    fibre: number;
 };

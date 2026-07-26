@@ -52,6 +52,7 @@ class CreateNewUser implements CreatesNewUsers
                 'protein' => 120,
                 'carbohydrates' => 220,
                 'fat' => 65,
+                'fibre' => 30,
             ]);
 
             return $user;

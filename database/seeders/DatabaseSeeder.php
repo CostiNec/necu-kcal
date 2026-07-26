@@ -32,6 +32,7 @@ class DatabaseSeeder extends Seeder
             'protein' => 140,
             'carbohydrates' => 230,
             'fat' => 70,
+            'fibre' => 30,
         ]);
     }
 }

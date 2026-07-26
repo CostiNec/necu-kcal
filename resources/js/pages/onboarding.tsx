@@ -41,6 +41,7 @@ export default function Onboarding({
         protein: NumberInputValue;
         carbohydrates: NumberInputValue;
         fat: NumberInputValue;
+        fibre: NumberInputValue;
         timezone: string;
     }>({
         name: auth.user?.name ?? '',
@@ -48,6 +49,7 @@ export default function Onboarding({
         protein: targets?.protein ?? 120,
         carbohydrates: targets?.carbohydrates ?? 220,
         fat: targets?.fat ?? 65,
+        fibre: targets?.fibre ?? 30,
         timezone: profile?.timezone ?? 'Europe/Bucharest',
     });
 
@@ -123,6 +125,15 @@ export default function Onboarding({
                                         error={form.errors.fat}
                                         onChange={(value) =>
                                             form.setData('fat', value)
+                                        }
+                                    />
+                                    <TargetInput
+                                        label={t('common.fibre')}
+                                        suffix={t('common.grams')}
+                                        value={form.data.fibre}
+                                        error={form.errors.fibre}
+                                        onChange={(value) =>
+                                            form.setData('fibre', value)
                                         }
                                     />
                                 </Grid>

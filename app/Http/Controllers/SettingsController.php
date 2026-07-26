@@ -25,6 +25,7 @@ class SettingsController extends Controller
             'protein' => ['required', 'integer', 'min:0', 'max:1000'],
             'carbohydrates' => ['required', 'integer', 'min:0', 'max:1500'],
             'fat' => ['required', 'integer', 'min:0', 'max:500'],
+            'fibre' => ['required', 'integer', 'min:0', 'max:500'],
             'timezone' => ['required', 'timezone:all'],
         ]);
 

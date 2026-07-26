@@ -91,7 +91,7 @@
     "delete": "Șterge rețeta",
     "delete_action": "Șterge",
     "yield_summary": "{{weight}} g gătite · {{count}} ingrediente",
-    "macro_summary": "Proteine {{protein}} g · Carbohidrați {{carbs}} g · Grăsimi {{fat}} g per 100 g",
+    "macro_summary": "Proteine {{protein}} g · Carbohidrați {{carbs}} g · Grăsimi {{fat}} g · Fibre {{fibre}} g per 100 g",
     "create_food_title": "Creează un ingredient",
     "create_food_help": "Ingredientele folosesc valori nutriționale per 100 g. Noul aliment va fi disponibil și în biblioteca ta.",
     "create_and_select": "Creează și selectează"
@@ -165,7 +165,7 @@
     "description": "Începe cu obiectivele pe care le folosești deja. Le poți modifica oricând din profil.",
     "card_title": "Obiective nutriționale zilnice",
     "name_question": "Cum vrei să îți spunem?",
-    "hint": "Macronutrienții sunt opționali pentru alimente, dar obiectivele fac rapoartele săptămânale mai utile.",
+    "hint": "Macronutrienții și fibrele sunt opționale pentru alimente, dar obiectivele fac rapoartele săptămânale mai utile.",
     "open_diary": "Deschide jurnalul"
   },
   "diary": {
@@ -182,11 +182,11 @@
     "add_food": "Adaugă aliment sau rețetă",
     "quick_entry": "Înregistrare rapidă de calorii",
     "quick_entry_title": "Înregistrare rapidă · {{meal}}",
-    "quick_entry_description": "Înregistrează direct totalul de calorii. Adaugă macronutrienții dacă îi cunoști; altfel vor fi salvați cu valoarea zero.",
+    "quick_entry_description": "Înregistrează direct totalul de calorii. Adaugă macronutrienții și fibrele dacă îi cunoști; altfel vor fi salvați cu valoarea zero.",
     "entry_name": "Denumire (opțional)",
     "entry_name_placeholder": "De exemplu, masă la restaurant",
     "entry_name_help": "Lasă gol pentru „Înregistrare rapidă de calorii”.",
-    "optional_macros": "Macronutrienți (opțional)",
+    "optional_macros": "Macronutrienți și fibre (opțional)",
     "optional_macros_help": "Introdu totalurile pentru întreaga înregistrare, nu valorile per 100 g.",
     "add_quick_entry": "Adaugă înregistrarea",
     "edit_quantity": "Editează cantitatea",
@@ -199,7 +199,7 @@
     "daily_note": "Notiță zilnică",
     "note_placeholder": "Energie, apetit, antrenament sau orice altceva util…",
     "save_note": "Salvează notița",
-    "macro_short": "P {{protein}} · C {{carbs}} · G {{fat}}"
+    "macro_short": "P {{protein}} · C {{carbs}} · G {{fat}} · Fib {{fibre}}"
   },
   "food": {
     "add_to_meal": "Adaugă la {{meal}}",
@@ -226,7 +226,7 @@
     "custom": "Aliment personalizat",
     "common": "Aliment comun",
     "per_units": "per 100 {{unit}}",
-    "macro_summary": "Proteine {{protein}} g · Carbohidrați {{carbs}} g · Grăsimi {{fat}} g",
+    "macro_summary": "Proteine {{protein}} g · Carbohidrați {{carbs}} g · Grăsimi {{fat}} g · Fibre {{fibre}} g",
     "food_name": "Denumirea alimentului",
     "nutrition_per_100": "Valori nutriționale per 100 de unități",
     "base_unit": "Unitate de bază",
@@ -247,6 +247,7 @@
     "protein_average": "Media proteinelor",
     "carb_average": "Media carbohidraților",
     "fat_average": "Media grăsimilor",
+    "fibre_average": "Media fibrelor",
     "target": "Obiectiv {{target}} g",
     "calories_by_day": "Calorii pe zile",
     "calories_comparison": "Comparativ cu obiectivul tău de {{target}} kcal.",
@@ -256,8 +257,8 @@
     "times_one": "{{count}} dată",
     "times_few": "{{count}} ori",
     "times_other": "{{count}} de ori",
-    "macros_by_day": "Macronutrienți pe zile",
-    "macro_chart": "Graficul zilnic al macronutrienților"
+    "macros_by_day": "Macronutrienți și fibre pe zile",
+    "macro_chart": "Graficul zilnic al macronutrienților și fibrelor"
   },
   "settings": {
     "title": "Profil",
@@ -268,6 +269,7 @@
     "protein_g": "Proteine (g)",
     "carbs_g": "Carbohidrați (g)",
     "fat_g": "Grăsimi (g)",
+    "fibre_g": "Fibre (g)",
     "save_targets": "Salvează obiectivele",
     "change_password": "Schimbă parola",
     "update_password": "Actualizează parola",

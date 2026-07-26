@@ -48,6 +48,7 @@ class DiaryEntryController extends Controller
             'protein' => round(($food->protein ?? 0) * $factor, 2),
             'carbohydrates' => round(($food->carbohydrates ?? 0) * $factor, 2),
             'fat' => round(($food->fat ?? 0) * $factor, 2),
+            'fibre' => round(($food->fibre ?? 0) * $factor, 2),
             'position' => (int) $day->entries()->where('meal', $validated['meal'])->max('position') + 1,
         ]);
 
@@ -74,6 +75,7 @@ class DiaryEntryController extends Controller
             'protein' => round($diaryEntry->protein * $ratio, 2),
             'carbohydrates' => round($diaryEntry->carbohydrates * $ratio, 2),
             'fat' => round($diaryEntry->fat * $ratio, 2),
+            'fibre' => round($diaryEntry->fibre * $ratio, 2),
         ]);
 
         return back()->with('success', __('app.serving_updated'));
@@ -94,6 +96,7 @@ class DiaryEntryController extends Controller
                 'max:10000',
             ],
             'fat' => ['nullable', 'numeric', 'min:0', 'max:10000'],
+            'fibre' => ['nullable', 'numeric', 'min:0', 'max:10000'],
         ]);
 
         $day = DiaryDay::firstOrCreate([
@@ -120,6 +123,7 @@ class DiaryEntryController extends Controller
                 2
             ),
             'fat' => round((float) ($validated['fat'] ?? 0), 2),
+            'fibre' => round((float) ($validated['fibre'] ?? 0), 2),
             'position' => (int) $day->entries()
                 ->where('meal', $validated['meal'])
                 ->max('position') + 1,

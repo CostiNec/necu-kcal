@@ -457,6 +457,7 @@ function FoodRow({
                                 protein: formatNumber(food.protein ?? 0, 1),
                                 carbs: formatNumber(food.carbohydrates ?? 0, 1),
                                 fat: formatNumber(food.fat ?? 0, 1),
+                                fibre: formatNumber(food.fibre ?? 0, 1),
                             })}
                         </Typography>
                     </Box>

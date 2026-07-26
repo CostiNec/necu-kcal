@@ -13,6 +13,7 @@ class NutritionTarget extends Model
         'protein',
         'carbohydrates',
         'fat',
+        'fibre',
     ];
 
     protected function casts(): array
@@ -22,6 +23,7 @@ class NutritionTarget extends Model
             'protein' => 'integer',
             'carbohydrates' => 'integer',
             'fat' => 'integer',
+            'fibre' => 'integer',
         ];
     }
 

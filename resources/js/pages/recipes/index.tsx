@@ -293,6 +293,7 @@ function RecipeCard({
                             protein: formatNumber(recipe.protein, 1),
                             carbs: formatNumber(recipe.carbohydrates, 1),
                             fat: formatNumber(recipe.fat, 1),
+                            fibre: formatNumber(recipe.fibre, 1),
                         })}
                     </Typography>
 

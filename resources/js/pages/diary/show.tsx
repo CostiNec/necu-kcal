@@ -54,6 +54,7 @@ type Totals = {
     protein: number;
     carbohydrates: number;
     fat: number;
+    fibre: number;
 };
 
 type MealKey = (typeof meals)[number]['key'];
@@ -167,6 +168,12 @@ export default function DiaryShow({
                                     type="fat"
                                     value={totals.fat}
                                     target={targets.fat}
+                                />
+                                <MacroProgress
+                                    label={t('common.fibre')}
+                                    type="fibre"
+                                    value={totals.fibre}
+                                    target={targets.fibre}
                                 />
                             </Stack>
                         </CardContent>
@@ -392,6 +399,7 @@ function QuickEntryDialog({
         protein: number | '';
         carbohydrates: number | '';
         fat: number | '';
+        fibre: number | '';
     }>({
         date,
         meal,
@@ -400,6 +408,7 @@ function QuickEntryDialog({
         protein: '',
         carbohydrates: '',
         fat: '',
+        fibre: '',
     });
     const numberValue = (value: string): number | '' =>
         value === '' ? '' : Number(value);
@@ -486,9 +495,10 @@ function QuickEntryDialog({
                                         t('common.carbohydrates'),
                                     ],
                                     ['fat', t('common.fat')],
+                                    ['fibre', t('common.fibre')],
                                 ] as const
                             ).map(([key, label]) => (
-                                <Grid key={key} size={{ xs: 12, sm: 4 }}>
+                                <Grid key={key} size={{ xs: 12, sm: 6 }}>
                                     <TextField
                                         type="number"
                                         label={label}
@@ -583,6 +593,7 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                                     1,
                                 ),
                                 fat: formatNumber(entry.fat, 1),
+                                fibre: formatNumber(entry.fibre, 1),
                             })}
                             )
                         </Typography>

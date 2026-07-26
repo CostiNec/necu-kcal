@@ -30,6 +30,7 @@ class NutritionTrackingTest extends TestCase
         $this->assertSame('Europe/Bucharest', $user->profile->timezone);
         $this->assertNull($user->profile->onboarding_completed_at);
         $this->assertSame(2000, $user->nutritionTarget->calories);
+        $this->assertSame(30, $user->nutritionTarget->fibre);
     }
 
     public function test_incomplete_users_are_sent_to_onboarding(): void
@@ -61,6 +62,7 @@ class NutritionTrackingTest extends TestCase
             'protein' => 10,
             'carbohydrates' => 20,
             'fat' => 5,
+            'fibre' => 4,
             'unit_type' => 'g',
             'is_public' => false,
         ]);
@@ -77,12 +79,14 @@ class NutritionTrackingTest extends TestCase
         $entry = DiaryDay::firstOrFail()->entries()->firstOrFail();
         $this->assertSame(200.0, $entry->calories);
         $this->assertSame(10.0, $entry->protein);
+        $this->assertSame(4.0, $entry->fibre);
 
-        $food->update(['calories' => 999, 'protein' => 99]);
+        $food->update(['calories' => 999, 'protein' => 99, 'fibre' => 99]);
         $entry->refresh();
 
         $this->assertSame(200.0, $entry->calories);
         $this->assertSame(10.0, $entry->protein);
+        $this->assertSame(4.0, $entry->fibre);
     }
 
     public function test_user_can_log_calories_without_creating_a_food(): void
@@ -105,6 +109,7 @@ class NutritionTrackingTest extends TestCase
         $this->assertSame(0.0, $entry->protein);
         $this->assertSame(0.0, $entry->carbohydrates);
         $this->assertSame(0.0, $entry->fat);
+        $this->assertSame(0.0, $entry->fibre);
         $this->assertDatabaseCount('foods', 0);
     }
 
@@ -121,6 +126,7 @@ class NutritionTrackingTest extends TestCase
                 'protein' => 35,
                 'carbohydrates' => 80,
                 'fat' => 28,
+                'fibre' => 12,
             ])
             ->assertRedirect('/diary/2026-07-26');
 
@@ -131,6 +137,7 @@ class NutritionTrackingTest extends TestCase
         $this->assertSame(35.0, $entry->protein);
         $this->assertSame(80.0, $entry->carbohydrates);
         $this->assertSame(28.0, $entry->fat);
+        $this->assertSame(12.0, $entry->fibre);
     }
 
     public function test_users_cannot_change_another_users_diary(): void
@@ -530,6 +537,7 @@ class NutritionTrackingTest extends TestCase
             'protein' => 6.5,
             'carbohydrates' => 34,
             'fat' => 3.5,
+            'fibre' => 5,
         ]);
 
         $this->actingAs($user)
@@ -539,6 +547,7 @@ class NutritionTrackingTest extends TestCase
                 ->component('reports/index')
                 ->where('loggedDays', 1)
                 ->where('averages.calories', 190)
+                ->where('averages.fibre', 5)
             );
     }
 
