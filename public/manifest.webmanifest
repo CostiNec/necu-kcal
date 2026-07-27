@@ -1,7 +1,7 @@
 {
     "id": "/",
-    "name": "Kcal",
-    "short_name": "Kcal",
+    "name": "NecuTrack",
+    "short_name": "NecuTrack",
     "description": "A calm, focused nutrition diary for calories and macros.",
     "start_url": "/today",
     "scope": "/",

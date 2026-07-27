@@ -8,7 +8,7 @@ import { createRoot } from 'react-dom/client';
 import { ThemeProvider } from '@/theme/theme-provider';
 import { Snackbar } from '@/components/snackbar';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Kcal';
+const appName = import.meta.env.VITE_APP_NAME || 'NecuTrack';
 const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx');
 
 createInertiaApp({

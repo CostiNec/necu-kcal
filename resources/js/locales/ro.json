@@ -52,8 +52,8 @@
   },
   "install_app": {
     "action": "Instalează aplicația",
-    "action_help": "Adaugă Kcal pe telefon",
-    "title": "Instalează Kcal",
+    "action_help": "Adaugă NecuTrack pe telefon",
+    "title": "Instalează NecuTrack",
     "ios_instructions": "În Safari, apasă butonul Partajează, apoi alege „Adaugă la ecranul principal”.",
     "browser_instructions": "Deschide meniul browserului, apoi alege „Instalează aplicația” sau „Adaugă la ecranul principal”."
   },

@@ -1,8 +1,8 @@
-const cacheName = 'kcal-app-shell-v1';
+const cacheName = 'necutrack-app-shell-v2';
 const offlineUrl = '/offline.html';
 const appShell = [
     offlineUrl,
-    '/favicon.svg',
+    '/icons/favicon-32.png',
     '/icons/icon-192.png',
     '/icons/icon-512.png',
     '/icons/apple-touch-icon.png',

@@ -52,8 +52,8 @@
   },
   "install_app": {
     "action": "Install app",
-    "action_help": "Add Kcal to your phone",
-    "title": "Install Kcal",
+    "action_help": "Add NecuTrack to your phone",
+    "title": "Install NecuTrack",
     "ios_instructions": "In Safari, tap the Share button, then choose “Add to Home Screen”.",
     "browser_instructions": "Open your browser menu, then choose “Install app” or “Add to Home screen”."
   },

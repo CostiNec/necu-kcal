@@ -401,7 +401,7 @@ export function AppLayout({
                         }}
                     >
                         <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
-                            <BrandMark />
+                            <BrandMark compact />
                         </Box>
                         <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
                             {title && <Typography variant="h5">{title}</Typography>}

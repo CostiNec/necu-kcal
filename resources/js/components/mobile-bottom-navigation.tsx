@@ -39,7 +39,7 @@ export function MobileBottomNavigation({
                     display: { lg: 'none' },
                     overflow: 'hidden',
                     p: 0.5,
-                    borderRadius: 2.5,
+                    borderRadius: '16px',
                     borderColor: alpha(
                         theme.palette.grey[500],
                         dark ? 0.16 : 0.2,
@@ -93,6 +93,7 @@ export function MobileBottomNavigation({
 
                                 return {
                                     py: 0.75,
+                                    borderRadius: '16px',
                                     color: 'text.secondary',
                                     '& .MuiSvgIcon-root': {
                                         fontSize: 24,

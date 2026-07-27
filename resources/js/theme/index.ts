@@ -360,7 +360,7 @@ export function createKcalTheme(mode: PaletteMode) {
                 styleOverrides: {
                     root: {
                         minWidth: 0,
-                        borderRadius: 12,
+                        borderRadius: 16,
                         transition:
                             'transform 180ms ease, background-color 180ms ease, color 180ms ease',
                     },

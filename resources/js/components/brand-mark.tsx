@@ -20,7 +20,7 @@ export function BrandMark({ compact = false }: { compact?: boolean }) {
             </Box>
             {!compact && (
                 <Typography variant="h6" component="span">
-                    Kcal
+                    NecuTrack
                 </Typography>
             )}
         </Box>
