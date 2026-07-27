@@ -184,6 +184,855 @@ class OpenFoodFactsImportTest extends TestCase
         );
     }
 
+    public function test_it_imports_the_aggregated_nutrition_schema(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'code' => '2222222222222',
+            'product_name' => 'Hazelnut chocolate spread',
+            'product_quantity' => 350,
+            'product_quantity_unit' => 'g',
+            'nutriments' => [],
+            'nutrition' => [
+                'aggregated_set' => [
+                    'per' => '100g',
+                    'preparation' => 'as_sold',
+                    'nutrients' => [
+                        'energy-kcal' => [
+                            'value' => 617,
+                            'value_computed' => 608,
+                            'unit' => 'kcal',
+                        ],
+                        'proteins' => ['value' => 8, 'unit' => 'g'],
+                        'carbohydrates' => ['value' => 36, 'unit' => 'g'],
+                        'fat' => ['value' => 48, 'unit' => 'g'],
+                        'saturated-fat' => ['value' => 10, 'unit' => 'g'],
+                        'sugars' => ['value' => 32, 'unit' => 'g'],
+                        'sodium' => ['value' => 40, 'unit' => 'mg'],
+                        'salt' => ['value' => 0.01, 'unit' => 'g'],
+                    ],
+                ],
+            ],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $food = DB::table('foods')
+            ->where('external_id', '2222222222222')
+            ->first();
+        $this->assertNotNull($food);
+        $this->assertEquals(617, $food->calories);
+        $this->assertEquals(8, $food->protein);
+        $this->assertEquals(36, $food->carbohydrates);
+        $this->assertEquals(48, $food->fat);
+        $this->assertEquals(10, $food->saturated_fat);
+        $this->assertNull($food->fibre);
+        $this->assertEquals(32, $food->sugar);
+        $this->assertEquals(0.04, $food->sodium);
+        $this->assertEquals(0.01, $food->salt);
+        $this->assertEquals(100, $food->nutrition_basis_amount);
+        $this->assertSame('g', $food->nutrition_basis_unit);
+        $this->assertEquals(350, $food->package_quantity);
+        $this->assertSame('g', $food->package_unit);
+        $this->assertSame(1, $food->nutrition_complete);
+    }
+
+    public function test_it_converts_aggregated_kilojoules_per_100ml(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'code' => '3333333333333',
+            'product_name' => 'Test drink',
+            'product_quantity' => 500,
+            'product_quantity_unit' => 'ml',
+            'nutriments' => [],
+            'nutrition' => [
+                'aggregated_set' => [
+                    'per' => '100 ml',
+                    'nutrients' => [
+                        'energy-kj' => [
+                            'value_computed' => 418.4,
+                            'unit' => 'kJ',
+                        ],
+                        'proteins' => ['value' => 1, 'unit' => 'g'],
+                        'carbohydrates' => ['value' => 20, 'unit' => 'g'],
+                        'fat' => ['value' => 0, 'unit' => 'g'],
+                        'fiber' => ['value' => 250, 'unit' => 'mg'],
+                    ],
+                ],
+            ],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $this->assertDatabaseHas('foods', [
+            'external_id' => '3333333333333',
+            'calories' => 100,
+            'nutrition_basis_amount' => 100,
+            'nutrition_basis_unit' => 'ml',
+            'fibre' => 0.25,
+        ]);
+    }
+
+    public function test_it_merges_as_sold_input_sets_and_normalizes_servings(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'code' => '0013562300600',
+            'product_name' => 'Yummy Bunnies & Cheddar',
+            'product_quantity' => 71,
+            'product_quantity_unit' => 'g',
+            'nutriments' => [],
+            'nutrition' => [
+                'aggregated_set' => [
+                    'preparation' => 'prepared',
+                    'per' => '100g',
+                    'nutrients' => [
+                        'energy-kcal' => [
+                            'value' => 380.28,
+                            'unit' => 'kcal',
+                        ],
+                        'carbohydrates' => [
+                            'value' => 69.01,
+                            'unit' => 'g',
+                        ],
+                    ],
+                ],
+                'input_sets' => [
+                    [
+                        'preparation' => 'prepared',
+                        'source' => 'packaging',
+                        'per' => 'serving',
+                        'per_quantity' => 71,
+                        'per_unit' => 'g',
+                        'nutrients' => [
+                            'carbohydrates' => [
+                                'value' => 49,
+                                'unit' => 'g',
+                            ],
+                        ],
+                    ],
+                    [
+                        'preparation' => 'as_sold',
+                        'source' => 'packaging',
+                        'per' => '100g',
+                        'per_quantity' => 100,
+                        'per_unit' => 'g',
+                        'nutrients' => [
+                            'energy-kcal' => [
+                                'value' => 380.28169014085,
+                                'unit' => 'kcal',
+                            ],
+                        ],
+                    ],
+                    [
+                        'preparation' => 'as_sold',
+                        'source' => 'packaging',
+                        'per' => 'serving',
+                        'per_quantity' => 71,
+                        'per_unit' => 'g',
+                        'nutrients' => [
+                            'energy-kcal' => [
+                                'value' => 270,
+                                'unit' => 'kcal',
+                            ],
+                            'proteins' => ['value' => 10, 'unit' => 'g'],
+                            'carbohydrates' => [
+                                'value' => 48,
+                                'unit' => 'g',
+                            ],
+                            'fat' => ['value' => 4, 'unit' => 'g'],
+                            'fiber' => ['value' => 3, 'unit' => 'g'],
+                            'sugars' => ['value' => 4, 'unit' => 'g'],
+                            'saturated-fat' => [
+                                'value' => 2,
+                                'unit' => 'g',
+                            ],
+                            'sodium' => ['value' => 0.39, 'unit' => 'g'],
+                            'salt' => ['value' => 0.975, 'unit' => 'g'],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $food = DB::table('foods')
+            ->where('external_id', '0013562300600')
+            ->first();
+        $this->assertNotNull($food);
+        $this->assertEquals(380.28, $food->calories);
+        $this->assertEquals(14.08, $food->protein);
+        $this->assertEquals(67.61, $food->carbohydrates);
+        $this->assertEquals(5.63, $food->fat);
+        $this->assertEquals(4.23, $food->fibre);
+        $this->assertEquals(5.63, $food->sugar);
+        $this->assertEquals(2.82, $food->saturated_fat);
+        $this->assertEquals(0.55, $food->sodium);
+        $this->assertEquals(1.37, $food->salt);
+        $this->assertEquals(100, $food->nutrition_basis_amount);
+        $this->assertSame('g', $food->nutrition_basis_unit);
+        $this->assertEquals(71, $food->package_quantity);
+        $this->assertSame(1, $food->nutrition_complete);
+    }
+
+    public function test_legacy_nutriments_take_priority_over_aggregated_values(): void
+    {
+        $product = $this->romanianProduct();
+        $product['nutrition'] = [
+            'aggregated_set' => [
+                'per' => '100g',
+                'nutrients' => [
+                    'energy-kcal' => ['value' => 999, 'unit' => 'kcal'],
+                    'proteins' => ['value' => 99, 'unit' => 'g'],
+                ],
+            ],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $this->assertDatabaseHas('foods', [
+            'external_id' => '1111111111111',
+            'calories' => 165,
+            'protein' => 31,
+        ]);
+    }
+
+    public function test_it_rejects_aggregated_nutrition_without_a_100_unit_basis(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'nutriments' => [],
+            'nutrition' => [
+                'aggregated_set' => [
+                    'per' => 'serving',
+                    'nutrients' => [
+                        'energy-kcal' => [
+                            'value' => 200,
+                            'unit' => 'kcal',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $this->assertDatabaseCount('foods', 0);
+        $run = DB::table('food_import_runs')->latest('id')->first();
+        $this->assertSame(
+            ['missing_energy' => 1],
+            json_decode($run->skip_reasons, true)
+        );
+    }
+
+    public function test_it_imports_unsuffixed_nutrients_with_an_imported_100g_basis(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'code' => '0000105000011',
+            'product_name' => 'Chamomile Herbal Tea',
+            'product_quantity' => 1,
+            'product_quantity_unit' => 'g',
+            'serving_quantity' => 1,
+            'serving_quantity_unit' => 'g',
+            'nutrition_data_per' => 'serving',
+            'nutrition_data_per_imported' => '100g',
+            'nutriments' => [
+                'energy-kcal' => 280,
+                'energy' => 1172,
+                'proteins' => 0,
+                'carbohydrates' => 70,
+                'fat' => 0,
+                'sodium' => 0.3,
+                'salt' => 0.75,
+            ],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $food = DB::table('foods')
+            ->where('external_id', '0000105000011')
+            ->first();
+        $this->assertNotNull($food);
+        $this->assertEquals(280, $food->calories);
+        $this->assertEquals(0, $food->protein);
+        $this->assertEquals(70, $food->carbohydrates);
+        $this->assertEquals(0, $food->fat);
+        $this->assertNull($food->fibre);
+        $this->assertEquals(0.3, $food->sodium);
+        $this->assertEquals(0.75, $food->salt);
+        $this->assertEquals(100, $food->nutrition_basis_amount);
+        $this->assertSame('g', $food->nutrition_basis_unit);
+        $this->assertEquals(1, $food->package_quantity);
+        $this->assertSame(1, $food->nutrition_complete);
+    }
+
+    public function test_it_treats_legacy_usda_unsuffixed_nutrients_as_per_100g(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'code' => '0000105000059',
+            'product_name' => 'Linden Flowers Tea',
+            'creator' => 'usda-ndb-import',
+            'data_sources_tags' => ['database-usda-ndb', 'databases'],
+            'product_quantity' => 1.5,
+            'product_quantity_unit' => 'g',
+            'serving_quantity' => 1.5,
+            'serving_quantity_unit' => 'g',
+            'nutrition_data_per' => 'serving',
+            'nutriments' => [
+                'energy-kcal' => 213.32,
+                'energy' => 893,
+                'proteins' => 0,
+                'carbohydrates' => 53.33,
+                'fat' => 0,
+                'sodium' => 0,
+                'salt' => 0,
+            ],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $food = DB::table('foods')
+            ->where('external_id', '0000105000059')
+            ->first();
+        $this->assertNotNull($food);
+        $this->assertEquals(213.32, $food->calories);
+        $this->assertEquals(0, $food->protein);
+        $this->assertEquals(53.33, $food->carbohydrates);
+        $this->assertEquals(0, $food->fat);
+        $this->assertNull($food->fibre);
+        $this->assertEquals(100, $food->nutrition_basis_amount);
+        $this->assertSame('g', $food->nutrition_basis_unit);
+        $this->assertEquals(1.5, $food->package_quantity);
+        $this->assertSame(1, $food->nutrition_complete);
+    }
+
+    public function test_it_imports_plain_water_as_zero_calorie_nutrition(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'code' => '0012142040370',
+            'product_name' => 'Purified drinking water',
+            'product_quantity' => null,
+            'product_quantity_unit' => null,
+            'nutrition_data_per' => '100g',
+            'nutriments' => [
+                'nutrition-score-fr_100g' => 0,
+                'nova-group_100g' => 1,
+            ],
+            'ingredients_tags' => ['en:water'],
+            'categories_tags' => [
+                'en:beverages',
+                'en:waters',
+                'en:spring-waters',
+            ],
+            'nutriscore_data' => ['is_water' => '1'],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $food = DB::table('foods')
+            ->where('external_id', '0012142040370')
+            ->first();
+        $this->assertNotNull($food);
+        $this->assertEquals(0, $food->calories);
+        $this->assertEquals(0, $food->protein);
+        $this->assertEquals(0, $food->carbohydrates);
+        $this->assertEquals(0, $food->fat);
+        $this->assertEquals(0, $food->fibre);
+        $this->assertEquals(0, $food->sugar);
+        $this->assertEquals(0, $food->sodium);
+        $this->assertEquals(0, $food->salt);
+        $this->assertEquals(100, $food->nutrition_basis_amount);
+        $this->assertSame('g', $food->nutrition_basis_unit);
+        $this->assertSame(1, $food->nutrition_complete);
+    }
+
+    public function test_it_imports_carbonated_water_without_an_energy_field(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'code' => '0021136010626',
+            'product_name' => 'Topo Chico Sparkling Mineral Water',
+            'product_quantity' => null,
+            'product_quantity_unit' => null,
+            'nutrition_data_per' => '100g',
+            'nutrition_data_per_imported' => '100g',
+            'nutriments' => [
+                'proteins_100g' => 0,
+                'carbohydrates_100g' => 0,
+                'fat_100g' => 0,
+                'sodium_100g' => 0.006,
+                'salt_100g' => 0.015,
+            ],
+            'ingredients_tags' => [
+                'en:mineral-water',
+                'en:water',
+                'en:e290',
+            ],
+            'categories_tags' => [
+                'en:beverages',
+                'en:waters',
+            ],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $food = DB::table('foods')
+            ->where('external_id', '0021136010626')
+            ->first();
+        $this->assertNotNull($food);
+        $this->assertEquals(0, $food->calories);
+        $this->assertEquals(0, $food->protein);
+        $this->assertEquals(0, $food->carbohydrates);
+        $this->assertEquals(0, $food->fat);
+        $this->assertEquals(0, $food->fibre);
+        $this->assertEquals(0.01, $food->sodium);
+        $this->assertEquals(0.02, $food->salt);
+        $this->assertEquals(100, $food->nutrition_basis_amount);
+        $this->assertSame('g', $food->nutrition_basis_unit);
+        $this->assertSame(1, $food->nutrition_complete);
+    }
+
+    public function test_it_imports_natural_mineral_water_taxonomy_aliases(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'code' => '0041508963985',
+            'product_name' => 'Carbonated Natural Mineral Water',
+            'product_quantity' => 1000,
+            'product_quantity_unit' => 'ml',
+            'serving_quantity' => 375,
+            'serving_quantity_unit' => 'ml',
+            'nutriments' => [],
+            'ingredients_tags' => [
+                'en:natural-mineral-water',
+                'en:water',
+                'en:mineral-water',
+                'en:e290',
+            ],
+            'categories_tags' => [
+                'en:beverages',
+                'en:waters',
+                'en:mineral-waters',
+                'en:carbonated-waters',
+            ],
+            'nutrition' => [
+                'aggregated_set' => [
+                    'preparation' => 'as_sold',
+                    'per' => '100ml',
+                    'nutrients' => [
+                        'sodium' => [
+                            'value' => 0.0032,
+                            'unit' => 'g',
+                        ],
+                        'salt' => [
+                            'value' => 0.008,
+                            'unit' => 'g',
+                        ],
+                    ],
+                ],
+            ],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $food = DB::table('foods')
+            ->where('external_id', '0041508963985')
+            ->first();
+        $this->assertNotNull($food);
+        $this->assertEquals(0, $food->calories);
+        $this->assertEquals(0, $food->protein);
+        $this->assertEquals(0, $food->carbohydrates);
+        $this->assertEquals(0, $food->fat);
+        $this->assertEquals(0, $food->fibre);
+        $this->assertEquals(0, $food->sugar);
+        $this->assertEquals(0, $food->sodium);
+        $this->assertEquals(0.01, $food->salt);
+        $this->assertEquals(100, $food->nutrition_basis_amount);
+        $this->assertSame('ml', $food->nutrition_basis_unit);
+        $this->assertEquals(1000, $food->package_quantity);
+        $this->assertSame('ml', $food->package_unit);
+        $this->assertSame(1, $food->nutrition_complete);
+    }
+
+    public function test_it_imports_single_ingredient_zero_macro_tea(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'code' => '0047900313502',
+            'product_name' => 'Decaffeinated Tea',
+            'product_quantity' => null,
+            'product_quantity_unit' => null,
+            'serving_quantity' => 2,
+            'serving_quantity_unit' => 'g',
+            'nutrition_data_per' => '100g',
+            'nutrition_data_per_imported' => '100g',
+            'nutriments' => [
+                'proteins_100g' => 0,
+                'carbohydrates_100g' => 0,
+                'fat_100g' => 0,
+                'sodium_100g' => 0,
+                'salt_100g' => 0,
+            ],
+            'ingredients_tags' => [
+                'en:orange-pekoe-and-pekoe-cut-black-teas',
+            ],
+            'additives_tags' => [],
+            'categories_tags' => [
+                'en:beverages',
+                'en:hot-beverages',
+                'en:teas',
+                'en:decaffeinated-teas',
+                'en:tea-bags',
+            ],
+            'food_groups_tags' => [
+                'en:beverages',
+                'en:unsweetened-beverages',
+            ],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $food = DB::table('foods')
+            ->where('external_id', '0047900313502')
+            ->first();
+        $this->assertNotNull($food);
+        $this->assertEquals(0, $food->calories);
+        $this->assertEquals(0, $food->protein);
+        $this->assertEquals(0, $food->carbohydrates);
+        $this->assertEquals(0, $food->fat);
+        $this->assertEquals(0, $food->fibre);
+        $this->assertEquals(0, $food->sugar);
+        $this->assertEquals(0, $food->sodium);
+        $this->assertEquals(0, $food->salt);
+        $this->assertEquals(100, $food->nutrition_basis_amount);
+        $this->assertSame('g', $food->nutrition_basis_unit);
+        $this->assertNull($food->package_quantity);
+        $this->assertNull($food->package_unit);
+        $this->assertSame(1, $food->nutrition_complete);
+    }
+
+    public function test_it_imports_verified_water_without_an_ingredient_list(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'code' => '00394567',
+            'product_name' => 'Still Scottish Mountain Water',
+            'product_quantity' => 500,
+            'product_quantity_unit' => 'ml',
+            'nutriments' => [],
+            'ingredients_tags' => [],
+            'ingredients' => [],
+            'categories_tags' => [
+                'en:beverages',
+                'en:waters',
+                'en:spring-waters',
+            ],
+            'nutriscore_data' => ['is_water' => '1'],
+            'nutrition' => [
+                'aggregated_set' => [
+                    'preparation' => 'as_sold',
+                    'per' => '100ml',
+                    'nutrients' => [
+                        'nova-group' => ['value' => 1, 'unit' => ''],
+                    ],
+                ],
+            ],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $food = DB::table('foods')
+            ->where('external_id', '00394567')
+            ->first();
+        $this->assertNotNull($food);
+        $this->assertEquals(0, $food->calories);
+        $this->assertEquals(0, $food->protein);
+        $this->assertEquals(0, $food->carbohydrates);
+        $this->assertEquals(0, $food->fat);
+        $this->assertEquals(0, $food->fibre);
+        $this->assertEquals(0, $food->sugar);
+        $this->assertEquals(0, $food->sodium);
+        $this->assertEquals(0, $food->salt);
+        $this->assertEquals(100, $food->nutrition_basis_amount);
+        $this->assertSame('ml', $food->nutrition_basis_unit);
+        $this->assertEquals(500, $food->package_quantity);
+        $this->assertSame('ml', $food->package_unit);
+        $this->assertSame(1, $food->nutrition_complete);
+    }
+
+    public function test_it_rejects_water_category_without_a_second_signal(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'nutriments' => [],
+            'ingredients_tags' => [],
+            'categories_tags' => ['en:waters'],
+            'nutriscore_data' => [],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $this->assertDatabaseCount('foods', 0);
+    }
+
+    public function test_it_estimates_missing_energy_from_complete_per_100_macros(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'code' => '0027000388402',
+            'product_name' => 'Organic Diced Tomatoes',
+            'serving_quantity' => 130,
+            'serving_quantity_unit' => 'g',
+            'nutrition_data_per' => '100g',
+            'nutrition_data_per_imported' => '100g',
+            'nutriments' => [
+                'proteins_100g' => 0.77,
+                'carbohydrates_100g' => 4.62,
+                'fat_100g' => 0,
+                'fiber_100g' => 1.5,
+                'sugars_100g' => 2.31,
+                'saturated-fat_100g' => 0,
+                'sodium_100g' => 0.154,
+                'salt_100g' => 0.385,
+            ],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $food = DB::table('foods')
+            ->where('external_id', '0027000388402')
+            ->first();
+        $this->assertNotNull($food);
+        $this->assertEquals(21.56, $food->calories);
+        $this->assertEquals(0.77, $food->protein);
+        $this->assertEquals(4.62, $food->carbohydrates);
+        $this->assertEquals(0, $food->fat);
+        $this->assertEquals(1.5, $food->fibre);
+        $this->assertEquals(2.31, $food->sugar);
+        $this->assertEquals(0.15, $food->sodium);
+        $this->assertEquals(0.39, $food->salt);
+        $this->assertEquals(100, $food->nutrition_basis_amount);
+        $this->assertSame('g', $food->nutrition_basis_unit);
+        $this->assertSame(1, $food->nutrition_complete);
+    }
+
+    public function test_it_uses_prepared_nutrition_only_as_a_last_resort(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'code' => '0039978302564',
+            'product_name' => 'Scottish Oatmeal Raisin Scone Mix',
+            'product_quantity' => 567,
+            'product_quantity_unit' => 'g',
+            'serving_quantity' => 47,
+            'serving_quantity_unit' => 'g',
+            'nutriments' => [],
+            'nutrition' => [
+                'aggregated_set' => [
+                    'preparation' => 'prepared',
+                    'per' => '100g',
+                    'nutrients' => [
+                        'energy-kcal' => [
+                            'value' => 363.82978723404,
+                            'unit' => 'kcal',
+                        ],
+                        'proteins' => [
+                            'value' => 8.5106382978723,
+                            'unit' => 'g',
+                        ],
+                        'carbohydrates' => [
+                            'value' => 74.468085106383,
+                            'unit' => 'g',
+                        ],
+                        'fat' => [
+                            'value' => 2.1276595744681,
+                            'unit' => 'g',
+                        ],
+                        'fiber' => [
+                            'value' => 6.3829787234043,
+                            'unit' => 'g',
+                        ],
+                        'sugars' => [
+                            'value' => 23.404255319149,
+                            'unit' => 'g',
+                        ],
+                        'saturated-fat' => [
+                            'value' => 0,
+                            'unit' => 'g',
+                        ],
+                        'sodium' => [
+                            'value' => 0.73497872340426,
+                            'unit' => 'g',
+                        ],
+                        'salt' => [
+                            'value' => 1.8374468085106,
+                            'unit' => 'g',
+                        ],
+                    ],
+                ],
+                'input_sets' => [
+                    [
+                        'preparation' => 'as_sold',
+                        'source' => 'packaging',
+                        'per' => 'serving',
+                        'per_quantity' => 47,
+                        'per_unit' => 'g',
+                        'nutrients' => [
+                            'nova-group' => ['value' => 4, 'unit' => ''],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $food = DB::table('foods')
+            ->where('external_id', '0039978302564')
+            ->first();
+        $this->assertNotNull($food);
+        $this->assertEquals(363.83, $food->calories);
+        $this->assertEquals(8.51, $food->protein);
+        $this->assertEquals(74.47, $food->carbohydrates);
+        $this->assertEquals(2.13, $food->fat);
+        $this->assertEquals(6.38, $food->fibre);
+        $this->assertEquals(23.4, $food->sugar);
+        $this->assertEquals(0, $food->saturated_fat);
+        $this->assertEquals(0.73, $food->sodium);
+        $this->assertEquals(1.84, $food->salt);
+        $this->assertEquals(100, $food->nutrition_basis_amount);
+        $this->assertSame('g', $food->nutrition_basis_unit);
+        $this->assertEquals(567, $food->package_quantity);
+        $this->assertSame('g', $food->package_unit);
+        $this->assertSame(1, $food->nutrition_complete);
+    }
+
+    public function test_it_does_not_assume_flavoured_water_has_zero_nutrition(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'nutriments' => [],
+            'ingredients_tags' => ['en:water', 'en:sugar'],
+            'categories_tags' => ['en:waters'],
+            'nutriscore_data' => ['is_water' => '1'],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $this->assertDatabaseCount('foods', 0);
+    }
+
+    public function test_it_does_not_treat_unscaled_serving_values_as_per_100(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'nutriments' => [
+                'energy-kcal' => 200,
+                'proteins' => 5,
+            ],
+            'nutrition_data_per' => 'serving',
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $this->assertDatabaseCount('foods', 0);
+        $run = DB::table('food_import_runs')->latest('id')->first();
+        $this->assertSame(
+            ['missing_energy' => 1],
+            json_decode($run->skip_reasons, true)
+        );
+    }
+
     public function test_dry_run_maps_records_without_writing_any_data(): void
     {
         $path = $this->gzipDump([$this->romanianProduct()]);

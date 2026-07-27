@@ -50,7 +50,7 @@ class ImportOpenFoodFacts extends Command
                 60 * 60 * 24 * 7
             );
 
-            if (! $lock->get()) {
+            if ( $lock->get()) {
                 throw new LockTimeoutException(
                     'Another Open Food Facts import is already running.'
                 );
