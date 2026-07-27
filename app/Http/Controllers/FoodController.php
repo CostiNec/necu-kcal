@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Food;
 use App\Models\User;
 use App\Services\FoodSearch;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -20,7 +21,17 @@ class FoodController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
+        $timezone = $user->profile?->timezone ?? config('app.timezone');
+        $now = CarbonImmutable::now($timezone);
         $search = trim((string) $request->query('search', ''));
+        $requestedMeal = $request->query('meal');
+        $meal = in_array(
+            $requestedMeal,
+            ['breakfast', 'lunch', 'dinner', 'snacks'],
+            true
+        )
+            ? $requestedMeal
+            : $this->mealForHour($now->hour);
         $paginator = $this->paginatedQuery(
             $user,
             $search,
@@ -36,7 +47,8 @@ class FoodController extends Controller
             ],
             'context' => [
                 'date' => $request->query('date'),
-                'meal' => $request->query('meal', 'snacks'),
+                'meal' => $meal,
+                'today' => $now->toDateString(),
             ],
         ]);
     }
@@ -175,5 +187,15 @@ class FoodController extends Controller
             'is_custom' => $food->food_type === 'custom',
             'is_favourite' => (bool) $food->is_favourite,
         ];
+    }
+
+    private function mealForHour(int $hour): string
+    {
+        return match (true) {
+            $hour >= 5 && $hour < 11 => 'breakfast',
+            $hour >= 11 && $hour < 16 => 'lunch',
+            $hour >= 16 && $hour < 22 => 'dinner',
+            default => 'snacks',
+        };
     }
 }

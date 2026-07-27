@@ -1,5 +1,4 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import ExpandLessRounded from '@mui/icons-material/ExpandLessRounded';
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import FavoriteBorderRounded from '@mui/icons-material/FavoriteBorderRounded';
@@ -67,7 +66,7 @@ export default function FoodsIndex({
     foods: Food[];
     filters: { search: string };
     pagination: { next_cursor: string | null };
-    context: { date: string | null; meal: Meal };
+    context: { date: string | null; meal: Meal; today: string };
 }) {
     const { t } = useTranslation();
     const [search, setSearch] = useState(
@@ -266,26 +265,46 @@ export default function FoodsIndex({
                     ? t('food.logging_description')
                     : t('food.library_description')
             }
-            actions={
-                logging ? (
-                    <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<ArrowBackRounded />}
-                        onClick={() =>
-                            router.visit(
-                                `/diary/${context.date}?focus_meal=${context.meal}`,
-                            )
-                        }
-                    >
-                        {t('food.diary')}
-                    </Button>
-                ) : undefined
+            back={
+                logging
+                    ? {
+                          href: `/diary/${context.date}?focus_meal=${context.meal}`,
+                          label: t('food.diary'),
+                      }
+                    : undefined
             }
         >
             <Head title={logging ? t('food.add_food_head') : t('common.foods')} />
 
             <Stack spacing={2}>
+                {logging && (
+                    <TextField
+                        select
+                        fullWidth
+                        label={t('food.meal')}
+                        value={context.meal}
+                        onChange={(event) => {
+                            const meal = event.target.value as Meal;
+
+                            router.visit(
+                                `/foods?date=${context.date}&meal=${meal}`,
+                                {
+                                    preserveScroll: true,
+                                    preserveState: true,
+                                },
+                            );
+                        }}
+                    >
+                        {Object.entries(mealLabels).map(
+                            ([meal, labelKey]) => (
+                                <MenuItem key={meal} value={meal}>
+                                    {t(labelKey)}
+                                </MenuItem>
+                            ),
+                        )}
+                    </TextField>
+                )}
+
                 <TextField
                     fullWidth
                     value={search}
@@ -469,10 +488,11 @@ export default function FoodsIndex({
                     ) : (
                         results.map((food) => (
                             <FoodRow
-                                key={food.id}
+                                key={`${food.id}-${context.date ?? 'library'}-${context.meal}`}
                                 food={food}
                                 date={context.date}
                                 meal={context.meal}
+                                targetDate={context.today}
                                 onToggleFavourite={() =>
                                     toggleFavourite(food)
                                 }
@@ -502,11 +522,13 @@ function FoodRow({
     food,
     date,
     meal,
+    targetDate,
     onToggleFavourite,
 }: {
     food: Food;
     date: string | null;
     meal: Meal;
+    targetDate: string;
     onToggleFavourite: () => void;
 }) {
     const { t } = useTranslation();
@@ -562,7 +584,54 @@ function FoodRow({
                             <FavoriteBorderRounded />
                         )}
                     </IconButton>
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Box
+                        role={date ? undefined : 'button'}
+                        tabIndex={date ? undefined : 0}
+                        onClick={
+                            date
+                                ? undefined
+                                : () =>
+                                      router.visit(
+                                          `/foods?date=${targetDate}&meal=${meal}`,
+                                          {
+                                              preserveScroll: true,
+                                              preserveState: true,
+                                          },
+                                      )
+                        }
+                        onKeyDown={
+                            date
+                                ? undefined
+                                : (event) => {
+                                      if (
+                                          event.key !== 'Enter' &&
+                                          event.key !== ' '
+                                      ) {
+                                          return;
+                                      }
+
+                                      event.preventDefault();
+                                      router.visit(
+                                          `/foods?date=${targetDate}&meal=${meal}`,
+                                          {
+                                              preserveScroll: true,
+                                              preserveState: true,
+                                          },
+                                      );
+                                  }
+                        }
+                        sx={{
+                            minWidth: 0,
+                            flex: 1,
+                            cursor: date ? 'default' : 'pointer',
+                            borderRadius: 1,
+                            '&:focus-visible': {
+                                outline: '2px solid',
+                                outlineColor: 'primary.main',
+                                outlineOffset: 4,
+                            },
+                        }}
+                    >
                         <Stack
                             direction="row"
                             alignItems="flex-start"

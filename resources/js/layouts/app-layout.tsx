@@ -1,5 +1,6 @@
 import { router, usePage } from '@inertiajs/react';
 import { useEchoNotification } from '@laravel/echo-react';
+import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import BarChartOutlined from '@mui/icons-material/BarChartOutlined';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import RestaurantMenuOutlined from '@mui/icons-material/RestaurantMenuOutlined';
@@ -10,6 +11,7 @@ import MenuBookOutlined from '@mui/icons-material/MenuBookOutlined';
 import MonitorWeightOutlined from '@mui/icons-material/MonitorWeightOutlined';
 import NotificationsNoneRounded from '@mui/icons-material/NotificationsNoneRounded';
 import PeopleOutlineRounded from '@mui/icons-material/PeopleOutlineRounded';
+import RefreshRounded from '@mui/icons-material/RefreshRounded';
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import AppBar from '@mui/material/AppBar';
 import Avatar from '@mui/material/Avatar';
@@ -39,6 +41,7 @@ import { InstallAppButton } from '@/components/install-app-button';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
 import { PageTransition } from '@/components/page-transition';
 import { RouterLink } from '@/components/router-link';
+import { SidebarPreferences } from '@/components/sidebar-preferences';
 import { toast } from '@/components/snackbar';
 import type { SharedProps } from '@/types';
 
@@ -111,10 +114,15 @@ export function AppLayout({
     title,
     subtitle,
     actions,
+    back,
 }: PropsWithChildren<{
     title?: string;
     subtitle?: string;
     actions?: React.ReactNode;
+    back?: {
+        href: string;
+        label: string;
+    };
 }>) {
     const page = usePage<SharedProps>();
     const { auth, flash, notificationSummary } = page.props;
@@ -372,17 +380,7 @@ export function AppLayout({
                             p: 2,
                         }}
                     >
-                        <Paper variant="outlined" sx={{ p: 2 }}>
-                            <Stack
-                                direction="row"
-                                alignItems="center"
-                                justifyContent="space-between"
-                                spacing={2}
-                            >
-                                <LanguageSwitcher />
-                                <ColorModeButton withLabel />
-                            </Stack>
-                        </Paper>
+                        <SidebarPreferences />
 
                         <Divider sx={{ my: 2 }} />
 
@@ -506,7 +504,22 @@ export function AppLayout({
                         }}
                     >
                         <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
-                            <BrandMark compact />
+                            {back ? (
+                                <RouterLink
+                                    href={back.href}
+                                    style={{ color: 'inherit' }}
+                                >
+                                    <IconButton
+                                        color="inherit"
+                                        aria-label={back.label}
+                                        sx={{ width: 44, height: 44 }}
+                                    >
+                                        <ArrowBackRounded />
+                                    </IconButton>
+                                </RouterLink>
+                            ) : (
+                                <BrandMark compact />
+                            )}
                         </Box>
                         <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
                             {title && <Typography variant="h5">{title}</Typography>}
@@ -519,10 +532,45 @@ export function AppLayout({
                         <Stack
                             direction="row"
                             alignItems="center"
-                            spacing={2}
+                            spacing={{ xs: 0.5, sm: 1, lg: 2 }}
                             sx={{ ml: 'auto' }}
                         >
+                            {back && (
+                                <RouterLink
+                                    href={back.href}
+                                    style={{
+                                        color: 'inherit',
+                                        textDecoration: 'none',
+                                    }}
+                                >
+                                    <Button
+                                        color="inherit"
+                                        variant="soft"
+                                        startIcon={<ArrowBackRounded />}
+                                        sx={{
+                                            display: {
+                                                xs: 'none',
+                                                lg: 'inline-flex',
+                                            },
+                                        }}
+                                    >
+                                        {back.label}
+                                    </Button>
+                                </RouterLink>
+                            )}
                             {actions}
+                            <IconButton
+                                color="inherit"
+                                onClick={() => window.location.reload()}
+                                aria-label={t('common.refresh')}
+                                sx={{
+                                    display: { xs: 'inline-flex', lg: 'none' },
+                                    width: 44,
+                                    height: 44,
+                                }}
+                            >
+                                <RefreshRounded />
+                            </IconButton>
                             <RouterLink
                                 href="/notifications"
                                 style={{ color: 'inherit' }}

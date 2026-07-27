@@ -6,6 +6,7 @@ use App\Models\DiaryDay;
 use App\Models\Food;
 use App\Models\Recipe;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -437,6 +438,48 @@ class NutritionTrackingTest extends TestCase
                 ->where('foods.0.id', $favourite->id)
                 ->where('foods.0.is_favourite', true)
                 ->where('pagination.next_cursor', null)
+            );
+    }
+
+    public function test_food_page_defaults_to_todays_meal_for_the_users_timezone(): void
+    {
+        CarbonImmutable::setTestNow(
+            CarbonImmutable::create(
+                2026,
+                7,
+                28,
+                8,
+                30,
+                timezone: 'Europe/Bucharest'
+            )
+        );
+
+        try {
+            $user = $this->onboardedUser();
+
+            $this->actingAs($user)
+                ->get('/foods')
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page
+                    ->where('context.date', null)
+                    ->where('context.today', '2026-07-28')
+                    ->where('context.meal', 'breakfast')
+                );
+        } finally {
+            CarbonImmutable::setTestNow();
+        }
+    }
+
+    public function test_food_page_uses_the_selected_meal(): void
+    {
+        $user = $this->onboardedUser();
+
+        $this->actingAs($user)
+            ->get('/foods?date=2026-07-28&meal=dinner')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('context.date', '2026-07-28')
+                ->where('context.meal', 'dinner')
             );
     }
 

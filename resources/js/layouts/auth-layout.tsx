@@ -1,4 +1,5 @@
 import AddRounded from '@mui/icons-material/AddRounded';
+import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import DinnerDiningRounded from '@mui/icons-material/DinnerDiningRounded';
 import EditRounded from '@mui/icons-material/EditRounded';
@@ -6,6 +7,7 @@ import FreeBreakfastRounded from '@mui/icons-material/FreeBreakfastRounded';
 import LunchDiningRounded from '@mui/icons-material/LunchDiningRounded';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
+import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -79,7 +81,15 @@ export function AuthLayout({
     children,
     title,
     description,
-}: PropsWithChildren<{ title: string; description: string }>) {
+    back,
+}: PropsWithChildren<{
+    title: string;
+    description: string;
+    back?: {
+        href: string;
+        label: string;
+    };
+}>) {
     const { t } = useTranslation();
 
     return (
@@ -93,12 +103,37 @@ export function AuthLayout({
         >
             <Stack sx={{ minHeight: '100vh', p: 2 }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between">
-                    <RouterLink
-                        href="/"
-                        style={{ color: 'inherit', textDecoration: 'none' }}
+                    <Box
+                        sx={{
+                            display: {
+                                xs: back ? 'none' : 'block',
+                                lg: 'block',
+                            },
+                        }}
                     >
-                        <BrandMark />
-                    </RouterLink>
+                        <RouterLink
+                            href="/"
+                            style={{ color: 'inherit', textDecoration: 'none' }}
+                        >
+                            <BrandMark />
+                        </RouterLink>
+                    </Box>
+                    {back && (
+                        <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
+                            <RouterLink
+                                href={back.href}
+                                style={{ color: 'inherit' }}
+                            >
+                                <IconButton
+                                    color="inherit"
+                                    aria-label={back.label}
+                                    sx={{ width: 44, height: 44 }}
+                                >
+                                    <ArrowBackRounded />
+                                </IconButton>
+                            </RouterLink>
+                        </Box>
+                    )}
                     <Stack direction="row" alignItems="center" spacing={0.5}>
                         <LanguageSwitcher compact />
                         <ColorModeButton />

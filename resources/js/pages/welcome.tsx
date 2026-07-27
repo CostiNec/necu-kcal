@@ -1,7 +1,9 @@
 import { Head, usePage } from '@inertiajs/react';
 import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded';
 import CheckRounded from '@mui/icons-material/CheckRounded';
+import CloseRounded from '@mui/icons-material/CloseRounded';
 import InsightsRounded from '@mui/icons-material/InsightsRounded';
+import MenuRounded from '@mui/icons-material/MenuRounded';
 import SearchRounded from '@mui/icons-material/SearchRounded';
 import TrackChangesRounded from '@mui/icons-material/TrackChangesRounded';
 import {
@@ -13,19 +15,25 @@ import {
     Chip,
     CircularProgress,
     Container,
+    Divider,
     Grid,
+    IconButton,
     LinearProgress,
     Stack,
+    SwipeableDrawer,
     Toolbar,
     Typography,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { motion } from 'framer-motion';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrandMark } from '@/components/brand-mark';
 import { ColorModeButton } from '@/components/color-mode-button';
+import { InstallAppButton } from '@/components/install-app-button';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { RouterLink } from '@/components/router-link';
+import { SidebarPreferences } from '@/components/sidebar-preferences';
 import type { SharedProps } from '@/types';
 
 const featureIcons = [SearchRounded, TrackChangesRounded, InsightsRounded];
@@ -33,6 +41,7 @@ const featureIcons = [SearchRounded, TrackChangesRounded, InsightsRounded];
 export default function Welcome() {
     const { auth } = usePage<SharedProps>().props;
     const { t } = useTranslation();
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     return (
         <Box sx={{ minHeight: '100vh', overflow: 'hidden' }}>
@@ -63,20 +72,11 @@ export default function Welcome() {
                         direction="row"
                         alignItems="center"
                         spacing={1}
-                        sx={{ ml: 'auto' }}
+                        sx={{ ml: 'auto', display: { xs: 'none', sm: 'flex' } }}
                     >
                         <LanguageSwitcher compact />
                         <ColorModeButton />
-                        {auth.user ? (
-                            <RouterLink href="/today">
-                                <Button
-                                    variant="contained"
-                                    endIcon={<ArrowForwardRounded />}
-                                >
-                                    {t('landing.open_diary')}
-                                </Button>
-                            </RouterLink>
-                        ) : (
+                        {!auth.user && (
                             <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
                                 <RouterLink href="/login">
                                     <Button color="inherit">
@@ -86,8 +86,130 @@ export default function Welcome() {
                             </Box>
                         )}
                     </Stack>
+                    <IconButton
+                        color="inherit"
+                        onClick={() => setMobileMenuOpen(true)}
+                        aria-label={t('common.open_menu')}
+                        aria-controls="mobile-home-menu"
+                        aria-expanded={mobileMenuOpen}
+                        sx={{
+                            display: { xs: 'inline-flex', sm: 'none' },
+                            width: 44,
+                            height: 44,
+                            ml: 'auto',
+                        }}
+                    >
+                        <MenuRounded />
+                    </IconButton>
                 </Toolbar>
             </AppBar>
+
+            <SwipeableDrawer
+                id="mobile-home-menu"
+                anchor="right"
+                open={mobileMenuOpen}
+                onOpen={() => setMobileMenuOpen(true)}
+                onClose={() => setMobileMenuOpen(false)}
+                swipeAreaWidth={28}
+                hysteresis={0.3}
+                ModalProps={{ keepMounted: true }}
+                sx={(theme) => ({
+                    display: { xs: 'block', sm: 'none' },
+                    zIndex: theme.zIndex.modal + 10,
+                    '& .MuiDrawer-paper': {
+                        width: 'min(90vw, 360px)',
+                        bgcolor: 'background.default',
+                        backgroundImage: 'none',
+                    },
+                })}
+            >
+                <Stack sx={{ height: 1 }}>
+                    <Stack
+                        component="header"
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        sx={{
+                            minHeight: 72,
+                            px: 2,
+                            borderBottom: 1,
+                            borderColor: 'divider',
+                            bgcolor: 'background.paper',
+                        }}
+                    >
+                        <BrandMark />
+                        <IconButton
+                            onClick={() => setMobileMenuOpen(false)}
+                            aria-label={t('common.close')}
+                            sx={{ width: 44, height: 44 }}
+                        >
+                            <CloseRounded />
+                        </IconButton>
+                    </Stack>
+
+                    <Stack
+                        sx={{
+                            minHeight: 0,
+                            flex: 1,
+                            overflowY: 'auto',
+                            p: 2,
+                        }}
+                    >
+                        <SidebarPreferences />
+
+                        <Box sx={{ mt: 2.5 }}>
+                            <InstallAppButton />
+                        </Box>
+
+                        {!auth.user && (
+                            <Box sx={{ mt: 'auto', pt: 3 }}>
+                                <Divider sx={{ mb: 2 }} />
+                                <Stack spacing={1.5}>
+                                    <RouterLink
+                                        href="/login"
+                                        style={{
+                                            display: 'block',
+                                            textDecoration: 'none',
+                                        }}
+                                    >
+                                        <Button
+                                            fullWidth
+                                            size="large"
+                                            variant="outlined"
+                                            onClick={() =>
+                                                setMobileMenuOpen(false)
+                                            }
+                                        >
+                                            {t('landing.sign_in')}
+                                        </Button>
+                                    </RouterLink>
+                                    <RouterLink
+                                        href="/register"
+                                        style={{
+                                            display: 'block',
+                                            textDecoration: 'none',
+                                        }}
+                                    >
+                                        <Button
+                                            fullWidth
+                                            size="large"
+                                            variant="contained"
+                                            endIcon={<ArrowForwardRounded />}
+                                            onClick={() =>
+                                                setMobileMenuOpen(false)
+                                            }
+                                        >
+                                            {t(
+                                                'landing.create_free_account',
+                                            )}
+                                        </Button>
+                                    </RouterLink>
+                                </Stack>
+                            </Box>
+                        )}
+                    </Stack>
+                </Stack>
+            </SwipeableDrawer>
 
             <Box component="main" sx={{ bgcolor: 'background.default' }}>
                 <Container maxWidth="lg" sx={{ py: { xs: 8, md: 12 } }}>

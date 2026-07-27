@@ -5,7 +5,7 @@
     "recipes": "Rețete",
     "reports": "Rapoarte",
     "weight": "Greutate",
-    "people": "Persoane",
+    "people": "Prieteni",
     "notifications": "Notificări",
     "profile": "Profil",
     "sign_out": "Deconectare",
@@ -43,6 +43,7 @@
     "next_week": "Săptămâna următoare",
     "open_menu": "Deschide meniul",
     "close": "Închide",
+    "refresh": "Reîncarcă",
     "menu": "Meniu",
     "primary_navigation": "Navigare principală"
   },
@@ -183,7 +184,7 @@
     "resend_verification": "Retrimite e-mailul de confirmare"
   },
   "social": {
-    "people": "Persoane",
+    "people": "Prieteni",
     "people_description": "Găsește persoane după numele de utilizator, conectați-vă și distribuiți rețete.",
     "search_username": "Introdu numele de utilizator exact",
     "exact_username_help": "Numele de utilizator trebuie să corespundă exact.",
@@ -274,6 +275,7 @@
   },
   "food": {
     "add_to_meal": "Adaugă la {{meal}}",
+    "meal": "Masă",
     "library": "Bibliotecă de alimente",
     "logging_description": "Alege un aliment sau o rețetă, apoi introdu unitatea, cantitatea și numărul.",
     "library_description": "Favoritele sunt afișate primele. Caută în întreaga bază de date în timp ce scrii.",

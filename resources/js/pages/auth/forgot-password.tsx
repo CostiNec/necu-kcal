@@ -23,6 +23,10 @@ export default function ForgotPassword({ status }: { status?: string }) {
         <AuthLayout
             title={t('auth.reset_title')}
             description={t('auth.reset_description')}
+            back={{
+                href: '/login',
+                label: t('auth.back_to_sign_in'),
+            }}
         >
             <Head title={t('auth.forgot_head')} />
             <Stack spacing={2}>
@@ -59,6 +63,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
                         fullWidth
                         color="inherit"
                         startIcon={<ArrowBackRounded />}
+                        sx={{ display: { xs: 'none', lg: 'flex' } }}
                     >
                         {t('auth.back_to_sign_in')}
                     </Button>

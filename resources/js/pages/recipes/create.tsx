@@ -1,6 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
 import AddRounded from '@mui/icons-material/AddRounded';
-import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import QrCodeScannerRounded from '@mui/icons-material/QrCodeScannerRounded';
 import RestaurantMenuOutlined from '@mui/icons-material/RestaurantMenuOutlined';
@@ -39,7 +38,6 @@ import {
     parseNumberInput,
     type NumberInputValue,
 } from '@/lib/utils';
-import { RouterLink } from '@/components/router-link';
 import type { NutritionBasisUnit } from '@/lib/measurement-units';
 
 export type FoodOption = {
@@ -340,20 +338,10 @@ export default function RecipeFormPage({
         <AppLayout
             title={title}
             subtitle={description}
-            actions={
-                <RouterLink
-                    href="/recipes"
-                    style={{ color: 'inherit', textDecoration: 'none' }}
-                >
-                    <Button
-                        color="inherit"
-                        variant="soft"
-                        startIcon={<ArrowBackRounded />}
-                    >
-                        {t('recipe.back_to_recipes')}
-                    </Button>
-                </RouterLink>
-            }
+            back={{
+                href: '/recipes',
+                label: t('recipe.back_to_recipes'),
+            }}
         >
             <Head title={title} />
 

@@ -5,7 +5,7 @@
     "recipes": "Recipes",
     "reports": "Reports",
     "weight": "Weight",
-    "people": "People",
+    "people": "Friends",
     "notifications": "Notifications",
     "profile": "Profile",
     "sign_out": "Sign out",
@@ -43,6 +43,7 @@
     "next_week": "Next week",
     "open_menu": "Open menu",
     "close": "Close",
+    "refresh": "Refresh",
     "menu": "Menu",
     "primary_navigation": "Primary navigation"
   },
@@ -183,7 +184,7 @@
     "resend_verification": "Resend verification email"
   },
   "social": {
-    "people": "People",
+    "people": "Friends",
     "people_description": "Find people by username, connect, and share recipes with friends.",
     "search_username": "Enter an exact username",
     "exact_username_help": "Usernames are matched exactly.",
@@ -274,6 +275,7 @@
   },
   "food": {
     "add_to_meal": "Add to {{meal}}",
+    "meal": "Meal",
     "library": "Food library",
     "logging_description": "Choose a food or recipe, then enter the unit, amount, and quantity.",
     "library_description": "Your favourites are shown first. Search the full food database as you type.",
