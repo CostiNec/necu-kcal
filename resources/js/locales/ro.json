@@ -292,7 +292,7 @@
     "camera_unavailable": "Nu este disponibilă o cameră potrivită pe acest dispozitiv.",
     "camera_unsupported": "Browserul nu permite scanarea cu camera.",
     "camera_error": "Camera nu a putut fi pornită. Închide celelalte aplicații care o folosesc și încearcă din nou.",
-    "create_custom": "Creează un aliment personalizat",
+    "create_custom": "Creează aliment",
     "no_results": "Nu am găsit alimente",
     "no_results_for": "Niciun rezultat pentru „{{search}}”",
     "no_results_copy": "Verifică denumirea, folosește mai puține cuvinte sau adaugă un aliment personalizat.",

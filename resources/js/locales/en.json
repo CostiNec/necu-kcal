@@ -292,7 +292,7 @@
     "camera_unavailable": "No suitable camera is available on this device.",
     "camera_unsupported": "Camera scanning is not supported by this browser.",
     "camera_error": "The camera could not be started. Close other apps using it and try again.",
-    "create_custom": "Create a custom food",
+    "create_custom": "Create food",
     "no_results": "No foods found",
     "no_results_for": "No matches for “{{search}}”",
     "no_results_copy": "Check the spelling, try fewer words, or add it as a custom food.",

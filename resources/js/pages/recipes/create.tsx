@@ -2,7 +2,9 @@ import { Head, useForm } from '@inertiajs/react';
 import AddRounded from '@mui/icons-material/AddRounded';
 import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
+import QrCodeScannerRounded from '@mui/icons-material/QrCodeScannerRounded';
 import RestaurantMenuOutlined from '@mui/icons-material/RestaurantMenuOutlined';
+import SearchRounded from '@mui/icons-material/SearchRounded';
 import ScaleOutlined from '@mui/icons-material/ScaleOutlined';
 import {
     Alert,
@@ -29,6 +31,8 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BarcodeScannerDialog } from '@/components/barcode-scanner-dialog';
+import { toast } from '@/components/snackbar';
 import { AppLayout } from '@/layouts/app-layout';
 import {
     formatNumber,
@@ -92,6 +96,9 @@ export default function RecipeFormPage({
     );
     const [foodSearch, setFoodSearch] = useState('');
     const [foodSearching, setFoodSearching] = useState(false);
+    const [scannerIngredientIndex, setScannerIngredientIndex] = useState<
+        number | null
+    >(null);
     const form = useForm<{
         name: string;
         cooked_weight: NumberInputValue;
@@ -212,7 +219,7 @@ export default function RecipeFormPage({
                     setFoodSearching(false);
                 }
             }
-        }, 250);
+        }, 300);
 
         return () => {
             window.clearTimeout(timeout);
@@ -275,6 +282,58 @@ export default function RecipeFormPage({
                 (_, ingredientIndex) => ingredientIndex !== index,
             ),
         );
+    };
+
+    const handleBarcodeDetected = async (barcode: string) => {
+        const ingredientIndex = scannerIngredientIndex;
+        setScannerIngredientIndex(null);
+
+        if (ingredientIndex === null) return;
+
+        setFoodSearching(true);
+
+        try {
+            const response = await fetch(
+                `/foods/search?search=${encodeURIComponent(barcode.trim())}`,
+                { headers: { Accept: 'application/json' } },
+            );
+
+            if (!response.ok) {
+                throw new Error('Unable to search for the barcode.');
+            }
+
+            const payload = (await response.json()) as {
+                foods: FoodOption[];
+            };
+            const food = payload.foods[0];
+
+            if (!food) {
+                toast.error(t('food.barcode_not_found'), {
+                    id: `recipe-barcode-${barcode}`,
+                });
+
+                return;
+            }
+
+            setFoodOptions((current) => {
+                const options = new Map(
+                    current.map((option) => [option.id, option]),
+                );
+                options.set(food.id, food);
+
+                return Array.from(options.values());
+            });
+            updateIngredient(ingredientIndex, {
+                food_id: food.id,
+                amount: food.nutrition_basis_amount,
+            });
+        } catch {
+            toast.error(t('food.barcode_not_found'), {
+                id: `recipe-barcode-${barcode}`,
+            });
+        } finally {
+            setFoodSearching(false);
+        }
     };
 
     return (
@@ -440,6 +499,9 @@ export default function RecipeFormPage({
                                                             }
                                                             value={selectedFood}
                                                             autoHighlight
+                                                            forcePopupIcon={
+                                                                false
+                                                            }
                                                             loading={
                                                                 foodSearching
                                                             }
@@ -547,6 +609,51 @@ export default function RecipeFormPage({
                                                                             `ingredients.${index}.food_id`
                                                                         ]
                                                                     }
+                                                                    slotProps={{
+                                                                        input: {
+                                                                            ...params.InputProps,
+                                                                            startAdornment:
+                                                                                (
+                                                                                    <>
+                                                                                        <InputAdornment position="start">
+                                                                                            <SearchRounded color="action" />
+                                                                                        </InputAdornment>
+                                                                                        {
+                                                                                            params
+                                                                                                .InputProps
+                                                                                                .startAdornment
+                                                                                        }
+                                                                                    </>
+                                                                                ),
+                                                                            endAdornment:
+                                                                                (
+                                                                                    <>
+                                                                                        <IconButton
+                                                                                            size="small"
+                                                                                            color="primary"
+                                                                                            aria-label={t(
+                                                                                                'food.scan_barcode',
+                                                                                            )}
+                                                                                            onClick={(
+                                                                                                event,
+                                                                                            ) => {
+                                                                                                event.stopPropagation();
+                                                                                                setScannerIngredientIndex(
+                                                                                                    index,
+                                                                                                );
+                                                                                            }}
+                                                                                        >
+                                                                                            <QrCodeScannerRounded fontSize="small" />
+                                                                                        </IconButton>
+                                                                                        {
+                                                                                            params
+                                                                                                .InputProps
+                                                                                                .endAdornment
+                                                                                        }
+                                                                                    </>
+                                                                                ),
+                                                                        },
+                                                                    }}
                                                                 />
                                                             )}
                                                             renderOption={(
@@ -751,6 +858,11 @@ export default function RecipeFormPage({
             <CreateFoodDialog
                 open={foodDialogOpen}
                 onClose={() => setFoodDialogOpen(false)}
+            />
+            <BarcodeScannerDialog
+                open={scannerIngredientIndex !== null}
+                onClose={() => setScannerIngredientIndex(null)}
+                onDetected={handleBarcodeDetected}
             />
         </AppLayout>
     );
