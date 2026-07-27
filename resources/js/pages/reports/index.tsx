@@ -100,7 +100,7 @@ export default function ReportsIndex({
         <AppLayout title={t('reports.title')} subtitle={t('reports.description')}>
             <Head title={t('common.reports')} />
 
-            <Stack spacing={3}>
+            <Stack spacing={2}>
                 <PeriodNavigator
                     title={t('reports.week_overview')}
                     subtitle={`${formatDate(week.start, { year: undefined })} – ${formatDate(week.end, { year: undefined })}`}
@@ -179,7 +179,7 @@ export default function ReportsIndex({
                     </Grid>
                 </Grid>
 
-                <Grid container spacing={3}>
+                <Grid container spacing={2}>
                     <Grid size={{ xs: 12, lg: 8 }}>
                         <Card sx={{ height: 1 }}>
                             <CardHeader
@@ -300,7 +300,7 @@ export default function ReportsIndex({
                                 {topFoods.length === 0 ? (
                                     <Stack
                                         alignItems="center"
-                                        spacing={1.5}
+                                        spacing={2}
                                         sx={{
                                             py: 5,
                                             borderRadius: 2,
@@ -320,7 +320,7 @@ export default function ReportsIndex({
                                                 key={food.name}
                                                 direction="row"
                                                 alignItems="center"
-                                                spacing={1.5}
+                                                spacing={2}
                                                 sx={{
                                                     p: 1,
                                                     borderRadius: 1.5,
@@ -404,7 +404,7 @@ export default function ReportsIndex({
                         {localizedWeightChart.length === 0 ? (
                             <Stack
                                 alignItems="center"
-                                spacing={1.5}
+                                spacing={2}
                                 sx={{
                                     py: 6,
                                     borderRadius: 2,

@@ -16,7 +16,7 @@ export default function VerifyEmail({ status }: { status?: string }) {
             description={t('auth.verify_description')}
         >
             <Head title={t('auth.verify_head')} />
-            <Stack spacing={2.5}>
+            <Stack spacing={2}>
                 <Box
                     sx={{
                         width: 56,

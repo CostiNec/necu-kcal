@@ -86,7 +86,7 @@ export default function RecipesIndex({
         >
             <Head title={t('recipe.title')} />
 
-            <Stack spacing={3}>
+            <Stack spacing={2}>
                 {recipes.length > 0 && (
                     <Stack
                         direction={{ xs: 'column', sm: 'row' }}
@@ -139,7 +139,7 @@ export default function RecipesIndex({
                     <Paper
                         variant="outlined"
                         sx={{
-                            p: 4,
+                            p: 2,
                             textAlign: 'center',
                             borderStyle: 'dashed',
                         }}
@@ -219,19 +219,19 @@ function EmptyRecipes() {
         <Paper
             variant="outlined"
             sx={{
-                p: { xs: 4, sm: 6 },
+                p: 2,
                 textAlign: 'center',
                 borderStyle: 'dashed',
             }}
         >
             <RestaurantMenuOutlined color="primary" sx={{ fontSize: 48 }} />
-            <Typography variant="h5" sx={{ mt: 1.5 }}>
+            <Typography variant="h5" sx={{ mt: 2 }}>
                 {t('recipe.empty_title')}
             </Typography>
             <Typography
                 variant="body2"
                 color="text.secondary"
-                sx={{ mt: 0.75, mb: 2.5 }}
+                sx={{ my: 2 }}
             >
                 {t('recipe.empty_description')}
             </Typography>

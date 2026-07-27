@@ -25,9 +25,9 @@ export default function ForgotPassword({ status }: { status?: string }) {
             description={t('auth.reset_description')}
         >
             <Head title={t('auth.forgot_head')} />
-            <Stack spacing={2.5}>
+            <Stack spacing={2}>
                 {status && <Alert severity="success">{status}</Alert>}
-                <Stack component="form" spacing={2.5} onSubmit={submit}>
+                <Stack component="form" spacing={2} onSubmit={submit}>
                     <TextField
                         label={t('common.email_address')}
                         type="email"

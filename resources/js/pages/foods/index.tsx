@@ -285,7 +285,7 @@ export default function FoodsIndex({
         >
             <Head title={logging ? t('food.add_food_head') : t('common.foods')} />
 
-            <Stack spacing={2.5}>
+            <Stack spacing={2}>
                 <TextField
                     fullWidth
                     value={search}
@@ -374,7 +374,7 @@ export default function FoodsIndex({
                     </>
                 )}
 
-                <Stack spacing={1.5}>
+                <Stack spacing={2}>
                     {!resultsReady ? null : results.length === 0 ? (
                         barcodeSearch &&
                         showCreate &&
@@ -393,11 +393,11 @@ export default function FoodsIndex({
                                         : 'dashed',
                                 }}
                             >
-                            <CardContent sx={{ py: { xs: 3, sm: 4 } }}>
+                            <CardContent>
                                 <Stack
                                     direction={{ xs: 'column', sm: 'row' }}
                                     alignItems={{ xs: 'flex-start', sm: 'center' }}
-                                    spacing={2.5}
+                                    spacing={2}
                                 >
                                     {!barcodeSearch && (
                                         <Box
@@ -546,7 +546,7 @@ function FoodRow({
             }}
         >
             <CardContent>
-                <Stack direction="row" alignItems="flex-start" spacing={1.5}>
+                <Stack direction="row" alignItems="flex-start" spacing={2}>
                     <IconButton
                         color={food.is_favourite ? 'primary' : 'default'}
                         aria-label={
@@ -625,7 +625,7 @@ function FoodRow({
                             xs: '1fr 1fr',
                             sm: '110px minmax(120px, 1fr) minmax(100px, 1fr) auto',
                         },
-                        gap: 1.5,
+                        gap: 2,
                         alignItems: 'start',
                     }}
                 >
@@ -681,7 +681,7 @@ function FoodRow({
                                 <AddRounded />
                             )
                         }
-                        sx={{ minHeight: 54, gridColumn: { xs: '1 / -1', sm: 'auto' } }}
+                        sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
                     >
                         {formatNumber(calculatedCalories)} kcal
                     </Button>
@@ -735,7 +735,7 @@ function CreateFoodForm({
             <CardContent>
                 <Stack
                     component="form"
-                    spacing={2.5}
+                    spacing={2}
                     onSubmit={(event: FormEvent) => {
                         event.preventDefault();
                         form.post('/foods', {

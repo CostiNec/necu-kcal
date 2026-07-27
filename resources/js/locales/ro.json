@@ -289,6 +289,8 @@
     "entry_details": "Detalii greutate",
     "delete_entry": "Șterge înregistrarea",
     "delete_confirm": "Ștergi această înregistrare a greutății?",
+    "delete_description": "Măsurătoarea de {{weight}} kg din {{date}} va fi ștearsă definitiv. Acțiunea nu poate fi anulată.",
+    "delete_action": "Șterge",
     "no_note": "Fără notiță",
     "empty": "Înregistrează prima greutate pentru a începe să vezi evoluția."
   },

@@ -289,6 +289,8 @@
     "entry_details": "Weight details",
     "delete_entry": "Delete weight entry",
     "delete_confirm": "Delete this weight entry?",
+    "delete_description": "The {{weight}} kg measurement from {{date}} will be permanently deleted. This action cannot be undone.",
+    "delete_action": "Delete",
     "no_note": "No note",
     "empty": "Log your first weight to start seeing your trend."
   },

@@ -142,11 +142,11 @@ export default function DiaryShow({
                 nextLabel={t('common.next_day')}
             />
 
-            <Grid container spacing={3}>
+            <Grid container spacing={2}>
                 <Grid size={{ xs: 12, lg: 5 }}>
                     <Card sx={{ height: '100%' }}>
                         <CardContent>
-                            <Stack spacing={3}>
+                            <Stack spacing={2}>
                                 <Box
                                     sx={{
                                         p: 2,
@@ -392,7 +392,7 @@ function MealCard({
             </Menu>
             <Divider />
             {entries.length === 0 ? (
-                <Box sx={{ px: 3, py: 4, textAlign: 'center' }}>
+                <Box sx={{ p: 2, textAlign: 'center' }}>
                     <Typography variant="body2" color="text.secondary">
                         {t('diary.empty_meal')}
                     </Typography>
@@ -458,7 +458,7 @@ function QuickEntryDialog({
                     {t('diary.quick_entry_title', { meal: mealLabel })}
                 </DialogTitle>
                 <DialogContent>
-                    <Stack spacing={2.5} sx={{ pt: 1 }}>
+                    <Stack spacing={2}>
                         <Typography variant="body2" color="text.secondary">
                             {t('diary.quick_entry_description')}
                         </Typography>
@@ -617,7 +617,7 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
 
     return (
         <>
-            <Stack spacing={2} sx={{ px: 3, py: 2.5 }}>
+            <Stack spacing={2} sx={{ p: 2 }}>
                 <Box sx={{ minWidth: 0 }}>
                     <Typography variant="subtitle2">
                         {entry.food_name} – {formatNumber(entry.calories)} kcal{' '}
@@ -686,7 +686,7 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                 <Box component="form" onSubmit={submit}>
                     <DialogTitle>{t('diary.edit_amount')}</DialogTitle>
                     <DialogContent>
-                        <Stack spacing={2} sx={{ pt: 1 }}>
+                        <Stack spacing={2}>
                             <Typography variant="body2">
                                 {entry.food_name}
                             </Typography>
@@ -793,7 +793,7 @@ function DailyNotes({ date, notes }: { date: string; notes: string }) {
     };
 
     return (
-        <Card sx={{ mt: 3 }}>
+        <Card sx={{ mt: 2 }}>
             <CardHeader title={t('diary.daily_note')} />
             <CardContent>
                 <Stack component="form" spacing={2} onSubmit={submit}>

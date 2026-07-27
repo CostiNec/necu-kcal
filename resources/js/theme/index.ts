@@ -46,6 +46,8 @@ const statusColors = {
     },
 };
 
+const buttonHeight = 40;
+
 export function createKcalTheme(mode: PaletteMode) {
     const dark = mode === 'dark';
 
@@ -176,7 +178,7 @@ export function createKcalTheme(mode: PaletteMode) {
 
                         return {
                             borderRadius: 8,
-                            minHeight: 36,
+                            height: buttonHeight,
                             padding: '6px 12px',
                             transition:
                                 'transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease',
@@ -222,31 +224,22 @@ export function createKcalTheme(mode: PaletteMode) {
                         };
                     },
                     sizeSmall: {
-                        minHeight: 30,
                         padding: '4px 8px',
                         fontSize: 13,
                     },
                     sizeLarge: {
-                        minHeight: 48,
                         padding: '8px 16px',
                         fontSize: 15,
                     },
                     contained: {
+                        boxShadow: 'none',
                         '&:hover': {
-                            boxShadow: dark
-                                ? '0 8px 20px rgba(0,0,0,0.28)'
-                                : '0 8px 20px rgba(145,158,171,0.24)',
+                            boxShadow: 'none',
                         },
                     },
                     containedPrimary: {
-                        boxShadow: dark
-                            ? '0 8px 18px rgba(91, 228, 155, 0.16)'
-                            : '0 8px 16px rgba(0, 167, 111, 0.24)',
-                        '&:hover': {
-                            boxShadow: dark
-                                ? '0 10px 22px rgba(91, 228, 155, 0.22)'
-                                : '0 8px 20px rgba(0, 167, 111, 0.32)',
-                        },
+                        boxShadow: 'none',
+                        '&:hover': { boxShadow: 'none' },
                     },
                 },
             },
@@ -280,14 +273,22 @@ export function createKcalTheme(mode: PaletteMode) {
                     subheaderTypographyProps: { variant: 'body2', mt: 0.5 },
                 },
                 styleOverrides: {
-                    root: { padding: 24, paddingBottom: 0 },
+                    root: { padding: 16, paddingBottom: 0 },
                 },
             },
             MuiCardContent: {
                 styleOverrides: {
                     root: {
-                        padding: 24,
-                        '&:last-child': { paddingBottom: 24 },
+                        padding: 16,
+                        '&:last-child': { paddingBottom: 16 },
+                    },
+                },
+            },
+            MuiContainer: {
+                styleOverrides: {
+                    root: {
+                        paddingLeft: '16px !important',
+                        paddingRight: '16px !important',
                     },
                 },
             },

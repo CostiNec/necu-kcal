@@ -298,7 +298,7 @@ export default function RecipeFormPage({
         >
             <Head title={title} />
 
-            <Stack spacing={3}>
+            <Stack spacing={2}>
                 <Card>
                     <CardHeader
                         avatar={<RestaurantMenuOutlined color="primary" />}
@@ -308,7 +308,7 @@ export default function RecipeFormPage({
                     <CardContent>
                         <Stack
                             component="form"
-                            spacing={3}
+                            spacing={2}
                             onSubmit={(event: FormEvent) => {
                                 event.preventDefault();
 
@@ -385,7 +385,7 @@ export default function RecipeFormPage({
                                 direction={{ xs: 'column', sm: 'row' }}
                                 alignItems={{ xs: 'stretch', sm: 'center' }}
                                 justifyContent="space-between"
-                                spacing={1.5}
+                                spacing={2}
                             >
                                 <Box>
                                     <Typography variant="h6">
@@ -407,7 +407,7 @@ export default function RecipeFormPage({
                                 </Button>
                             </Stack>
 
-                            <Stack spacing={1.5}>
+                            <Stack spacing={2}>
                                 {form.data.ingredients.map(
                                     (ingredient, index) => {
                                         const selectedFood =
@@ -425,7 +425,7 @@ export default function RecipeFormPage({
                                             >
                                                 <Grid
                                                     container
-                                                    spacing={1.5}
+                                                    spacing={2}
                                                     alignItems="flex-start"
                                                 >
                                                     <Grid
@@ -876,7 +876,7 @@ function CreateFoodDialog({
             >
                 <DialogTitle>{t('recipe.create_food_title')}</DialogTitle>
                 <DialogContent>
-                    <Stack spacing={2.5} sx={{ pt: 1 }}>
+                    <Stack spacing={2}>
                         <Grid container spacing={2}>
                             <Grid size={{ xs: 12, sm: 7 }}>
                                 <TextField

@@ -70,14 +70,14 @@ export default function SettingsIndex({
         <AppLayout title={t('settings.title')} subtitle={t('settings.description')}>
             <Head title={t('settings.title')} />
 
-            <Grid container spacing={3}>
+            <Grid container spacing={2}>
                 <Grid size={{ xs: 12, lg: 6 }}>
                     <Card sx={{ height: 1 }}>
                         <CardHeader title={t('settings.personal_information')} />
                         <CardContent>
                             <Stack
                                 component="form"
-                                spacing={2.5}
+                                spacing={2}
                                 onSubmit={(event: FormEvent) => {
                                     event.preventDefault();
                                     profileForm.put('/user/profile-information', {
@@ -119,7 +119,7 @@ export default function SettingsIndex({
                         <CardContent>
                             <Stack
                                 component="form"
-                                spacing={2.5}
+                                spacing={2}
                                 onSubmit={(event: FormEvent) => {
                                     event.preventDefault();
                                     targetForm.put('/settings/targets', {
@@ -186,7 +186,7 @@ export default function SettingsIndex({
                         <CardContent>
                             <Stack
                                 component="form"
-                                spacing={2.5}
+                                spacing={2}
                                 onSubmit={(event: FormEvent) => {
                                     event.preventDefault();
                                     passwordForm.put('/user/password', {
@@ -254,7 +254,7 @@ export default function SettingsIndex({
                     <Card sx={{ height: 1 }}>
                         <CardHeader title={t('settings.session')} />
                         <CardContent>
-                            <Stack spacing={2.5} alignItems="flex-start">
+                            <Stack spacing={2} alignItems="flex-start">
                                 <Typography variant="body2" color="text.secondary">
                                     {t('settings.session_copy')}
                                 </Typography>
@@ -283,7 +283,7 @@ export default function SettingsIndex({
                             titleTypographyProps={{ color: 'error.dark' }}
                         />
                         <CardContent>
-                            <Grid container spacing={3} alignItems="flex-end">
+                            <Grid container spacing={2} alignItems="flex-end">
                                 <Grid size={{ xs: 12, lg: 7 }}>
                                     <Alert severity="error" variant="outlined">
                                         {t('settings.delete_copy')}
@@ -292,7 +292,7 @@ export default function SettingsIndex({
                                 <Grid size={{ xs: 12, lg: 5 }}>
                                     <Stack
                                         component="form"
-                                        spacing={1.5}
+                                        spacing={2}
                                         onSubmit={(event: FormEvent) => {
                                             event.preventDefault();
                                             if (

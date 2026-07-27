@@ -35,7 +35,7 @@ export default function ResetPassword({
             description={t('auth.choose_password_description')}
         >
             <Head title={t('auth.reset_password')} />
-            <Stack component="form" spacing={2.5} onSubmit={submit}>
+            <Stack component="form" spacing={2} onSubmit={submit}>
                 <TextField
                     label={t('common.email_address')}
                     type="email"

@@ -27,7 +27,7 @@ export function AuthLayout({
                 gridTemplateColumns: { lg: 'minmax(0, 0.9fr) minmax(480px, 1.1fr)' },
             }}
         >
-            <Stack sx={{ minHeight: '100vh', p: { xs: 2.5, sm: 4, lg: 6 } }}>
+            <Stack sx={{ minHeight: '100vh', p: 2 }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between">
                     <RouterLink
                         href="/"
@@ -48,18 +48,18 @@ export function AuthLayout({
                     maxWidth="sm"
                     sx={{
                         my: 'auto',
-                        py: 6,
+                        py: 2,
                         width: '100%',
                         maxWidth: '480px !important',
                     }}
                 >
                     <Typography variant="h3">{title}</Typography>
-                    <Typography color="text.secondary" sx={{ mt: 1.5, mb: 4 }}>
+                    <Typography color="text.secondary" sx={{ my: 2 }}>
                         {description}
                     </Typography>
                     <Paper
                         sx={(theme) => ({
-                            p: { xs: 3, sm: 4 },
+                            p: 2,
                             boxShadow:
                                 theme.palette.mode === 'dark'
                                     ? '0 0 2px rgba(0,0,0,0.32), 0 24px 48px -12px rgba(0,0,0,0.52)'
@@ -81,7 +81,7 @@ export function AuthLayout({
                 animate={{ opacity: 1, x: 0 }}
                 sx={{
                     m: 2,
-                    p: { lg: 6, xl: 8 },
+                    p: 2,
                     display: { xs: 'none', lg: 'flex' },
                     alignItems: 'flex-end',
                     overflow: 'hidden',
@@ -106,7 +106,7 @@ export function AuthLayout({
                 />
                 <Paper
                     sx={{
-                        p: 4,
+                        p: 2,
                         maxWidth: 560,
                         color: 'inherit',
                         bgcolor: 'rgba(255,255,255,0.08)',
@@ -123,7 +123,7 @@ export function AuthLayout({
                     <Typography variant="h3" sx={{ mt: 2 }}>
                         {t('layout.promo_quote')}
                     </Typography>
-                    <Typography sx={{ mt: 3, color: 'rgba(255,255,255,0.72)' }}>
+                    <Typography sx={{ mt: 2, color: 'rgba(255,255,255,0.72)' }}>
                         {t('layout.promo_copy')}
                     </Typography>
                 </Paper>

@@ -129,10 +129,10 @@ export function AppLayout({
                     },
                 }}
             >
-                <Box sx={{ px: 3.5, py: 3 }}>
+                <Box sx={{ p: 2 }}>
                     <BrandMark />
                 </Box>
-                <List sx={{ px: 2, py: 1 }}>
+                <List sx={{ p: 2 }}>
                     {desktopNavigation.map((item) => {
                         const active = isActive(item.match);
                         const Icon = item.icon;
@@ -147,7 +147,7 @@ export function AppLayout({
                                     selected={active}
                                     sx={{
                                         minHeight: 48,
-                                        mb: 0.5,
+                                        mb: 2,
                                         borderRadius: 1,
                                         '&.Mui-selected': {
                                             color: 'primary.main',
@@ -182,9 +182,9 @@ export function AppLayout({
                 <Box sx={{ mt: 'auto', p: 2 }}>
                     <Paper
                         variant="outlined"
-                        sx={{ p: 2, mb: 1, borderColor: 'divider' }}
+                        sx={{ p: 2, mb: 2, borderColor: 'divider' }}
                     >
-                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <Stack direction="row" alignItems="center" spacing={2}>
                             <Avatar
                                 sx={{
                                     width: 40,
@@ -277,12 +277,12 @@ export function AppLayout({
                             p: 2,
                         }}
                     >
-                        <Paper variant="outlined" sx={{ p: 1 }}>
+                        <Paper variant="outlined" sx={{ p: 2 }}>
                             <Stack
                                 direction="row"
                                 alignItems="center"
                                 justifyContent="space-between"
-                                spacing={1}
+                                spacing={2}
                             >
                                 <LanguageSwitcher />
                                 <ColorModeButton withLabel />
@@ -312,7 +312,7 @@ export function AppLayout({
                                             }
                                             sx={{
                                                 minHeight: 50,
-                                                mb: 0.5,
+                                                mb: 2,
                                                 borderRadius: 1.5,
                                                 '&.Mui-selected': {
                                                     color: 'primary.main',
@@ -346,11 +346,11 @@ export function AppLayout({
                         <InstallAppButton />
 
                         <Box sx={{ mt: 'auto', pt: 2 }}>
-                            <Paper variant="outlined" sx={{ p: 2, mb: 1 }}>
+                            <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
                                 <Stack
                                     direction="row"
                                     alignItems="center"
-                                    spacing={1.5}
+                                    spacing={2}
                                 >
                                     <Avatar
                                         sx={{
@@ -407,7 +407,7 @@ export function AppLayout({
                     <Toolbar
                         sx={{
                             minHeight: { xs: 72, lg: 88 },
-                            px: { xs: 2, sm: 3, lg: 5 },
+                            px: 2,
                         }}
                     >
                         <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
@@ -424,7 +424,7 @@ export function AppLayout({
                         <Stack
                             direction="row"
                             alignItems="center"
-                            spacing={1}
+                            spacing={2}
                             sx={{ ml: 'auto' }}
                         >
                             {actions}
@@ -458,16 +458,16 @@ export function AppLayout({
                 <Container
                     component="main"
                     maxWidth="xl"
-                    sx={{ py: { xs: 3, lg: 5 }, pb: { xs: 13, lg: 5 } }}
+                    sx={{ py: 2, pb: { xs: 13, lg: 2 } }}
                 >
                     {(title || subtitle) && (
-                        <Box sx={{ display: { lg: 'none' }, mb: 3 }}>
+                        <Box sx={{ display: { lg: 'none' }, mb: 2 }}>
                             {title && <Typography variant="h4">{title}</Typography>}
                             {subtitle && (
                                 <Typography
                                     variant="body2"
                                     color="text.secondary"
-                                    sx={{ mt: 0.5 }}
+                                    sx={{ mt: 2 }}
                                 >
                                     {subtitle}
                                 </Typography>

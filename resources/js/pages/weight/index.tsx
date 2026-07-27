@@ -87,6 +87,10 @@ export default function WeightIndex({
     const [editingId, setEditingId] = useState<number | null>(null);
     const [formOpen, setFormOpen] = useState(false);
     const [detailsEntry, setDetailsEntry] = useState<WeightEntry | null>(null);
+    const [entryToDelete, setEntryToDelete] = useState<WeightEntry | null>(
+        null,
+    );
+    const [deleteProcessing, setDeleteProcessing] = useState(false);
     const form = useForm<{
         date: string;
         weight: NumberInputValue;
@@ -140,6 +144,25 @@ export default function WeightIndex({
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    const deleteEntry = () => {
+        if (!entryToDelete) return;
+
+        const entryId = entryToDelete.id;
+
+        router.delete(`/weight/${entryId}`, {
+            preserveScroll: true,
+            onStart: () => setDeleteProcessing(true),
+            onSuccess: () => {
+                if (editingId === entryId) resetForm();
+                if (detailsEntry?.id === entryId) setDetailsEntry(null);
+            },
+            onFinish: () => {
+                setDeleteProcessing(false);
+                setEntryToDelete(null);
+            },
+        });
+    };
+
     return (
         <AppLayout
             title={t('weight.title')}
@@ -147,8 +170,8 @@ export default function WeightIndex({
         >
             <Head title={t('weight.title')} />
 
-            <Stack spacing={{ xs: 2, sm: 3 }}>
-                <Grid container spacing={{ xs: 2, sm: 3 }}>
+            <Stack spacing={2}>
+                <Grid container spacing={2}>
                     <Grid size={{ xs: 12 }}>
                         <Card>
                             <CardHeader
@@ -206,7 +229,7 @@ export default function WeightIndex({
                                 <CardContent>
                                     <Stack
                                         component="form"
-                                        spacing={2.5}
+                                        spacing={2}
                                         onSubmit={submit}
                                     >
                                     <DatePicker
@@ -329,7 +352,7 @@ export default function WeightIndex({
                     </Grid>
                 </Grid>
 
-                <Grid container spacing={{ xs: 2, sm: 3 }}>
+                <Grid container spacing={2}>
                     <Grid size={{ xs: 12, sm: 4 }}>
                         <SummaryCard
                             label={t('weight.current')}
@@ -366,7 +389,7 @@ export default function WeightIndex({
                     </Grid>
                 </Grid>
 
-                <Grid container spacing={{ xs: 2, sm: 3 }}>
+                <Grid container spacing={2}>
                     <Grid size={{ xs: 12 }}>
                         <Card sx={{ height: 1 }}>
                             <CardHeader
@@ -577,23 +600,11 @@ export default function WeightIndex({
                                                             aria-label={t(
                                                                 'weight.delete_entry',
                                                             )}
-                                                            onClick={() => {
-                                                                if (
-                                                                    window.confirm(
-                                                                        t(
-                                                                            'weight.delete_confirm',
-                                                                        ),
-                                                                    )
-                                                                ) {
-                                                                    router.delete(
-                                                                        `/weight/${entry.id}`,
-                                                                        {
-                                                                            preserveScroll:
-                                                                                true,
-                                                                        },
-                                                                    );
-                                                                }
-                                                            }}
+                                                            onClick={() =>
+                                                                setEntryToDelete(
+                                                                    entry,
+                                                                )
+                                                            }
                                                         >
                                                             <DeleteOutlineRounded fontSize="small" />
                                                         </IconButton>
@@ -618,7 +629,7 @@ export default function WeightIndex({
                 <DialogTitle>{t('weight.entry_details')}</DialogTitle>
                 <DialogContent dividers>
                     {detailsEntry && (
-                        <Stack spacing={2.5}>
+                        <Stack spacing={2}>
                             <Box>
                                 <Typography
                                     variant="caption"
@@ -683,6 +694,53 @@ export default function WeightIndex({
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            <Dialog
+                fullWidth
+                maxWidth="xs"
+                open={entryToDelete !== null}
+                onClose={() => {
+                    if (!deleteProcessing) setEntryToDelete(null);
+                }}
+            >
+                <DialogTitle>{t('weight.delete_confirm')}</DialogTitle>
+                <DialogContent>
+                    <Typography color="text.secondary">
+                        {t('weight.delete_description', {
+                            date: entryToDelete
+                                ? formatDate(entryToDelete.date)
+                                : '',
+                            weight: entryToDelete
+                                ? formatNumber(entryToDelete.weight, 2)
+                                : '',
+                        })}
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        color="inherit"
+                        disabled={deleteProcessing}
+                        onClick={() => setEntryToDelete(null)}
+                    >
+                        {t('common.cancel')}
+                    </Button>
+                    <Button
+                        color="error"
+                        variant="contained"
+                        disabled={deleteProcessing}
+                        startIcon={
+                            deleteProcessing ? (
+                                <CircularProgress size={18} color="inherit" />
+                            ) : (
+                                <DeleteOutlineRounded />
+                            )
+                        }
+                        onClick={deleteEntry}
+                    >
+                        {t('weight.delete_action')}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </AppLayout>
     );
 }
@@ -706,9 +764,9 @@ function SummaryCard({
                 sx={
                     compactOnMobile
                         ? {
-                              p: { xs: 2, sm: 3 },
+                              p: 2,
                               '&:last-child': {
-                                  pb: { xs: 2, sm: 3 },
+                                  pb: 2,
                               },
                           }
                         : undefined
@@ -782,7 +840,7 @@ function EmptyState() {
     return (
         <Stack
             alignItems="center"
-            spacing={1.5}
+            spacing={2}
             sx={{
                 py: 7,
                 borderRadius: 2,

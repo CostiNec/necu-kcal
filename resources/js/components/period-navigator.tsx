@@ -26,7 +26,7 @@ export function PeriodNavigator({
             variant="outlined"
             sx={{
                 p: 1,
-                mb: 3,
+                mb: 2,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',

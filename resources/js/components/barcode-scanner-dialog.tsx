@@ -470,7 +470,7 @@ export function BarcodeScannerDialog({
                             <Stack
                                 alignItems="center"
                                 justifyContent="center"
-                                spacing={1.5}
+                                spacing={2}
                                 sx={{
                                     position: 'absolute',
                                     inset: 0,

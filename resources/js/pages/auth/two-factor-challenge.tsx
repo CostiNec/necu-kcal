@@ -21,7 +21,7 @@ export default function TwoFactorChallenge() {
             description={t('auth.two_factor_description')}
         >
             <Head title={t('auth.two_factor_head')} />
-            <Stack component="form" spacing={2.5} onSubmit={submit}>
+            <Stack component="form" spacing={2} onSubmit={submit}>
                 <TextField
                     label={t('auth.authentication_code')}
                     inputMode="numeric"

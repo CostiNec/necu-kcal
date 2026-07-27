@@ -59,28 +59,28 @@ export default function Onboarding({
     };
 
     return (
-        <Box component="main" sx={{ minHeight: '100vh', py: { xs: 2, sm: 5 } }}>
+        <Box component="main" sx={{ minHeight: '100vh', py: 2 }}>
             <Head title={t('onboarding.head_title')} />
             <Container maxWidth="md" component={motion.div} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between">
                     <BrandMark />
                     <LanguageSwitcher compact />
                 </Stack>
-                <Box sx={{ my: { xs: 5, sm: 7 } }}>
+                <Box sx={{ my: 2 }}>
                     <Chip label={t('onboarding.step')} color="primary" variant="outlined" />
                     <Typography variant="h3" sx={{ mt: 2 }}>
                         {t('onboarding.title')}
                     </Typography>
-                    <Typography color="text.secondary" sx={{ mt: 1.5, maxWidth: 620 }}>
+                    <Typography color="text.secondary" sx={{ mt: 2, maxWidth: 620 }}>
                         {t('onboarding.description')}
                     </Typography>
                 </Box>
 
-                <Stack component="form" spacing={2.5} onSubmit={submit}>
+                <Stack component="form" spacing={2} onSubmit={submit}>
                     <Card>
                         <CardHeader title={t('onboarding.card_title')} />
                         <CardContent>
-                            <Stack spacing={3}>
+                            <Stack spacing={2}>
                                 <TextField
                                     label={t('onboarding.name_question')}
                                     value={form.data.name}
@@ -90,7 +90,7 @@ export default function Onboarding({
                                     error={Boolean(form.errors.name)}
                                     helperText={form.errors.name}
                                 />
-                                <Grid container spacing={2.5}>
+                                <Grid container spacing={2}>
                                     <TargetInput
                                         label={t('common.calories')}
                                         suffix="kcal"

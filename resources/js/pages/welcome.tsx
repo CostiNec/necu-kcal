@@ -55,7 +55,7 @@ export default function Welcome() {
                         maxWidth: 1280,
                         minHeight: { xs: 72, sm: 80 },
                         mx: 'auto',
-                        px: { xs: 2.5, sm: 4 },
+                        px: 2,
                     }}
                 >
                     <BrandMark />
@@ -150,7 +150,7 @@ export default function Welcome() {
 
                                 <Stack
                                     direction={{ xs: 'column', sm: 'row' }}
-                                    spacing={1.5}
+                                    spacing={2}
                                     sx={{ mt: 4 }}
                                 >
                                     <RouterLink
@@ -294,7 +294,7 @@ export default function Welcome() {
                                             </Box>
                                         </Box>
 
-                                        <Grid container spacing={1.5}>
+                                        <Grid container spacing={2}>
                                             {[
                                                 [
                                                     'common.protein',
@@ -365,7 +365,7 @@ export default function Welcome() {
                                             fullWidth
                                             variant="contained"
                                             startIcon={<SearchRounded />}
-                                            sx={{ mt: 2.5 }}
+                                            sx={{ mt: 2 }}
                                         >
                                             {t('landing.add_food')}
                                         </Button>
@@ -385,7 +385,7 @@ export default function Welcome() {
                     }}
                 >
                     <Container maxWidth="lg" sx={{ py: 8 }}>
-                        <Grid container spacing={3}>
+                        <Grid container spacing={2}>
                             {[
                                 [
                                     'landing.feature_log_title',
