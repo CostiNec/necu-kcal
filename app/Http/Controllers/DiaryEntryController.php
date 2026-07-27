@@ -62,7 +62,10 @@ class DiaryEntryController extends Controller
         ]);
 
         return redirect()
-            ->route('diary.show', ['date' => $validated['date']])
+            ->route('diary.show', [
+                'date' => $validated['date'],
+                'focus_meal' => $validated['meal'],
+            ])
             ->with('success', __('app.food_added', [
                 'food' => $food->localizedName(),
             ]));
