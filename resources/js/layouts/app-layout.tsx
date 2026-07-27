@@ -558,7 +558,9 @@ export function AppLayout({
                                 aria-label={t('common.open_menu')}
                                 sx={{
                                     display: { lg: 'none' },
-                                    width: 44,
+                                    pr: 0,
+                                    mr: 0,
+                                    width: 'fit-content',
                                     height: 44,
                                 }}
                             >

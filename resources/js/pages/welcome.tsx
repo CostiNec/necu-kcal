@@ -77,23 +77,13 @@ export default function Welcome() {
                                 </Button>
                             </RouterLink>
                         ) : (
-                            <>
+                            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
                                 <RouterLink href="/login">
-                                    <Button
-                                        color="inherit"
-                                        sx={{
-                                            display: { xs: 'none', sm: 'inline-flex' },
-                                        }}
-                                    >
+                                    <Button color="inherit">
                                         {t('landing.sign_in')}
                                     </Button>
                                 </RouterLink>
-                                <RouterLink href="/register">
-                                    <Button variant="contained">
-                                        {t('landing.start_tracking')}
-                                    </Button>
-                                </RouterLink>
-                            </>
+                            </Box>
                         )}
                     </Stack>
                 </Toolbar>
