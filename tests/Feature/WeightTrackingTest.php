@@ -62,9 +62,12 @@ class WeightTrackingTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('weight/index')
+                ->where('filters.range', 'month')
                 ->where('summary.current', 78.5)
                 ->has('entries', 2)
                 ->where('entries.0.id', $latest->id)
+                ->where('pagination.next_cursor', null)
+                ->where('pagination.previous_cursor', null)
             );
 
         $this->actingAs($user)
@@ -76,6 +79,83 @@ class WeightTrackingTest extends TestCase
                 ->where('weightSummary.change', -1.5)
                 ->where('weightSummary.loggedDays', 2)
                 ->has('weightChart', 2)
+            );
+    }
+
+    public function test_weight_history_uses_cursor_pagination(): void
+    {
+        $user = $this->onboardedUser();
+        $today = CarbonImmutable::now('Europe/Bucharest');
+
+        foreach (range(0, 24) as $daysAgo) {
+            $user->weightLogs()->create([
+                'date' => $today->subDays($daysAgo)->toDateString(),
+                'weight_kg' => 80 + ($daysAgo / 10),
+            ]);
+        }
+
+        $firstPage = $this->actingAs($user)->get('/weight');
+
+        $firstPage
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('entries', 20)
+                ->where('pagination.previous_cursor', null)
+                ->where(
+                    'pagination.next_cursor',
+                    fn ($cursor) => is_string($cursor) && $cursor !== ''
+                )
+            );
+
+        $nextCursor = $firstPage->viewData('page')['props']['pagination']['next_cursor'];
+
+        $secondPage = $this->actingAs($user)
+            ->get('/weight?cursor='.urlencode($nextCursor));
+
+        $secondPage
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('entries', 5)
+                ->where('pagination.next_cursor', null)
+                ->where('pagination.previous_cursor', fn ($cursor) => is_string($cursor))
+            );
+    }
+
+    public function test_weight_trend_can_be_filtered_by_month_year_or_all_time(): void
+    {
+        $user = $this->onboardedUser();
+        $today = CarbonImmutable::now('Europe/Bucharest');
+
+        foreach ([
+            $today->subDays(10)->toDateString(),
+            $today->subMonths(6)->toDateString(),
+            $today->subMonths(18)->toDateString(),
+        ] as $index => $date) {
+            $user->weightLogs()->create([
+                'date' => $date,
+                'weight_kg' => 80 + $index,
+            ]);
+        }
+
+        $this->actingAs($user)
+            ->get('/weight')
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('filters.range', 'month')
+                ->has('trend', 1)
+            );
+
+        $this->actingAs($user)
+            ->get('/weight?range=year')
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('filters.range', 'year')
+                ->has('trend', 2)
+            );
+
+        $this->actingAs($user)
+            ->get('/weight?range=all')
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('filters.range', 'all')
+                ->has('trend', 3)
             );
     }
 

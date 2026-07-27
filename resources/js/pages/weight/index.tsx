@@ -4,6 +4,8 @@ import EditRounded from '@mui/icons-material/EditRounded';
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import InfoOutlined from '@mui/icons-material/InfoOutlined';
 import MonitorWeightOutlined from '@mui/icons-material/MonitorWeightOutlined';
+import NavigateBeforeRounded from '@mui/icons-material/NavigateBeforeRounded';
+import NavigateNextRounded from '@mui/icons-material/NavigateNextRounded';
 import SaveRounded from '@mui/icons-material/SaveRounded';
 import TrendingDownRounded from '@mui/icons-material/TrendingDownRounded';
 import TrendingFlatRounded from '@mui/icons-material/TrendingFlatRounded';
@@ -31,6 +33,8 @@ import {
     TableHead,
     TableRow,
     TextField,
+    ToggleButton,
+    ToggleButtonGroup,
     Typography,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -66,16 +70,26 @@ type WeightPoint = {
     weight: number;
 };
 
+type TrendRange = 'month' | 'year' | 'all';
+
 const weightColor = 'var(--mui-palette-primary-main)';
 
 export default function WeightIndex({
     today,
     entries,
+    pagination,
+    filters,
     trend,
     summary,
 }: {
     today: string;
     entries: WeightEntry[];
+    pagination: {
+        current_cursor: string | null;
+        next_cursor: string | null;
+        previous_cursor: string | null;
+    };
+    filters: { range: TrendRange };
     trend: WeightPoint[];
     summary: {
         current: number | null;
@@ -91,6 +105,8 @@ export default function WeightIndex({
         null,
     );
     const [deleteProcessing, setDeleteProcessing] = useState(false);
+    const [trendLoading, setTrendLoading] = useState(false);
+    const [historyLoading, setHistoryLoading] = useState(false);
     const form = useForm<{
         date: string;
         weight: NumberInputValue;
@@ -102,8 +118,14 @@ export default function WeightIndex({
     });
     const chartData = trend.map((point) => ({
         ...point,
-        label: formatDate(point.date, { year: undefined }),
+        label: formatDate(
+            point.date,
+            filters.range === 'month'
+                ? { year: undefined }
+                : { year: '2-digit' },
+        ),
     }));
+    const trendPeriodLabel = t(`weight.range_${filters.range}`);
 
     const resetForm = () => {
         setEditingId(null);
@@ -161,6 +183,44 @@ export default function WeightIndex({
                 setEntryToDelete(null);
             },
         });
+    };
+
+    const changeTrendRange = (range: TrendRange | null) => {
+        if (!range || range === filters.range) return;
+
+        router.get(
+            '/weight',
+            {
+                range,
+                ...(pagination.current_cursor
+                    ? { cursor: pagination.current_cursor }
+                    : {}),
+            },
+            {
+                only: ['filters', 'trend'],
+                preserveScroll: true,
+                preserveState: true,
+                replace: true,
+                onStart: () => setTrendLoading(true),
+                onFinish: () => setTrendLoading(false),
+            },
+        );
+    };
+
+    const changeHistoryPage = (cursor: string | null) => {
+        if (!cursor) return;
+
+        router.get(
+            '/weight',
+            { range: filters.range, cursor },
+            {
+                only: ['entries', 'pagination'],
+                preserveScroll: true,
+                preserveState: true,
+                onStart: () => setHistoryLoading(true),
+                onFinish: () => setHistoryLoading(false),
+            },
+        );
     };
 
     return (
@@ -397,79 +457,125 @@ export default function WeightIndex({
                                 subheader={t('weight.trend_description')}
                             />
                             <CardContent>
-                                {chartData.length === 0 ? (
-                                    <EmptyState />
-                                ) : (
-                                    <Box
-                                        role="img"
-                                        aria-label={t('weight.trend_chart')}
-                                        sx={{ width: 1, height: 320 }}
+                                <Stack spacing={3}>
+                                    <ToggleButtonGroup
+                                        exclusive
+                                        fullWidth
+                                        size="small"
+                                        color="primary"
+                                        value={filters.range}
+                                        disabled={trendLoading}
+                                        aria-label={t(
+                                            'weight.trend_period',
+                                        )}
+                                        onChange={(_, range: TrendRange | null) =>
+                                            changeTrendRange(range)
+                                        }
                                     >
-                                        <ResponsiveContainer
-                                            width="100%"
-                                            height="100%"
+                                        <ToggleButton value="month">
+                                            {t('weight.range_month')}
+                                        </ToggleButton>
+                                        <ToggleButton value="year">
+                                            {t('weight.range_year')}
+                                        </ToggleButton>
+                                        <ToggleButton value="all">
+                                            {t('weight.range_all')}
+                                        </ToggleButton>
+                                    </ToggleButtonGroup>
+                                    {chartData.length === 0 ? (
+                                        <EmptyState
+                                            message={t(
+                                                'weight.no_trend_data',
+                                            )}
+                                        />
+                                    ) : (
+                                        <Box
+                                            role="img"
+                                            aria-label={t(
+                                                'weight.trend_chart',
+                                                {
+                                                    period:
+                                                        trendPeriodLabel,
+                                                },
+                                            )}
+                                            sx={{
+                                                width: 1,
+                                                height: 320,
+                                                opacity: trendLoading
+                                                    ? 0.55
+                                                    : 1,
+                                                transition:
+                                                    'opacity 120ms ease-out',
+                                            }}
                                         >
-                                            <LineChart
-                                                data={chartData}
-                                                margin={{
-                                                    top: 12,
-                                                    right: 12,
-                                                    left: -12,
-                                                    bottom: 0,
-                                                }}
+                                            <ResponsiveContainer
+                                                width="100%"
+                                                height="100%"
                                             >
-                                                <CartesianGrid
-                                                    vertical={false}
-                                                    stroke="var(--mui-palette-divider)"
-                                                    strokeDasharray="3 3"
-                                                />
-                                                <XAxis
-                                                    dataKey="label"
-                                                    axisLine={false}
-                                                    tickLine={false}
-                                                    minTickGap={30}
-                                                    tick={{
-                                                        fill: 'var(--mui-palette-text-secondary)',
-                                                        fontSize: 12,
+                                                <LineChart
+                                                    data={chartData}
+                                                    margin={{
+                                                        top: 12,
+                                                        right: 12,
+                                                        left: -12,
+                                                        bottom: 0,
                                                     }}
-                                                />
-                                                <YAxis
-                                                    domain={[
-                                                        'dataMin - 2',
-                                                        'dataMax + 2',
-                                                    ]}
-                                                    axisLine={false}
-                                                    tickLine={false}
-                                                    width={52}
-                                                    tick={{
-                                                        fill: 'var(--mui-palette-text-secondary)',
-                                                        fontSize: 11,
-                                                    }}
-                                                    tickFormatter={(value) =>
-                                                        `${formatNumber(value, 1)}`
-                                                    }
-                                                />
-                                                <Tooltip
-                                                    content={
-                                                        <WeightTooltip />
-                                                    }
-                                                />
-                                                <Line
-                                                    type="monotone"
-                                                    dataKey="weight"
-                                                    stroke={weightColor}
-                                                    strokeWidth={3}
-                                                    dot={{
-                                                        r: 4,
-                                                        fill: weightColor,
-                                                        strokeWidth: 0,
-                                                    }}
-                                                    activeDot={{ r: 6 }}
-                                                />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </Box>
-                                )}
+                                                >
+                                                    <CartesianGrid
+                                                        vertical={false}
+                                                        stroke="var(--mui-palette-divider)"
+                                                        strokeDasharray="3 3"
+                                                    />
+                                                    <XAxis
+                                                        dataKey="label"
+                                                        axisLine={false}
+                                                        tickLine={false}
+                                                        minTickGap={30}
+                                                        tick={{
+                                                            fill: 'var(--mui-palette-text-secondary)',
+                                                            fontSize: 12,
+                                                        }}
+                                                    />
+                                                    <YAxis
+                                                        domain={[
+                                                            'dataMin - 2',
+                                                            'dataMax + 2',
+                                                        ]}
+                                                        axisLine={false}
+                                                        tickLine={false}
+                                                        width={52}
+                                                        tick={{
+                                                            fill: 'var(--mui-palette-text-secondary)',
+                                                            fontSize: 11,
+                                                        }}
+                                                        tickFormatter={(
+                                                            value,
+                                                        ) =>
+                                                            `${formatNumber(value, 1)}`
+                                                        }
+                                                    />
+                                                    <Tooltip
+                                                        content={
+                                                            <WeightTooltip />
+                                                        }
+                                                    />
+                                                    <Line
+                                                        type="monotone"
+                                                        dataKey="weight"
+                                                        stroke={weightColor}
+                                                        strokeWidth={3}
+                                                        dot={{
+                                                            r: 4,
+                                                            fill: weightColor,
+                                                            strokeWidth: 0,
+                                                        }}
+                                                        activeDot={{ r: 6 }}
+                                                    />
+                                                </LineChart>
+                                            </ResponsiveContainer>
+                                        </Box>
+                                    )}
+                                </Stack>
                             </CardContent>
                         </Card>
                     </Grid>
@@ -484,15 +590,18 @@ export default function WeightIndex({
                         {entries.length === 0 ? (
                             <EmptyState />
                         ) : (
-                            <TableContainer>
-                                <Table
-                                    aria-label={t('weight.history')}
-                                    sx={{
-                                        '& th:last-of-type, & td:last-of-type': {
-                                            paddingRight: '0 !important',
-                                        },
-                                    }}
-                                >
+                            <Stack spacing={2}>
+                                <TableContainer>
+                                    <Table
+                                        aria-label={t('weight.history')}
+                                        sx={{
+                                            '& th:last-of-type, & td:last-of-type':
+                                                {
+                                                    paddingRight:
+                                                        '0 !important',
+                                                },
+                                        }}
+                                    >
                                     <TableHead>
                                         <TableRow>
                                             <TableCell
@@ -613,8 +722,50 @@ export default function WeightIndex({
                                             </TableRow>
                                         ))}
                                     </TableBody>
-                                </Table>
-                            </TableContainer>
+                                    </Table>
+                                </TableContainer>
+                                {(pagination.previous_cursor ||
+                                    pagination.next_cursor) && (
+                                    <Stack
+                                        direction="row"
+                                        justifyContent="flex-end"
+                                        spacing={1}
+                                    >
+                                        <Button
+                                            variant="outlined"
+                                            disabled={
+                                                historyLoading ||
+                                                !pagination.previous_cursor
+                                            }
+                                            startIcon={
+                                                <NavigateBeforeRounded />
+                                            }
+                                            onClick={() =>
+                                                changeHistoryPage(
+                                                    pagination.previous_cursor,
+                                                )
+                                            }
+                                        >
+                                            {t('weight.previous_entries')}
+                                        </Button>
+                                        <Button
+                                            variant="outlined"
+                                            disabled={
+                                                historyLoading ||
+                                                !pagination.next_cursor
+                                            }
+                                            endIcon={<NavigateNextRounded />}
+                                            onClick={() =>
+                                                changeHistoryPage(
+                                                    pagination.next_cursor,
+                                                )
+                                            }
+                                        >
+                                            {t('weight.next_entries')}
+                                        </Button>
+                                    </Stack>
+                                )}
+                            </Stack>
                         )}
                     </CardContent>
                 </Card>
@@ -834,7 +985,7 @@ function TrendIcon({ change }: { change: number | null }) {
     return change > 0 ? <TrendingUpRounded /> : <TrendingDownRounded />;
 }
 
-function EmptyState() {
+function EmptyState({ message }: { message?: string }) {
     const { t } = useTranslation();
 
     return (
@@ -842,14 +993,18 @@ function EmptyState() {
             alignItems="center"
             spacing={2}
             sx={{
+                px: 2,
                 py: 7,
+                textAlign: 'center',
                 borderRadius: 2,
                 bgcolor: 'background.default',
                 color: 'text.secondary',
             }}
         >
             <MonitorWeightOutlined color="primary" />
-            <Typography variant="body2">{t('weight.empty')}</Typography>
+            <Typography variant="body2">
+                {message ?? t('weight.empty')}
+            </Typography>
         </Stack>
     );
 }

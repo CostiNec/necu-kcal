@@ -17,37 +17,62 @@ class WeightLogController extends Controller
         $timezone = $request->user()->profile?->timezone ?? config('app.timezone');
         $today = CarbonImmutable::now($timezone)->toDateString();
         $query = $request->user()->weightLogs();
+        $range = in_array($request->query('range'), ['month', 'year', 'all'], true)
+            ? $request->query('range')
+            : 'month';
         $entries = (clone $query)
-            ->latest('date')
-            ->limit(100)
-            ->get();
-        $trendStart = CarbonImmutable::parse($today, $timezone)->subDays(89);
-        $trend = (clone $query)
-            ->whereBetween('date', [$trendStart->toDateString(), $today])
+            ->toBase()
+            ->orderByDesc('date')
+            ->orderByDesc('id')
+            ->cursorPaginate(20);
+        $summaryStart = CarbonImmutable::parse($today, $timezone)->subDays(89);
+        $summaryTrend = (clone $query)
+            ->whereBetween('date', [$summaryStart->toDateString(), $today])
             ->oldest('date')
             ->get()
             ->map(fn (WeightLog $log) => [
                 'date' => $log->date->toDateString(),
                 'weight' => $log->weight_kg,
             ]);
-        $latest = $entries->first();
-        $trendFirst = $trend->first();
+        $trendQuery = (clone $query)->whereDate('date', '<=', $today);
+
+        if ($range !== 'all') {
+            $trendStart = CarbonImmutable::parse($today, $timezone)
+                ->subMonths($range === 'month' ? 1 : 12);
+            $trendQuery->whereDate('date', '>=', $trendStart->toDateString());
+        }
+
+        $trend = $trendQuery
+            ->oldest('date')
+            ->get()
+            ->map(fn (WeightLog $log) => [
+                'date' => $log->date->toDateString(),
+                'weight' => $log->weight_kg,
+            ]);
+        $latest = (clone $query)->latest('date')->first();
+        $summaryFirst = $summaryTrend->first();
 
         return Inertia::render('weight/index', [
             'today' => $today,
-            'entries' => $entries->map(fn (WeightLog $log) => [
+            'entries' => collect($entries->items())->map(fn (object $log) => [
                 'id' => $log->id,
-                'date' => $log->date->toDateString(),
-                'weight' => $log->weight_kg,
+                'date' => CarbonImmutable::parse($log->date)->toDateString(),
+                'weight' => (float) $log->weight_kg,
                 'note' => $log->note,
             ]),
+            'pagination' => [
+                'current_cursor' => $entries->cursor()?->encode(),
+                'next_cursor' => $entries->nextCursor()?->encode(),
+                'previous_cursor' => $entries->previousCursor()?->encode(),
+            ],
+            'filters' => ['range' => $range],
             'trend' => $trend,
             'summary' => [
                 'current' => $latest?->weight_kg,
-                'change' => $latest && $trendFirst
-                    ? round($latest->weight_kg - $trendFirst['weight'], 2)
+                'change' => $latest && $summaryFirst
+                    ? round($latest->weight_kg - $summaryFirst['weight'], 2)
                     : null,
-                'loggedDays' => $trend->count(),
+                'loggedDays' => $summaryTrend->count(),
             ],
         ]);
     }

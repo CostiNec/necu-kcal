@@ -31,9 +31,11 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import {
     useEffect,
+    useRef,
     useState,
     type FormEvent,
     type MouseEvent,
+    type TouchEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/layouts/app-layout';
@@ -95,6 +97,8 @@ export default function DiaryShow({
             ? Math.min(100, (totals.calories / targets.calories) * 100)
             : 0;
     const [quickEntryMeal, setQuickEntryMeal] = useState<MealKey | null>(null);
+    const swipeStart = useRef<{ x: number; y: number } | null>(null);
+    const swipeNavigationPending = useRef(false);
 
     useEffect(() => {
         const focusMeal = new URLSearchParams(window.location.search).get(
@@ -111,6 +115,60 @@ export default function DiaryShow({
 
         return () => window.cancelAnimationFrame(frame);
     }, [date]);
+
+    const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+        if (event.touches.length !== 1) {
+            swipeStart.current = null;
+            return;
+        }
+
+        const target = event.target as HTMLElement;
+        if (
+            target.closest(
+                'a, button, input, textarea, select, [role="button"], [role="dialog"]',
+            )
+        ) {
+            swipeStart.current = null;
+            return;
+        }
+
+        const touch = event.touches[0];
+        swipeStart.current = { x: touch.clientX, y: touch.clientY };
+    };
+
+    const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+        const start = swipeStart.current;
+        swipeStart.current = null;
+
+        if (
+            !start ||
+            swipeNavigationPending.current ||
+            event.changedTouches.length !== 1
+        ) {
+            return;
+        }
+
+        const touch = event.changedTouches[0];
+        const deltaX = touch.clientX - start.x;
+        const deltaY = touch.clientY - start.y;
+
+        if (
+            Math.abs(deltaX) < 60 ||
+            Math.abs(deltaX) <= Math.abs(deltaY) * 1.25
+        ) {
+            return;
+        }
+
+        swipeNavigationPending.current = true;
+        const targetDate = deltaX < 0 ? previousDate : nextDate;
+
+        router.visit(`/diary/${targetDate}`, {
+            preserveScroll: true,
+            onFinish: () => {
+                swipeNavigationPending.current = false;
+            },
+        });
+    };
 
     return (
         <AppLayout
@@ -129,101 +187,119 @@ export default function DiaryShow({
             }
         >
             <Head title={isToday ? t('common.today') : formatDate(date)} />
-            <PeriodNavigator
-                title={
-                    isToday
-                        ? t('common.today')
-                        : formatDate(date, { weekday: 'long' })
-                }
-                subtitle={formatDate(date, { year: undefined })}
-                previousHref={`/diary/${previousDate}`}
-                nextHref={`/diary/${nextDate}`}
-                previousLabel={t('common.previous_day')}
-                nextLabel={t('common.next_day')}
-            />
+            <Box
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={() => {
+                    swipeStart.current = null;
+                }}
+                sx={{
+                    touchAction: 'pan-y',
+                    overscrollBehaviorX: 'contain',
+                }}
+            >
+                <PeriodNavigator
+                    title={
+                        isToday
+                            ? t('common.today')
+                            : formatDate(date, { weekday: 'long' })
+                    }
+                    subtitle={formatDate(date, { year: undefined })}
+                    previousHref={`/diary/${previousDate}`}
+                    nextHref={`/diary/${nextDate}`}
+                    previousLabel={t('common.previous_day')}
+                    nextLabel={t('common.next_day')}
+                />
 
-            <Grid container spacing={2}>
-                <Grid size={{ xs: 12, lg: 5 }}>
-                    <Card sx={{ height: '100%' }}>
-                        <CardContent>
-                            <Stack spacing={2}>
-                                <Box
-                                    sx={{
-                                        p: 2,
-                                        textAlign: 'center',
-                                        borderRadius: 2,
-                                        bgcolor: 'action.hover',
-                                    }}
-                                >
-                                    <Typography variant="overline" color="text.secondary">
-                                        {remaining >= 0
-                                            ? t('diary.remaining')
-                                            : t('diary.over_target')}
-                                    </Typography>
-                                    <Typography variant="h5">
-                                        {formatNumber(Math.abs(remaining))} kcal
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        display: 'flex',
-                                        width: 1,
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    <CalorieRing
-                                        value={totals.calories}
-                                        target={targets.calories}
-                                        progress={calorieProgress}
+                <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, lg: 5 }}>
+                        <Card sx={{ height: '100%' }}>
+                            <CardContent>
+                                <Stack spacing={2}>
+                                    <Box
+                                        sx={{
+                                            p: 2,
+                                            textAlign: 'center',
+                                            borderRadius: 2,
+                                            bgcolor: 'action.hover',
+                                        }}
+                                    >
+                                        <Typography
+                                            variant="overline"
+                                            color="text.secondary"
+                                        >
+                                            {remaining >= 0
+                                                ? t('diary.remaining')
+                                                : t('diary.over_target')}
+                                        </Typography>
+                                        <Typography variant="h5">
+                                            {formatNumber(
+                                                Math.abs(remaining),
+                                            )}{' '}
+                                            kcal
+                                        </Typography>
+                                    </Box>
+                                    <Box
+                                        sx={{
+                                            display: 'flex',
+                                            width: 1,
+                                            justifyContent: 'center',
+                                        }}
+                                    >
+                                        <CalorieRing
+                                            value={totals.calories}
+                                            target={targets.calories}
+                                            progress={calorieProgress}
+                                        />
+                                    </Box>
+                                    <MacroProgress
+                                        label={t('common.protein')}
+                                        type="protein"
+                                        value={totals.protein}
+                                        target={targets.protein}
                                     />
-                                </Box>
-                                <MacroProgress
-                                    label={t('common.protein')}
-                                    type="protein"
-                                    value={totals.protein}
-                                    target={targets.protein}
+                                    <MacroProgress
+                                        label={t('common.carbohydrates')}
+                                        type="carbohydrates"
+                                        value={totals.carbohydrates}
+                                        target={targets.carbohydrates}
+                                    />
+                                    <MacroProgress
+                                        label={t('common.fat')}
+                                        type="fat"
+                                        value={totals.fat}
+                                        target={targets.fat}
+                                    />
+                                    <MacroProgress
+                                        label={t('common.fibre')}
+                                        type="fibre"
+                                        value={totals.fibre}
+                                        target={targets.fibre}
+                                    />
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                    <Grid size={{ xs: 12, lg: 7 }}>
+                        <Stack spacing={2}>
+                            {meals.map((meal) => (
+                                <MealCard
+                                    key={meal.key}
+                                    date={date}
+                                    meal={meal}
+                                    entries={entries.filter(
+                                        (entry) => entry.meal === meal.key,
+                                    )}
+                                    onQuickAdd={() =>
+                                        setQuickEntryMeal(meal.key)
+                                    }
                                 />
-                                <MacroProgress
-                                    label={t('common.carbohydrates')}
-                                    type="carbohydrates"
-                                    value={totals.carbohydrates}
-                                    target={targets.carbohydrates}
-                                />
-                                <MacroProgress
-                                    label={t('common.fat')}
-                                    type="fat"
-                                    value={totals.fat}
-                                    target={targets.fat}
-                                />
-                                <MacroProgress
-                                    label={t('common.fibre')}
-                                    type="fibre"
-                                    value={totals.fibre}
-                                    target={targets.fibre}
-                                />
-                            </Stack>
-                        </CardContent>
-                    </Card>
+                            ))}
+                        </Stack>
+                    </Grid>
                 </Grid>
-                <Grid size={{ xs: 12, lg: 7 }}>
-                    <Stack spacing={2}>
-                        {meals.map((meal) => (
-                            <MealCard
-                                key={meal.key}
-                                date={date}
-                                meal={meal}
-                                entries={entries.filter(
-                                    (entry) => entry.meal === meal.key,
-                                )}
-                                onQuickAdd={() =>
-                                    setQuickEntryMeal(meal.key)
-                                }
-                            />
-                        ))}
-                    </Stack>
-                </Grid>
-            </Grid>
-            <DailyNotes date={date} notes={notes ?? ''} />
+                <DailyNotes date={date} notes={notes ?? ''} />
+            </Box>
             {quickEntryMeal && (
                 <QuickEntryDialog
                     key={`${date}-${quickEntryMeal}`}
