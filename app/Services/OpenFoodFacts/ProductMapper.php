@@ -12,6 +12,8 @@ class ProductMapper
 
     public const SKIP_MISSING_ENERGY = 'missing_energy';
 
+    public const SKIP_INVALID_NUTRITION_BASIS = 'invalid_nutrition_basis';
+
     public const SKIP_OUTSIDE_SCOPE = 'outside_scope';
 
     /**
@@ -204,10 +206,11 @@ class ProductMapper
         }
 
         if ($calories === null) {
-            if (!in_array($product['_id'], ['0000130008136','0000140323687','0000141013129','0011110090904']) && strpos('missing energy_100g', $product['nutrition_score_debug']) !== false) {
-                dd($product);
-            }
-            return $this->skipped(self::SKIP_MISSING_ENERGY);
+            return $this->skipped(
+                $this->hasUnsupportedNutritionBasis($product)
+                    ? self::SKIP_INVALID_NUTRITION_BASIS
+                    : self::SKIP_MISSING_ENERGY
+            );
         }
 
         $compatibleAggregatedNutrition =
@@ -492,6 +495,64 @@ class ProductMapper
             'basis_unit' => $basisUnit,
             'nutrients' => $nutrients,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $product
+     */
+    private function hasUnsupportedNutritionBasis(array $product): bool
+    {
+        $nutrition = $product['nutrition'] ?? null;
+
+        if (! is_array($nutrition)) {
+            return false;
+        }
+
+        $sets = [];
+        $aggregatedSet = $nutrition['aggregated_set'] ?? null;
+
+        if (is_array($aggregatedSet)) {
+            $sets[] = $aggregatedSet;
+        }
+
+        $inputSets = $nutrition['input_sets'] ?? null;
+
+        if (is_array($inputSets)) {
+            foreach ($inputSets as $inputSet) {
+                if (is_array($inputSet)) {
+                    $sets[] = $inputSet;
+                }
+            }
+        }
+
+        foreach ($sets as $set) {
+            if (! is_string($set['per'] ?? null)) {
+                continue;
+            }
+
+            $per = mb_strtolower(
+                preg_replace('/\s+/u', '', $set['per']) ?? ''
+            );
+
+            if (
+                $per !== ''
+                && ! in_array($per, ['100g', '100ml', 'serving'], true)
+            ) {
+                return true;
+            }
+
+            if (
+                $per === 'serving'
+                && $this->quantity(
+                    $set['per_quantity'] ?? null,
+                    $set['per_unit'] ?? null
+                ) === null
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

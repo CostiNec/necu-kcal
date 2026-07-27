@@ -50,6 +50,13 @@
     "dark_mode": "Dark mode",
     "light_mode": "Light mode"
   },
+  "install_app": {
+    "action": "Install app",
+    "action_help": "Add Kcal to your phone",
+    "title": "Install Kcal",
+    "ios_instructions": "In Safari, tap the Share button, then choose “Add to Home Screen”.",
+    "browser_instructions": "Open your browser menu, then choose “Install app” or “Add to Home screen”."
+  },
   "recipe": {
     "title": "Recipes",
     "description": "Combine foods, enter the cooked yield, and get accurate nutrition per 100 g.",
@@ -209,9 +216,11 @@
     "library_description": "Your favourites are shown first. Search the full food database as you type.",
     "diary": "Diary",
     "add_food_head": "Add food or recipe",
-    "search_placeholder": "Search food, recipe, brand, or barcode",
+    "search_placeholder": "Search food, recipe, or brand",
     "scan_barcode": "Scan barcode",
-    "scan_barcode_help": "Place the product barcode inside the frame. It will be searched automatically.",
+    "scan_barcode_help": "Hold the barcode horizontally inside the frame. Keep it steady and move slightly closer if needed.",
+    "turn_on_flashlight": "Turn on flashlight",
+    "turn_off_flashlight": "Turn off flashlight",
     "camera_preview": "Live camera preview for barcode scanning",
     "starting_camera": "Starting camera…",
     "retry_camera": "Try again",
@@ -223,6 +232,11 @@
     "no_results": "No foods found",
     "no_results_for": "No matches for “{{search}}”",
     "no_results_copy": "Check the spelling, try fewer words, or add it as a custom food.",
+    "barcode_not_found": "Product not found",
+    "barcode_not_found_copy": "Add its name and nutrition information. The barcode will be saved automatically.",
+    "add_scanned_product": "Add product",
+    "add_product_details": "Add product",
+    "add_product_details_copy": "Enter the name and nutrition information shown on the package.",
     "empty_library": "Your food library is empty",
     "empty_library_copy": "Add a custom food to start building your personal library.",
     "empty_favourites": "No favourite foods yet",
@@ -240,7 +254,8 @@
     "food_name": "Food name",
     "nutrition_basis_amount": "Nutrition basis",
     "nutrition_basis": "Nutrition per {{amount}} {{unit}}",
-    "save_custom": "Save custom food"
+    "save_custom": "Save custom food",
+    "save_product": "Save product"
   },
   "reports": {
     "title": "Weekly report",

@@ -447,7 +447,7 @@ class OpenFoodFactsImportTest extends TestCase
         $this->assertDatabaseCount('foods', 0);
         $run = DB::table('food_import_runs')->latest('id')->first();
         $this->assertSame(
-            ['missing_energy' => 1],
+            ['invalid_nutrition_basis' => 1],
             json_decode($run->skip_reasons, true)
         );
     }
@@ -769,6 +769,64 @@ class OpenFoodFactsImportTest extends TestCase
         $this->assertNull($food->package_quantity);
         $this->assertNull($food->package_unit);
         $this->assertSame(1, $food->nutrition_complete);
+    }
+
+    public function test_it_reports_an_invalid_energy_based_nutrition_basis(): void
+    {
+        $product = [
+            ...$this->romanianProduct(),
+            'code' => '00433556',
+            'product_name' => 'Sparkling Blackcurrant and Cherry Water',
+            'nutriments' => [],
+            'nutrition_data_per_imported' => '100g',
+            'nutrition' => [
+                'input_sets' => [
+                    [
+                        'preparation' => 'as_sold',
+                        'per' => '100kj',
+                        'per_quantity' => 100,
+                        'per_unit' => 'kj',
+                        'source' => 'packaging',
+                        'nutrients' => [
+                            'energy-kcal' => [
+                                'value' => 1,
+                                'value_computed' => 9.5,
+                                'unit' => 'kcal',
+                            ],
+                            'proteins' => ['value' => 0.5, 'unit' => 'g'],
+                            'carbohydrates' => [
+                                'value' => 0.5,
+                                'unit' => 'g',
+                            ],
+                            'fat' => ['value' => 0.5, 'unit' => 'g'],
+                            'sodium' => ['value' => 4, 'unit' => 'g'],
+                            'salt' => ['value' => 10, 'unit' => 'g'],
+                        ],
+                    ],
+                ],
+            ],
+            'ingredients_tags' => [
+                'en:carbonated-spring-water',
+                'en:flavouring',
+                'en:sweetener',
+                'en:e955',
+            ],
+            'categories_tags' => ['en:beverages', 'en:waters'],
+        ];
+        $path = $this->gzipDump([$product]);
+
+        $status = Artisan::call('foods:import-open-food-facts', [
+            'path' => $path,
+            '--scope' => 'all',
+        ]);
+
+        $this->assertSame(0, $status, Artisan::output());
+        $this->assertDatabaseCount('foods', 0);
+        $run = DB::table('food_import_runs')->latest('id')->first();
+        $this->assertSame(
+            ['invalid_nutrition_basis' => 1],
+            json_decode($run->skip_reasons, true)
+        );
     }
 
     public function test_it_imports_verified_water_without_an_ingredient_list(): void

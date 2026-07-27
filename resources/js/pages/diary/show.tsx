@@ -29,7 +29,12 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { useState, type FormEvent, type MouseEvent } from 'react';
+import {
+    useEffect,
+    useState,
+    type FormEvent,
+    type MouseEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/layouts/app-layout';
 import { MacroProgress } from '@/components/macro-progress';
@@ -90,6 +95,22 @@ export default function DiaryShow({
             ? Math.min(100, (totals.calories / targets.calories) * 100)
             : 0;
     const [quickEntryMeal, setQuickEntryMeal] = useState<MealKey | null>(null);
+
+    useEffect(() => {
+        const focusMeal = new URLSearchParams(window.location.search).get(
+            'focus_meal',
+        );
+
+        if (!meals.some(({ key }) => key === focusMeal)) return;
+
+        const frame = window.requestAnimationFrame(() => {
+            document
+                .getElementById(`meal-${focusMeal}`)
+                ?.scrollIntoView({ block: 'start', behavior: 'auto' });
+        });
+
+        return () => window.cancelAnimationFrame(frame);
+    }, [date]);
 
     return (
         <AppLayout
@@ -303,7 +324,10 @@ function MealCard({
     };
 
     return (
-        <Card>
+        <Card
+            id={`meal-${meal.key}`}
+            sx={{ scrollMarginTop: { xs: 88, sm: 104 } }}
+        >
             <CardHeader
                 avatar={
                     <Box

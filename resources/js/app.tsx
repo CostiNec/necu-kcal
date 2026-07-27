@@ -36,3 +36,9 @@ createInertiaApp({
         color: '#00A76F',
     },
 });
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+        void navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+    });
+}

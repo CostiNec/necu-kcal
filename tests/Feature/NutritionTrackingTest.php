@@ -598,6 +598,85 @@ class NutritionTrackingTest extends TestCase
             ->assertJsonPath('foods.0.id', $product->id);
     }
 
+    public function test_a_barcode_product_created_by_one_user_is_available_to_others(): void
+    {
+        $creator = $this->onboardedUser();
+        $otherUser = $this->onboardedUser();
+
+        $this->actingAs($creator)
+            ->post('/foods', [
+                'name' => 'Shared scanned yogurt',
+                'brand' => 'Example Dairy',
+                'barcode' => '5941234567891',
+                'calories' => 72,
+                'nutrition_basis_amount' => 100,
+                'nutrition_basis_unit' => 'g',
+                'protein' => 4,
+                'carbohydrates' => 8,
+                'fat' => 3,
+                'fibre' => 0,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success', 'Product created and shared.');
+
+        $product = Food::where('barcode', '5941234567891')->firstOrFail();
+
+        $this->assertNull($product->user_id);
+        $this->assertSame('product', $product->food_type);
+        $this->assertSame(2, $product->search_priority);
+        $this->assertTrue($product->is_public);
+
+        $this->actingAs($otherUser)
+            ->getJson('/foods/search?search=5941234567891')
+            ->assertOk()
+            ->assertJsonCount(1, 'foods')
+            ->assertJsonPath('foods.0.id', $product->id)
+            ->assertJsonPath('foods.0.is_custom', false);
+    }
+
+    public function test_a_custom_food_without_a_barcode_remains_user_owned(): void
+    {
+        $creator = $this->onboardedUser();
+
+        $this->actingAs($creator)
+            ->post('/foods', [
+                'name' => 'My homemade soup',
+                'calories' => 80,
+            ])
+            ->assertRedirect();
+
+        $food = Food::where('name', 'My homemade soup')->firstOrFail();
+
+        $this->assertSame($creator->id, $food->user_id);
+        $this->assertSame('custom', $food->food_type);
+        $this->assertFalse($food->is_public);
+    }
+
+    public function test_a_scanned_barcode_cannot_create_a_duplicate_product(): void
+    {
+        $user = $this->onboardedUser();
+        Food::create([
+            'name' => 'Existing shared product',
+            'barcode' => '5941234567892',
+            'calories' => 100,
+            'food_type' => 'product',
+            'is_public' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->post('/foods', [
+                'name' => 'Duplicate product',
+                'barcode' => '5941234567892',
+                'calories' => 100,
+            ])
+            ->assertSessionHasErrors('barcode');
+
+        $this->assertSame(
+            1,
+            Food::where('barcode', '5941234567892')->count()
+        );
+    }
+
     public function test_existing_encoded_food_names_are_decoded_for_display(): void
     {
         $foodId = DB::table('foods')->insertGetId([

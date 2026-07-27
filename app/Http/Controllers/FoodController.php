@@ -68,7 +68,17 @@ class FoodController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'brand' => ['nullable', 'string', 'max:255'],
-            'barcode' => ['nullable', 'string', 'max:64'],
+            'barcode' => [
+                'nullable',
+                'string',
+                'max:64',
+                'regex:/^\d{6,18}$/',
+                Rule::unique('foods', 'barcode')->where(
+                    fn ($query) => $query
+                        ->whereNull('canonical_food_id')
+                        ->where('is_active', true)
+                ),
+            ],
             'calories' => ['required', 'numeric', 'min:0', 'max:10000'],
             'nutrition_basis_amount' => [
                 'sometimes',
@@ -85,20 +95,27 @@ class FoodController extends Controller
             'fat' => ['nullable', 'numeric', 'min:0', 'max:1000'],
             'fibre' => ['nullable', 'numeric', 'min:0', 'max:1000'],
         ]);
+        $hasBarcode = isset($validated['barcode'])
+            && trim($validated['barcode']) !== '';
 
-        $food = $request->user()->foods()->create([
+        $food = Food::create([
             ...$validated,
-            'food_type' => 'custom',
-            'search_priority' => 1,
+            'user_id' => $hasBarcode ? null : $request->user()->id,
+            'food_type' => $hasBarcode ? 'product' : 'custom',
+            'search_priority' => $hasBarcode ? 2 : 1,
             'nutrition_basis_amount' => $validated['nutrition_basis_amount']
                 ?? 100,
             'nutrition_basis_unit' => $validated['nutrition_basis_unit']
                 ?? 'g',
-            'is_public' => false,
+            'is_public' => $hasBarcode,
         ]);
 
         return back()->with([
-            'success' => __('app.custom_food_created'),
+            'success' => __(
+                $hasBarcode
+                    ? 'app.shared_product_created'
+                    : 'app.custom_food_created'
+            ),
             'created_food_id' => $food->id,
         ]);
     }
@@ -155,7 +172,7 @@ class FoodController extends Controller
                 'fibre',
             ]),
             'name' => $food->localizedName(),
-            'is_custom' => $food->user_id !== null,
+            'is_custom' => $food->food_type === 'custom',
             'is_favourite' => (bool) $food->is_favourite,
         ];
     }

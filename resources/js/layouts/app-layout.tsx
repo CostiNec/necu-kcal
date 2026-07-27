@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next';
 import { BrandMark } from '@/components/brand-mark';
 import { ColorModeButton } from '@/components/color-mode-button';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { InstallAppButton } from '@/components/install-app-button';
 import { MobileBottomNavigation } from '@/components/mobile-bottom-navigation';
 import { PageTransition } from '@/components/page-transition';
 import { RouterLink } from '@/components/router-link';
@@ -330,6 +331,9 @@ export function AppLayout({
                                 );
                             })}
                         </List>
+
+                        <Divider sx={{ my: 2 }} />
+                        <InstallAppButton />
 
                         <Box sx={{ mt: 'auto', pt: 2 }}>
                             <Paper variant="outlined" sx={{ p: 2, mb: 1 }}>

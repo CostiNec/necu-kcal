@@ -4,6 +4,7 @@ return [
     'daily_note_saved' => 'Daily note saved.',
     'daily_targets_ready' => 'Your daily targets are ready.',
     'custom_food_created' => 'Custom food created.',
+    'shared_product_created' => 'Product created and shared.',
     'food_removed' => 'Food removed.',
     'food_added' => ':food added.',
     'quick_calorie_entry' => 'Quick calorie entry',

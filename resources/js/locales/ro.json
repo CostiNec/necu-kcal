@@ -50,6 +50,13 @@
     "dark_mode": "Mod întunecat",
     "light_mode": "Mod luminos"
   },
+  "install_app": {
+    "action": "Instalează aplicația",
+    "action_help": "Adaugă Kcal pe telefon",
+    "title": "Instalează Kcal",
+    "ios_instructions": "În Safari, apasă butonul Partajează, apoi alege „Adaugă la ecranul principal”.",
+    "browser_instructions": "Deschide meniul browserului, apoi alege „Instalează aplicația” sau „Adaugă la ecranul principal”."
+  },
   "recipe": {
     "title": "Rețete",
     "description": "Combină alimente, introdu cantitatea gătită și obține valorile nutriționale corecte per 100 g.",
@@ -209,9 +216,11 @@
     "library_description": "Favoritele sunt afișate primele. Caută în întreaga bază de date în timp ce scrii.",
     "diary": "Jurnal",
     "add_food_head": "Adaugă aliment sau rețetă",
-    "search_placeholder": "Caută aliment, rețetă, marcă sau cod de bare",
+    "search_placeholder": "Caută aliment, rețetă sau marcă",
     "scan_barcode": "Scanează codul de bare",
-    "scan_barcode_help": "Așază codul de bare al produsului în interiorul cadrului. Căutarea pornește automat.",
+    "scan_barcode_help": "Ține codul de bare orizontal în interiorul cadrului. Menține telefonul nemișcat și apropie-l puțin dacă este nevoie.",
+    "turn_on_flashlight": "Pornește lanterna",
+    "turn_off_flashlight": "Oprește lanterna",
     "camera_preview": "Imagine live a camerei pentru scanarea codului de bare",
     "starting_camera": "Se pornește camera…",
     "retry_camera": "Încearcă din nou",
@@ -223,6 +232,11 @@
     "no_results": "Nu am găsit alimente",
     "no_results_for": "Niciun rezultat pentru „{{search}}”",
     "no_results_copy": "Verifică denumirea, folosește mai puține cuvinte sau adaugă un aliment personalizat.",
+    "barcode_not_found": "Produsul nu a fost găsit",
+    "barcode_not_found_copy": "Adaugă denumirea și valorile nutriționale. Codul de bare va fi salvat automat.",
+    "add_scanned_product": "Adaugă produsul",
+    "add_product_details": "Adaugă produsul",
+    "add_product_details_copy": "Introdu denumirea și valorile nutriționale afișate pe ambalaj.",
     "empty_library": "Biblioteca ta de alimente este goală",
     "empty_library_copy": "Adaugă un aliment personalizat pentru a începe biblioteca personală.",
     "empty_favourites": "Nu ai încă alimente favorite",
@@ -240,7 +254,8 @@
     "food_name": "Denumirea alimentului",
     "nutrition_basis_amount": "Bază nutrițională",
     "nutrition_basis": "Valori nutriționale per {{amount}} {{unit}}",
-    "save_custom": "Salvează alimentul"
+    "save_custom": "Salvează alimentul",
+    "save_product": "Salvează produsul"
   },
   "reports": {
     "title": "Raport săptămânal",

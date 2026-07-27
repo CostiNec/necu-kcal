@@ -14,7 +14,7 @@ import { RouterLink } from '@/components/router-link';
 
 export default function Login() {
     const { t } = useTranslation();
-    const form = useForm({ email: '', password: '', remember: false });
+    const form = useForm({ email: '', password: '', remember: true });
 
     const submit = (event: FormEvent) => {
         event.preventDefault();

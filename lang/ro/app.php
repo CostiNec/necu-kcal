@@ -4,6 +4,7 @@ return [
     'daily_note_saved' => 'Notița zilnică a fost salvată.',
     'daily_targets_ready' => 'Obiectivele tale zilnice sunt pregătite.',
     'custom_food_created' => 'Alimentul personalizat a fost creat.',
+    'shared_product_created' => 'Produsul a fost creat și distribuit.',
     'food_removed' => 'Alimentul a fost șters.',
     'food_added' => ':food a fost adăugat.',
     'quick_calorie_entry' => 'Înregistrare rapidă de calorii',

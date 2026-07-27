@@ -56,6 +56,8 @@ const mealLabels = {
 
 type Meal = keyof typeof mealLabels;
 
+const isBarcode = (value: string) => /^\d{6,18}$/.test(value.trim());
+
 export default function FoodsIndex({
     foods,
     filters,
@@ -68,15 +70,28 @@ export default function FoodsIndex({
     context: { date: string | null; meal: Meal };
 }) {
     const { t } = useTranslation();
-    const [search, setSearch] = useState(filters.search);
+    const [search, setSearch] = useState(
+        isBarcode(filters.search) ? '' : filters.search,
+    );
+    const [barcodeSearch, setBarcodeSearch] = useState<string | null>(
+        isBarcode(filters.search) ? filters.search.trim() : null,
+    );
+    const [resolvedSearch, setResolvedSearch] = useState(
+        filters.search.trim(),
+    );
     const [results, setResults] = useState(foods);
     const [nextCursor, setNextCursor] = useState(pagination.next_cursor);
     const [searching, setSearching] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [showCreate, setShowCreate] = useState(false);
+    const [createBarcode, setCreateBarcode] = useState<string | null>(null);
     const [scannerOpen, setScannerOpen] = useState(false);
     const initialSearch = useRef(true);
     const logging = Boolean(context.date);
+    const activeSearch = barcodeSearch ?? search;
+    const normalizedActiveSearch = activeSearch.trim();
+    const resultsReady =
+        !searching && resolvedSearch === normalizedActiveSearch;
 
     const loadFoods = useCallback(
         async ({
@@ -108,13 +123,16 @@ export default function FoodsIndex({
                 headers: { Accept: 'application/json' },
             });
 
-            if (!response.ok) return;
+            if (!response.ok) {
+                throw new Error('Unable to load foods.');
+            }
 
             const payload = (await response.json()) as {
                 foods: Food[];
                 next_cursor: string | null;
             };
 
+            setResolvedSearch(trimmedSearch);
             setResults((current) =>
                 append ? [...current, ...payload.foods] : payload.foods,
             );
@@ -130,12 +148,11 @@ export default function FoodsIndex({
         }
 
         const controller = new AbortController();
+        setSearching(true);
         const timeout = window.setTimeout(async () => {
-            setSearching(true);
-
             try {
                 await loadFoods({
-                    value: search,
+                    value: activeSearch,
                     append: false,
                     signal: controller.signal,
                 });
@@ -146,19 +163,20 @@ export default function FoodsIndex({
                 ) {
                     setResults([]);
                     setNextCursor(null);
+                    setResolvedSearch(normalizedActiveSearch);
                 }
             } finally {
                 if (!controller.signal.aborted) {
                     setSearching(false);
                 }
             }
-        }, 300);
+        }, barcodeSearch ? 0 : 300);
 
         return () => {
             window.clearTimeout(timeout);
             controller.abort();
         };
-    }, [loadFoods, search]);
+    }, [activeSearch, barcodeSearch, loadFoods, normalizedActiveSearch]);
 
     const loadNextPage = async () => {
         if (!nextCursor || loadingMore) return;
@@ -166,7 +184,7 @@ export default function FoodsIndex({
         setLoadingMore(true);
         try {
             await loadFoods({
-                value: search,
+                value: activeSearch,
                 cursor: nextCursor,
                 append: true,
             });
@@ -184,7 +202,7 @@ export default function FoodsIndex({
                 preserveState: true,
                 onSuccess: () => {
                     setResults((current) =>
-                        search.trim() === ''
+                        activeSearch.trim() === ''
                             ? current.filter((item) => item.id !== food.id)
                             : current.map((item) =>
                                   item.id === food.id
@@ -202,11 +220,37 @@ export default function FoodsIndex({
     };
 
     const refreshResults = () =>
-        loadFoods({ value: search, append: false });
+        loadFoods({ value: activeSearch, append: false });
     const handleBarcodeDetected = useCallback((barcode: string) => {
-        setSearch(barcode.trim());
+        setSearching(true);
+        setSearch('');
+        setBarcodeSearch(barcode.trim());
+        setCreateBarcode(null);
+        setShowCreate(false);
         setScannerOpen(false);
     }, []);
+    const clearSearch = () => {
+        setSearching(true);
+        setSearch('');
+        setBarcodeSearch(null);
+        setCreateBarcode(null);
+        setShowCreate(false);
+    };
+    const toggleCreate = () => {
+        setShowCreate((value) => {
+            if (!value) {
+                setCreateBarcode(null);
+            }
+
+            return !value;
+        });
+    };
+    const createScannedProduct = () => {
+        if (!barcodeSearch) return;
+
+        setCreateBarcode(barcodeSearch);
+        setShowCreate(true);
+    };
 
     return (
         <AppLayout
@@ -228,7 +272,11 @@ export default function FoodsIndex({
                         size="small"
                         variant="outlined"
                         startIcon={<ArrowBackRounded />}
-                        onClick={() => router.visit(`/diary/${context.date}`)}
+                        onClick={() =>
+                            router.visit(
+                                `/diary/${context.date}?focus_meal=${context.meal}`,
+                            )
+                        }
                     >
                         {t('food.diary')}
                     </Button>
@@ -241,7 +289,11 @@ export default function FoodsIndex({
                 <TextField
                     fullWidth
                     value={search}
-                    onChange={(event) => setSearch(event.target.value)}
+                    onChange={(event) => {
+                        setSearching(true);
+                        setBarcodeSearch(null);
+                        setSearch(event.target.value);
+                    }}
                     placeholder={t('food.search_placeholder')}
                     slotProps={{
                         input: {
@@ -252,29 +304,27 @@ export default function FoodsIndex({
                             ),
                             endAdornment: (
                                 <InputAdornment position="end">
-                                    {logging && (
-                                        <IconButton
-                                            size="small"
-                                            color="primary"
-                                            aria-label={t(
-                                                'food.scan_barcode',
-                                            )}
-                                            onClick={() =>
-                                                setScannerOpen(true)
-                                            }
-                                        >
-                                            <QrCodeScannerRounded fontSize="small" />
-                                        </IconButton>
-                                    )}
+                                    <IconButton
+                                        size="small"
+                                        color="primary"
+                                        aria-label={t(
+                                            'food.scan_barcode',
+                                        )}
+                                        onClick={() =>
+                                            setScannerOpen(true)
+                                        }
+                                    >
+                                        <QrCodeScannerRounded fontSize="small" />
+                                    </IconButton>
                                     {searching ? (
                                         <CircularProgress size={20} />
-                                    ) : search ? (
+                                    ) : activeSearch ? (
                                         <IconButton
                                             size="small"
                                             aria-label={t(
                                                 'food.clear_search',
                                             )}
-                                            onClick={() => setSearch('')}
+                                            onClick={clearSearch}
                                         >
                                             <CloseRounded fontSize="small" />
                                         </IconButton>
@@ -291,48 +341,86 @@ export default function FoodsIndex({
                     onDetected={handleBarcodeDetected}
                 />
 
-                <Button
-                    variant="soft"
-                    color="primary"
-                    startIcon={<AddRounded />}
-                    endIcon={
-                        showCreate ? <ExpandLessRounded /> : <ExpandMoreRounded />
-                    }
-                    onClick={() => setShowCreate((value) => !value)}
-                    sx={{ alignSelf: 'flex-start' }}
-                >
-                    {t('food.create_custom')}
-                </Button>
+                {!barcodeSearch && (
+                    <>
+                        <Button
+                            variant="soft"
+                            color="primary"
+                            startIcon={<AddRounded />}
+                            endIcon={
+                                showCreate ? (
+                                    <ExpandLessRounded />
+                                ) : (
+                                    <ExpandMoreRounded />
+                                )
+                            }
+                            onClick={toggleCreate}
+                            sx={{ alignSelf: 'flex-start' }}
+                        >
+                            {t('food.create_custom')}
+                        </Button>
 
-                <Collapse in={showCreate} timeout={350} unmountOnExit>
-                    <CreateFoodForm onCreated={refreshResults} />
-                </Collapse>
+                        <Collapse
+                            in={showCreate}
+                            timeout={350}
+                            unmountOnExit
+                        >
+                            <CreateFoodForm
+                                key="custom"
+                                initialBarcode=""
+                                onCreated={refreshResults}
+                            />
+                        </Collapse>
+                    </>
+                )}
 
                 <Stack spacing={1.5}>
-                    {results.length === 0 && !searching ? (
-                        <Card variant="outlined" sx={{ borderStyle: 'dashed' }}>
-                            <CardContent sx={{ py: { xs: 4, sm: 5 } }}>
+                    {!resultsReady ? null : results.length === 0 ? (
+                        barcodeSearch &&
+                        showCreate &&
+                        createBarcode ? (
+                            <CreateFoodForm
+                                key={createBarcode}
+                                initialBarcode={createBarcode}
+                                onCreated={refreshResults}
+                            />
+                        ) : (
+                            <Card
+                                variant="outlined"
+                                sx={{
+                                    borderStyle: barcodeSearch
+                                        ? 'solid'
+                                        : 'dashed',
+                                }}
+                            >
+                            <CardContent sx={{ py: { xs: 3, sm: 4 } }}>
                                 <Stack
                                     direction={{ xs: 'column', sm: 'row' }}
                                     alignItems={{ xs: 'flex-start', sm: 'center' }}
                                     spacing={2.5}
                                 >
-                                    <Box
-                                        sx={{
-                                            display: 'grid',
-                                            placeItems: 'center',
-                                            width: 48,
-                                            height: 48,
-                                            borderRadius: 2,
-                                            color: 'primary.main',
-                                            bgcolor: 'primary.lighter',
-                                        }}
-                                    >
-                                        <SearchRounded />
-                                    </Box>
+                                    {!barcodeSearch && (
+                                        <Box
+                                            sx={{
+                                                display: 'grid',
+                                                placeItems: 'center',
+                                                width: 48,
+                                                height: 48,
+                                                borderRadius: 2,
+                                                color: 'primary.main',
+                                                bgcolor: 'primary.lighter',
+                                            }}
+                                        >
+                                            <SearchRounded />
+                                        </Box>
+                                    )}
                                     <Box sx={{ flex: 1 }}>
                                         <Typography variant="h6">
-                                            {search.trim()
+                                            {barcodeSearch
+                                                ? t(
+                                                      'food.barcode_not_found',
+                                                  )
+                                                : search.trim()
                                                 ? t('food.no_results_for', {
                                                       search: search.trim(),
                                                   })
@@ -345,16 +433,39 @@ export default function FoodsIndex({
                                             color="text.secondary"
                                             sx={{ mt: 0.5, maxWidth: 620 }}
                                         >
-                                            {search.trim()
+                                            {barcodeSearch
+                                                ? t(
+                                                      'food.barcode_not_found_copy',
+                                                  )
+                                                : search.trim()
                                                 ? t('food.no_results_copy')
                                                 : t(
                                                       'food.empty_favourites_copy',
                                                   )}
                                         </Typography>
+                                        {barcodeSearch && (
+                                            <Button
+                                                variant="contained"
+                                                startIcon={<AddRounded />}
+                                                onClick={createScannedProduct}
+                                                sx={{
+                                                    mt: 2,
+                                                    width: {
+                                                        xs: '100%',
+                                                        sm: 'auto',
+                                                    },
+                                                }}
+                                            >
+                                                {t(
+                                                    'food.add_scanned_product',
+                                                )}
+                                            </Button>
+                                        )}
                                     </Box>
                                 </Stack>
                             </CardContent>
-                        </Card>
+                            </Card>
+                        )
                     ) : (
                         results.map((food) => (
                             <FoodRow
@@ -369,7 +480,7 @@ export default function FoodsIndex({
                         ))
                     )}
 
-                    {nextCursor && (
+                    {resultsReady && nextCursor && (
                         <Button
                             variant="outlined"
                             disabled={loadingMore}
@@ -580,7 +691,13 @@ function FoodRow({
     );
 }
 
-function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
+function CreateFoodForm({
+    initialBarcode,
+    onCreated,
+}: {
+    initialBarcode: string;
+    onCreated: () => void;
+}) {
     const { t } = useTranslation();
     const form = useForm<{
         name: string;
@@ -596,7 +713,7 @@ function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
     }>({
         name: '',
         brand: '',
-        barcode: '',
+        barcode: initialBarcode,
         calories: 0,
         nutrition_basis_amount: 100,
         nutrition_basis_unit: 'g',
@@ -630,11 +747,27 @@ function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
                         });
                     }}
                 >
+                    {initialBarcode && (
+                        <Box>
+                            <Typography variant="h6">
+                                {t('food.add_product_details')}
+                            </Typography>
+                            <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ mt: 0.5 }}
+                            >
+                                {t('food.add_product_details_copy')}
+                            </Typography>
+                        </Box>
+                    )}
+
                     <Grid container spacing={2}>
                         <Grid size={{ xs: 12, sm: 6 }}>
                             <TextField
                                 fullWidth
                                 required
+                                autoFocus={Boolean(initialBarcode)}
                                 label={t('food.food_name')}
                                 value={form.data.name}
                                 error={Boolean(form.errors.name)}
@@ -657,6 +790,12 @@ function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
                             />
                         </Grid>
                     </Grid>
+
+                    {form.errors.barcode && (
+                        <Typography variant="body2" color="error">
+                            {form.errors.barcode}
+                        </Typography>
+                    )}
 
                     <Grid container spacing={2}>
                         <Grid size={{ xs: 8, sm: 4 }}>
@@ -748,7 +887,9 @@ function CreateFoodForm({ onCreated }: { onCreated: () => void }) {
                                 )
                             }
                         >
-                            {t('food.save_custom')}
+                            {initialBarcode
+                                ? t('food.save_product')
+                                : t('food.save_custom')}
                         </Button>
                     </Box>
                 </Stack>
