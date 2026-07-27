@@ -35,6 +35,7 @@ export default function SettingsIndex({
     const { auth } = usePage<SharedProps>().props;
     const profileForm = useForm({
         name: auth.user?.name ?? '',
+        username: auth.user?.username ?? '',
         email: auth.user?.email ?? '',
     });
     const targetForm = useForm<{
@@ -91,6 +92,14 @@ export default function SettingsIndex({
                                     error={profileForm.errors.name}
                                     onChange={(value) =>
                                         profileForm.setData('name', value)
+                                    }
+                                />
+                                <SettingsField
+                                    label={t('auth.username')}
+                                    value={profileForm.data.username}
+                                    error={profileForm.errors.username}
+                                    onChange={(value) =>
+                                        profileForm.setData('username', value)
                                     }
                                 />
                                 <SettingsField

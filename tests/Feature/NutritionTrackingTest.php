@@ -18,6 +18,7 @@ class NutritionTrackingTest extends TestCase
     {
         $response = $this->post('/register', [
             'name' => 'Alex',
+            'username' => 'alex',
             'email' => 'alex@example.com',
             'password' => 'a-secure-password',
             'password_confirmation' => 'a-secure-password',

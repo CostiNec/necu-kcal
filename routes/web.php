@@ -4,11 +4,14 @@ use App\Http\Controllers\DiaryController;
 use App\Http\Controllers\DiaryEntryController;
 use App\Http\Controllers\FavouriteFoodController;
 use App\Http\Controllers\FoodController;
+use App\Http\Controllers\FriendshipController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\WeightLogController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -65,6 +68,21 @@ Route::middleware('auth')->group(function () {
             ->name('diary-entries.destroy');
 
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+
+        Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::get('/users/{user:username}', [UserController::class, 'show'])
+            ->name('users.show');
+        Route::post('/users/{user:username}/friend-request', [FriendshipController::class, 'store'])
+            ->name('friendships.store');
+        Route::put('/friendships/{friendship}/accept', [FriendshipController::class, 'accept'])
+            ->name('friendships.accept');
+        Route::delete('/friendships/{friendship}', [FriendshipController::class, 'destroy'])
+            ->name('friendships.destroy');
+
+        Route::get('/notifications', [NotificationController::class, 'index'])
+            ->name('notifications.index');
+        Route::put('/notifications/{notification}/read', [NotificationController::class, 'read'])
+            ->name('notifications.read');
 
         Route::get('/weight', [WeightLogController::class, 'index'])
             ->name('weight.index');

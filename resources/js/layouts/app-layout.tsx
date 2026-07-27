@@ -1,4 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
+import { useEchoNotification } from '@laravel/echo-react';
 import BarChartOutlined from '@mui/icons-material/BarChartOutlined';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import RestaurantMenuOutlined from '@mui/icons-material/RestaurantMenuOutlined';
@@ -7,9 +8,12 @@ import LogoutRounded from '@mui/icons-material/LogoutRounded';
 import MenuRounded from '@mui/icons-material/MenuRounded';
 import MenuBookOutlined from '@mui/icons-material/MenuBookOutlined';
 import MonitorWeightOutlined from '@mui/icons-material/MonitorWeightOutlined';
+import NotificationsNoneRounded from '@mui/icons-material/NotificationsNoneRounded';
+import PeopleOutlineRounded from '@mui/icons-material/PeopleOutlineRounded';
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import AppBar from '@mui/material/AppBar';
 import Avatar from '@mui/material/Avatar';
+import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Container from '@mui/material/Container';
@@ -39,6 +43,13 @@ import { toast } from '@/components/snackbar';
 import type { SharedProps } from '@/types';
 
 const drawerWidth = 280;
+
+type RealtimeNotification = {
+    event: 'friend_request_received' | 'friend_request_accepted';
+    actor_name: string;
+    actor_username: string;
+    friendship_id?: number;
+};
 
 const desktopNavigation = [
     {
@@ -72,6 +83,18 @@ const desktopNavigation = [
         match: ['/weight'],
     },
     {
+        labelKey: 'common.people',
+        href: '/users',
+        icon: PeopleOutlineRounded,
+        match: ['/users'],
+    },
+    {
+        labelKey: 'common.notifications',
+        href: '/notifications',
+        icon: NotificationsNoneRounded,
+        match: ['/notifications'],
+    },
+    {
         labelKey: 'common.profile',
         href: '/settings',
         icon: SettingsOutlined,
@@ -94,9 +117,81 @@ export function AppLayout({
     actions?: React.ReactNode;
 }>) {
     const page = usePage<SharedProps>();
-    const { auth, flash } = page.props;
+    const { auth, flash, notificationSummary } = page.props;
     const { t } = useTranslation();
     const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(
+        notificationSummary.unread_count,
+    );
+
+    useEchoNotification<RealtimeNotification>(
+        `App.Models.User.${auth.user?.id ?? 0}`,
+        (notification) => {
+            setUnreadCount((current) => current + 1);
+
+            if (notification.event === 'friend_request_received') {
+                toast.info(
+                    <Box
+                        component="button"
+                        type="button"
+                        onClick={() => router.visit('/users?tab=requests')}
+                        sx={{
+                            width: 1,
+                            p: 0,
+                            border: 0,
+                            color: 'inherit',
+                            font: 'inherit',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            bgcolor: 'transparent',
+                            '&:focus-visible': {
+                                outline: '2px solid',
+                                outlineColor: 'primary.main',
+                                outlineOffset: 2,
+                            },
+                        }}
+                    >
+                        {t('notifications.friend_request', {
+                            name: notification.actor_name,
+                        })}
+                    </Box>,
+                    { id: `realtime-notification-${notification.id}` },
+                );
+            } else {
+                toast.success(
+                    t('notifications.friend_accepted', {
+                        name: notification.actor_name,
+                    }),
+                    { id: `realtime-notification-${notification.id}` },
+                );
+            }
+
+            if (
+                page.url === '/notifications' ||
+                page.url === '/users' ||
+                page.url.startsWith('/users?')
+            ) {
+                router.reload({
+                    only:
+                        page.url === '/notifications'
+                            ? ['notifications', 'notificationSummary']
+                            : [
+                                  'friends',
+                                  'requests',
+                                  'searchResult',
+                                  'notificationSummary',
+                              ],
+                });
+            }
+        },
+        [],
+        [page.url, t],
+    );
+
+    useEffect(() => {
+        setUnreadCount(notificationSummary.unread_count);
+    }, [notificationSummary.unread_count]);
+
     useEffect(() => {
         if (flash.success) {
             toast.success(flash.success, { id: 'flash-notification' });
@@ -204,7 +299,7 @@ export function AppLayout({
                                     color="text.secondary"
                                     noWrap
                                 >
-                                    {auth.user?.email}
+                                    @{auth.user?.username}
                                 </Typography>
                             </Box>
                         </Stack>
@@ -373,7 +468,7 @@ export function AppLayout({
                                             color="text.secondary"
                                             noWrap
                                         >
-                                            {auth.user?.email}
+                                            @{auth.user?.username}
                                         </Typography>
                                     </Box>
                                 </Stack>
@@ -428,6 +523,24 @@ export function AppLayout({
                             sx={{ ml: 'auto' }}
                         >
                             {actions}
+                            <RouterLink
+                                href="/notifications"
+                                style={{ color: 'inherit' }}
+                            >
+                                <IconButton
+                                    color="inherit"
+                                    aria-label={t('common.notifications')}
+                                    sx={{ width: 44, height: 44 }}
+                                >
+                                    <Badge
+                                        color="error"
+                                        badgeContent={unreadCount}
+                                        max={99}
+                                    >
+                                        <NotificationsNoneRounded />
+                                    </Badge>
+                                </IconButton>
+                            </RouterLink>
                             <Stack
                                 direction="row"
                                 alignItems="center"
@@ -461,13 +574,19 @@ export function AppLayout({
                     sx={{ py: 2, pb: { xs: 13, lg: 2 } }}
                 >
                     {(title || subtitle) && (
-                        <Box sx={{ display: { lg: 'none' }, mb: 2 }}>
+                        <Box
+                            sx={{
+                                display: { xs: 'flex', lg: 'none' },
+                                flexDirection: 'column',
+                                gap: 2,
+                                mb: 2,
+                            }}
+                        >
                             {title && <Typography variant="h4">{title}</Typography>}
                             {subtitle && (
                                 <Typography
                                     variant="body2"
                                     color="text.secondary"
-                                    sx={{ mt: 2 }}
                                 >
                                     {subtitle}
                                 </Typography>

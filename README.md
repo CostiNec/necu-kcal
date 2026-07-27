@@ -53,6 +53,10 @@ Never run the development seeder against a production database.
 
 For Vite hot reloading, use `npm run dev` in a second terminal.
 
+`composer dev` starts the Laravel server, queue worker, Vite, application logs,
+and the Reverb WebSocket server together. Realtime notifications require both
+the queue worker and Reverb process to be running.
+
 ## Verification
 
 ```bash
@@ -68,9 +72,12 @@ npm run build
 2. Configure MySQL, mail delivery, HTTPS, and secure session cookies.
 3. Run `composer install --no-dev --optimize-autoloader` and `npm ci && npm run build`.
 4. Run `php artisan migrate --force`.
-5. Run `php artisan optimize`.
-6. Point the web server document root to `public/`.
-7. Configure a scheduler entry for `php artisan schedule:run` if scheduled jobs
+5. Configure the `REVERB_*` and `VITE_REVERB_*` variables, build the frontend,
+   and run `php artisan reverb:start` and `php artisan queue:work` under a
+   process supervisor.
+6. Run `php artisan optimize`.
+7. Point the web server document root to `public/`.
+8. Configure a scheduler entry for `php artisan schedule:run` if scheduled jobs
    are added later.
 
 ## Open Food Facts import

@@ -35,6 +35,7 @@ class LocalizationTest extends TestCase
         $this->withSession(['locale' => 'ro'])
             ->post('/register', [
                 'name' => '',
+                'username' => '',
                 'email' => '',
                 'password' => '',
                 'password_confirmation' => '',

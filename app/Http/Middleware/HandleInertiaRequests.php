@@ -42,9 +42,15 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user()?->only([
                     'id',
                     'name',
+                    'username',
                     'email',
                     'email_verified_at',
                 ]),
+            ],
+            'notificationSummary' => [
+                'unread_count' => fn () => $request->user()
+                    ? $request->user()->unreadNotifications()->count()
+                    : 0,
             ],
             'locale' => App::currentLocale(),
             'availableLocales' => config('locales.supported'),

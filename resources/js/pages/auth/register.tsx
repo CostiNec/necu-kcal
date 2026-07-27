@@ -1,20 +1,28 @@
 import { Head, useForm } from '@inertiajs/react';
+import VisibilityOffRounded from '@mui/icons-material/VisibilityOffRounded';
+import VisibilityRounded from '@mui/icons-material/VisibilityRounded';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import MuiLink from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import type { FormEvent } from 'react';
+import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AuthLayout } from '@/layouts/auth-layout';
 import { RouterLink } from '@/components/router-link';
 
 export default function Register() {
     const { t } = useTranslation();
+    const [showPassword, setShowPassword] = useState(false);
+    const [showPasswordConfirmation, setShowPasswordConfirmation] =
+        useState(false);
     const form = useForm({
         name: '',
+        username: '',
         email: '',
         password: '',
         password_confirmation: '',
@@ -44,6 +52,18 @@ export default function Register() {
                     helperText={form.errors.name}
                 />
                 <TextField
+                    label={t('auth.username')}
+                    autoComplete="username"
+                    value={form.data.username}
+                    onChange={(event) =>
+                        form.setData('username', event.target.value)
+                    }
+                    error={Boolean(form.errors.username)}
+                    helperText={
+                        form.errors.username ?? t('auth.username_help')
+                    }
+                />
+                <TextField
                     label={t('common.email_address')}
                     type="email"
                     autoComplete="email"
@@ -56,7 +76,7 @@ export default function Register() {
                     <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             label={t('common.password')}
-                            type="password"
+                            type={showPassword ? 'text' : 'password'}
                             autoComplete="new-password"
                             value={form.data.password}
                             onChange={(event) =>
@@ -64,12 +84,41 @@ export default function Register() {
                             }
                             error={Boolean(form.errors.password)}
                             helperText={form.errors.password}
+                            slotProps={{
+                                input: {
+                                    endAdornment: (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                aria-label={t(
+                                                    showPassword
+                                                        ? 'common.hide_password'
+                                                        : 'common.show_password',
+                                                )}
+                                                edge="end"
+                                                onClick={() =>
+                                                    setShowPassword(
+                                                        (visible) => !visible,
+                                                    )
+                                                }
+                                            >
+                                                {showPassword ? (
+                                                    <VisibilityOffRounded />
+                                                ) : (
+                                                    <VisibilityRounded />
+                                                )}
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ),
+                                },
+                            }}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
-                            label={t('auth.confirm')}
-                            type="password"
+                            label={t('common.confirm_password')}
+                            type={
+                                showPasswordConfirmation ? 'text' : 'password'
+                            }
                             autoComplete="new-password"
                             value={form.data.password_confirmation}
                             onChange={(event) =>
@@ -78,6 +127,33 @@ export default function Register() {
                                     event.target.value,
                                 )
                             }
+                            slotProps={{
+                                input: {
+                                    endAdornment: (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                aria-label={t(
+                                                    showPasswordConfirmation
+                                                        ? 'common.hide_password_confirmation'
+                                                        : 'common.show_password_confirmation',
+                                                )}
+                                                edge="end"
+                                                onClick={() =>
+                                                    setShowPasswordConfirmation(
+                                                        (visible) => !visible,
+                                                    )
+                                                }
+                                            >
+                                                {showPasswordConfirmation ? (
+                                                    <VisibilityOffRounded />
+                                                ) : (
+                                                    <VisibilityRounded />
+                                                )}
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ),
+                                },
+                            }}
                         />
                     </Grid>
                 </Grid>

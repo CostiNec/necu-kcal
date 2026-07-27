@@ -12,7 +12,10 @@ class FavouriteFoodController extends Controller
     public function toggle(Request $request, Food $food): RedirectResponse
     {
         abort_unless(
-            $food->is_public || $food->user_id === $request->user()->id,
+            Food::query()
+                ->visibleTo($request->user())
+                ->whereKey($food->id)
+                ->exists(),
             403
         );
 

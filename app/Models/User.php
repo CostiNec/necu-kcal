@@ -13,7 +13,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'username', 'email', 'password'])]
 #[Hidden([
     'password',
     'remember_token',
@@ -53,6 +53,31 @@ class User extends Authenticatable implements MustVerifyEmail
     public function weightLogs(): HasMany
     {
         return $this->hasMany(WeightLog::class);
+    }
+
+    public function friendships(): HasMany
+    {
+        return $this->hasMany(Friendship::class);
+    }
+
+    public function inverseFriendships(): HasMany
+    {
+        return $this->hasMany(Friendship::class, 'friend_id');
+    }
+
+    public function friendshipWith(User|int $user): ?Friendship
+    {
+        return Friendship::query()
+            ->between($this, $user)
+            ->first();
+    }
+
+    public function isFriendsWith(User|int $user): bool
+    {
+        return Friendship::query()
+            ->between($this, $user)
+            ->where('status', Friendship::STATUS_ACCEPTED)
+            ->exists();
     }
 
     /**

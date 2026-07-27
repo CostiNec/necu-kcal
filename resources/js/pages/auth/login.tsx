@@ -1,13 +1,17 @@
 import { Head, useForm } from '@inertiajs/react';
+import VisibilityOffRounded from '@mui/icons-material/VisibilityOffRounded';
+import VisibilityRounded from '@mui/icons-material/VisibilityRounded';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import MuiLink from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import type { FormEvent } from 'react';
+import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AuthLayout } from '@/layouts/auth-layout';
 import { RouterLink } from '@/components/router-link';
@@ -15,6 +19,7 @@ import { RouterLink } from '@/components/router-link';
 export default function Login() {
     const { t } = useTranslation();
     const form = useForm({ email: '', password: '', remember: true });
+    const [showPassword, setShowPassword] = useState(false);
 
     const submit = (event: FormEvent) => {
         event.preventDefault();
@@ -40,7 +45,7 @@ export default function Login() {
                 />
                 <TextField
                     label={t('common.password')}
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
                     value={form.data.password}
                     onChange={(event) =>
@@ -48,6 +53,31 @@ export default function Login() {
                     }
                     error={Boolean(form.errors.password)}
                     helperText={form.errors.password}
+                    slotProps={{
+                        input: {
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        aria-label={t(
+                                            showPassword
+                                                ? 'common.hide_password'
+                                                : 'common.show_password',
+                                        )}
+                                        edge="end"
+                                        onClick={() =>
+                                            setShowPassword((visible) => !visible)
+                                        }
+                                    >
+                                        {showPassword ? (
+                                            <VisibilityOffRounded />
+                                        ) : (
+                                            <VisibilityRounded />
+                                        )}
+                                    </IconButton>
+                                </InputAdornment>
+                            ),
+                        },
+                    }}
                 />
                 <Stack
                     direction="row"

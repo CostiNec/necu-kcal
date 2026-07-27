@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 
 class Food extends Model
 {
@@ -158,6 +159,35 @@ class Food extends Model
                 fn (Builder $builder) => $builder
                     ->where('foods.is_public', true)
                     ->orWhere('foods.user_id', $user->id)
+                    ->orWhere(function (Builder $friendRecipe) use ($user) {
+                        $friendRecipe
+                            ->where('foods.food_type', 'recipe')
+                            ->whereExists(function ($query) use ($user) {
+                                $query
+                                    ->select(DB::raw(1))
+                                    ->from('friendships')
+                                    ->where('friendships.status', Friendship::STATUS_ACCEPTED)
+                                    ->where(function ($friendship) use ($user) {
+                                        $friendship
+                                            ->where(function ($pair) use ($user) {
+                                                $pair
+                                                    ->where('friendships.user_id', $user->id)
+                                                    ->whereColumn(
+                                                        'friendships.friend_id',
+                                                        'foods.user_id'
+                                                    );
+                                            })
+                                            ->orWhere(function ($pair) use ($user) {
+                                                $pair
+                                                    ->where('friendships.friend_id', $user->id)
+                                                    ->whereColumn(
+                                                        'friendships.user_id',
+                                                        'foods.user_id'
+                                                    );
+                                            });
+                                    });
+                            });
+                    })
             );
     }
 
