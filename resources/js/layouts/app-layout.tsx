@@ -6,6 +6,7 @@ import ReceiptLongOutlined from '@mui/icons-material/ReceiptLongOutlined';
 import LogoutRounded from '@mui/icons-material/LogoutRounded';
 import MenuRounded from '@mui/icons-material/MenuRounded';
 import MenuBookOutlined from '@mui/icons-material/MenuBookOutlined';
+import MonitorWeightOutlined from '@mui/icons-material/MonitorWeightOutlined';
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import AppBar from '@mui/material/AppBar';
 import Avatar from '@mui/material/Avatar';
@@ -39,7 +40,7 @@ import type { SharedProps } from '@/types';
 
 const drawerWidth = 280;
 
-const navigation = [
+const desktopNavigation = [
     {
         labelKey: 'common.today',
         href: '/today',
@@ -65,12 +66,22 @@ const navigation = [
         match: ['/reports'],
     },
     {
+        labelKey: 'common.weight',
+        href: '/weight',
+        icon: MonitorWeightOutlined,
+        match: ['/weight'],
+    },
+    {
         labelKey: 'common.profile',
         href: '/settings',
         icon: SettingsOutlined,
         match: ['/settings'],
     },
 ];
+
+const mobileNavigation = ['/today', '/foods', '/recipes', '/weight'].map(
+    (href) => desktopNavigation.find((item) => item.href === href)!,
+);
 
 export function AppLayout({
     children,
@@ -99,9 +110,8 @@ export function AppLayout({
             (path) => page.url === path || page.url.startsWith(`${path}/`),
         );
 
-    const activeIndex = Math.max(
-        0,
-        navigation.findIndex((item) => isActive(item.match)),
+    const activeIndex = mobileNavigation.findIndex((item) =>
+        isActive(item.match),
     );
 
     return (
@@ -123,7 +133,7 @@ export function AppLayout({
                     <BrandMark />
                 </Box>
                 <List sx={{ px: 2, py: 1 }}>
-                    {navigation.map((item) => {
+                    {desktopNavigation.map((item) => {
                         const active = isActive(item.match);
                         const Icon = item.icon;
 
@@ -282,7 +292,7 @@ export function AppLayout({
                         <Divider sx={{ my: 2 }} />
 
                         <List sx={{ p: 0 }}>
-                            {navigation.map((item) => {
+                            {desktopNavigation.map((item) => {
                                 const active = isActive(item.match);
                                 const Icon = item.icon;
 
@@ -471,7 +481,7 @@ export function AppLayout({
             <MobileBottomNavigation
                 ariaLabel={t('common.primary_navigation')}
                 value={activeIndex}
-                items={navigation.map((item) => ({
+                items={mobileNavigation.map((item) => ({
                     href: item.href,
                     label: t(item.labelKey),
                     icon: item.icon,

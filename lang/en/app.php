@@ -19,5 +19,8 @@ return [
     'incompatible_measurement_unit' => 'Choose a unit compatible with this food.',
     'entry_removed' => 'Entry removed.',
     'targets_updated' => 'Targets updated.',
+    'weight_saved' => 'Weight saved.',
+    'weight_updated' => 'Weight entry updated.',
+    'weight_removed' => 'Weight entry removed.',
     'account_deleted' => 'Your account and nutrition data were deleted.',
 ];

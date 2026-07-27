@@ -1,4 +1,5 @@
 import { alpha, createTheme, type PaletteMode } from '@mui/material/styles';
+import type {} from '@mui/x-date-pickers/themeAugmentation';
 
 // Adapted for Kcal from the project's licensed Minimal UI v7 theme.
 const grey = {
@@ -293,6 +294,82 @@ export function createKcalTheme(mode: PaletteMode) {
             MuiPaper: {
                 styleOverrides: {
                     rounded: { borderRadius: 16 },
+                },
+            },
+            MuiPickerPopper: {
+                styleOverrides: {
+                    paper: {
+                        marginTop: 8,
+                        overflow: 'hidden',
+                        border: `1px solid ${alpha(grey[500], dark ? 0.3 : 0.2)}`,
+                        borderRadius: 16,
+                        backgroundImage: 'none',
+                        boxShadow: dark
+                            ? '0 20px 40px rgba(0,0,0,0.42)'
+                            : '0 20px 40px rgba(28,37,46,0.16)',
+                    },
+                },
+            },
+            MuiPickersLayout: {
+                styleOverrides: {
+                    root: {
+                        backgroundColor: dark ? grey[800] : '#FFFFFF',
+                    },
+                    actionBar: {
+                        padding: '8px 12px 12px',
+                    },
+                },
+            },
+            MuiPickersCalendarHeader: {
+                styleOverrides: {
+                    root: {
+                        marginTop: 12,
+                        marginBottom: 4,
+                        paddingLeft: 20,
+                        paddingRight: 12,
+                    },
+                    label: {
+                        fontWeight: 700,
+                    },
+                },
+            },
+            MuiDayCalendar: {
+                styleOverrides: {
+                    weekDayLabel: {
+                        color: dark ? grey[500] : grey[600],
+                        fontSize: 12,
+                        fontWeight: 700,
+                    },
+                },
+            },
+            MuiPickerDay: {
+                styleOverrides: {
+                    root: {
+                        borderRadius: 8,
+                        fontWeight: 600,
+                        '&:hover': {
+                            backgroundColor: alpha(
+                                dark ? '#5BE49B' : '#00A76F',
+                                dark ? 0.16 : 0.1,
+                            ),
+                        },
+                        '&.Mui-selected': {
+                            color: '#FFFFFF',
+                            backgroundColor: dark ? '#5BE49B' : '#00A76F',
+                            boxShadow: dark
+                                ? '0 4px 10px rgba(91,228,155,0.2)'
+                                : '0 4px 10px rgba(0,167,111,0.24)',
+                            '&:hover, &:focus': {
+                                backgroundColor: dark ? '#5BE49B' : '#00A76F',
+                            },
+                        },
+                        '&.MuiPickersDay-today': {
+                            borderColor: alpha(
+                                dark ? '#5BE49B' : '#00A76F',
+                                0.5,
+                            ),
+                        },
+                    },
                 },
             },
             MuiMenu: {

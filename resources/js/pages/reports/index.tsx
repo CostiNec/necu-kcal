@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 import LocalFireDepartmentOutlined from '@mui/icons-material/LocalFireDepartmentOutlined';
+import MonitorWeightOutlined from '@mui/icons-material/MonitorWeightOutlined';
 import TrackChangesRounded from '@mui/icons-material/TrackChangesRounded';
 import {
     Box,
@@ -18,6 +19,8 @@ import {
     Bar,
     BarChart,
     CartesianGrid,
+    Line,
+    LineChart,
     ReferenceLine,
     ResponsiveContainer,
     Tooltip,
@@ -35,6 +38,7 @@ const chartColors = {
     carbohydrates: '#FFAB00',
     fat: '#FF5630',
     fibre: '#22C55E',
+    weight: '#0EA5E9',
     grid: 'var(--mui-palette-divider)',
     muted: 'var(--mui-palette-text-secondary)',
 };
@@ -49,6 +53,11 @@ type ChartPoint = {
     fibre: number;
 };
 
+type WeightPoint = {
+    date: string;
+    weight: number;
+};
+
 export default function ReportsIndex({
     week,
     chart,
@@ -56,6 +65,8 @@ export default function ReportsIndex({
     loggedDays,
     topFoods,
     targets,
+    weightChart,
+    weightSummary,
 }: {
     week: { start: string; end: string; previous: string; next: string };
     chart: ChartPoint[];
@@ -63,6 +74,12 @@ export default function ReportsIndex({
     loggedDays: number;
     topFoods: { name: string; times: number; calories: number }[];
     targets: NutritionTargets;
+    weightChart: WeightPoint[];
+    weightSummary: {
+        current: number | null;
+        change: number | null;
+        loggedDays: number;
+    };
 }) {
     const { t } = useTranslation();
     const localizedChart = chart.map((point) => ({
@@ -73,6 +90,10 @@ export default function ReportsIndex({
             day: undefined,
             year: undefined,
         }),
+    }));
+    const localizedWeightChart = weightChart.map((point) => ({
+        ...point,
+        day: formatDate(point.date, { year: undefined }),
     }));
 
     return (
@@ -90,7 +111,7 @@ export default function ReportsIndex({
                 />
 
                 <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 2 }}>
                         <StatCard
                             label={t('reports.daily_average')}
                             value={`${formatNumber(averages.calories)} kcal`}
@@ -98,7 +119,7 @@ export default function ReportsIndex({
                             color={chartColors.calories}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 2 }}>
                         <StatCard
                             label={t('reports.protein_average')}
                             value={`${formatNumber(averages.protein, 1)} g`}
@@ -108,7 +129,7 @@ export default function ReportsIndex({
                             color={chartColors.protein}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 2 }}>
                         <StatCard
                             label={t('reports.carb_average')}
                             value={`${formatNumber(averages.carbohydrates, 1)} g`}
@@ -118,7 +139,7 @@ export default function ReportsIndex({
                             color={chartColors.carbohydrates}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 2 }}>
                         <StatCard
                             label={t('reports.fat_average')}
                             value={`${formatNumber(averages.fat, 1)} g`}
@@ -128,7 +149,7 @@ export default function ReportsIndex({
                             color={chartColors.fat}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, lg: 2.4 }}>
+                    <Grid size={{ xs: 12, sm: 6, lg: 2 }}>
                         <StatCard
                             label={t('reports.fibre_average')}
                             value={`${formatNumber(averages.fibre, 1)} g`}
@@ -136,6 +157,24 @@ export default function ReportsIndex({
                                 target: formatNumber(targets.fibre),
                             })}
                             color={chartColors.fibre}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, lg: 2 }}>
+                        <StatCard
+                            label={t('reports.current_weight')}
+                            value={
+                                weightSummary.current === null
+                                    ? '—'
+                                    : `${formatNumber(weightSummary.current, 2)} kg`
+                            }
+                            context={
+                                weightSummary.change === null
+                                    ? t('reports.no_weight_change')
+                                    : t('reports.weight_change', {
+                                          change: `${weightSummary.change > 0 ? '+' : ''}${formatNumber(weightSummary.change, 2)}`,
+                                      })
+                            }
+                            color={chartColors.weight}
                         />
                     </Grid>
                 </Grid>
@@ -340,6 +379,109 @@ export default function ReportsIndex({
                         </Card>
                     </Grid>
                 </Grid>
+
+                <Card>
+                    <CardHeader
+                        title={t('reports.weight_trend')}
+                        subheader={t('reports.weight_trend_description')}
+                        action={
+                            <Box
+                                sx={{
+                                    display: 'grid',
+                                    placeItems: 'center',
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: 2,
+                                    color: chartColors.weight,
+                                    bgcolor: 'primary.lighter',
+                                }}
+                            >
+                                <MonitorWeightOutlined />
+                            </Box>
+                        }
+                    />
+                    <CardContent>
+                        {localizedWeightChart.length === 0 ? (
+                            <Stack
+                                alignItems="center"
+                                spacing={1.5}
+                                sx={{
+                                    py: 6,
+                                    borderRadius: 2,
+                                    bgcolor: 'background.default',
+                                    color: 'text.secondary',
+                                }}
+                            >
+                                <MonitorWeightOutlined color="primary" />
+                                <Typography variant="body2">
+                                    {t('reports.empty_weight')}
+                                </Typography>
+                            </Stack>
+                        ) : (
+                            <Box
+                                role="img"
+                                aria-label={t('reports.weight_chart')}
+                                sx={{ width: 1, height: 300 }}
+                            >
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart
+                                        data={localizedWeightChart}
+                                        margin={{
+                                            top: 10,
+                                            right: 8,
+                                            left: -8,
+                                            bottom: 0,
+                                        }}
+                                    >
+                                        <CartesianGrid
+                                            vertical={false}
+                                            stroke={chartColors.grid}
+                                            strokeDasharray="3 3"
+                                        />
+                                        <XAxis
+                                            dataKey="day"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            minTickGap={30}
+                                            tick={{
+                                                fill: chartColors.muted,
+                                                fontSize: 12,
+                                            }}
+                                        />
+                                        <YAxis
+                                            domain={[
+                                                'dataMin - 2',
+                                                'dataMax + 2',
+                                            ]}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            width={52}
+                                            tick={{
+                                                fill: chartColors.muted,
+                                                fontSize: 11,
+                                            }}
+                                        />
+                                        <Tooltip
+                                            content={<ChartTooltip unit="kg" />}
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="weight"
+                                            stroke={chartColors.weight}
+                                            strokeWidth={3}
+                                            dot={{
+                                                r: 4,
+                                                fill: chartColors.weight,
+                                                strokeWidth: 0,
+                                            }}
+                                            activeDot={{ r: 6 }}
+                                        />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </Box>
+                        )}
+                    </CardContent>
+                </Card>
 
                 <Card>
                     <CardHeader title={t('reports.macros_by_day')} />

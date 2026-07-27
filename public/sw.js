@@ -1,11 +1,13 @@
-const cacheName = 'necutrack-app-shell-v2';
+const cacheName = 'necutrack-app-shell-v4';
 const offlineUrl = '/offline.html';
 const appShell = [
     offlineUrl,
-    '/icons/favicon-32.png',
-    '/icons/icon-192.png',
-    '/icons/icon-512.png',
-    '/icons/apple-touch-icon.png',
+    '/icons/favicon-32-v3.png',
+    '/icons/icon-any-192-v2.png',
+    '/icons/icon-any-512-v2.png',
+    '/icons/icon-192-v2.png',
+    '/icons/icon-512-v2.png',
+    '/icons/apple-touch-icon-v2.png',
 ];
 
 self.addEventListener('install', (event) => {

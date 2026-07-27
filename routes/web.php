@@ -9,6 +9,7 @@ use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\WeightLogController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -64,6 +65,15 @@ Route::middleware('auth')->group(function () {
             ->name('diary-entries.destroy');
 
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+
+        Route::get('/weight', [WeightLogController::class, 'index'])
+            ->name('weight.index');
+        Route::post('/weight', [WeightLogController::class, 'store'])
+            ->name('weight.store');
+        Route::put('/weight/{weightLog}', [WeightLogController::class, 'update'])
+            ->name('weight.update');
+        Route::delete('/weight/{weightLog}', [WeightLogController::class, 'destroy'])
+            ->name('weight.destroy');
 
         Route::get('/settings', [SettingsController::class, 'index'])
             ->name('settings.index');

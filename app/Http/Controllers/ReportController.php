@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DiaryDay;
+use App\Models\WeightLog;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -60,6 +61,25 @@ class ReportController extends Controller
             ->sortByDesc('times')
             ->take(5)
             ->values();
+        $weightTrendStart = $start->subWeeks(11);
+        $weightChart = $request->user()
+            ->weightLogs()
+            ->whereBetween('date', [
+                $weightTrendStart->toDateString(),
+                $end->toDateString(),
+            ])
+            ->oldest('date')
+            ->get()
+            ->map(fn (WeightLog $log) => [
+                'date' => $log->date->toDateString(),
+                'weight' => $log->weight_kg,
+            ]);
+        $currentWeight = $request->user()
+            ->weightLogs()
+            ->whereDate('date', '<=', $end->toDateString())
+            ->latest('date')
+            ->first();
+        $firstWeight = $weightChart->first();
 
         return Inertia::render('reports/index', [
             'week' => [
@@ -79,6 +99,14 @@ class ReportController extends Controller
             'loggedDays' => $loggedDays->count(),
             'topFoods' => $topFoods,
             'targets' => $request->user()->nutritionTarget,
+            'weightChart' => $weightChart,
+            'weightSummary' => [
+                'current' => $currentWeight?->weight_kg,
+                'change' => $currentWeight && $firstWeight
+                    ? round($currentWeight->weight_kg - $firstWeight['weight'], 2)
+                    : null,
+                'loggedDays' => $weightChart->count(),
+            ],
         ]);
     }
 }

@@ -3,6 +3,11 @@ import {
     ThemeProvider as MuiThemeProvider,
     type PaletteMode,
 } from '@mui/material/styles';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { enUS, roRO } from '@mui/x-date-pickers/locales';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import 'dayjs/locale/en-gb';
+import 'dayjs/locale/ro';
 import {
     createContext,
     useContext,
@@ -34,6 +39,8 @@ function initialMode(): PaletteMode {
 export function ThemeProvider({ children }: PropsWithChildren) {
     const [mode, setMode] = useState<PaletteMode>(initialMode);
     const theme = useMemo(() => createKcalTheme(mode), [mode]);
+    const isRomanian = document.documentElement.lang.startsWith('ro');
+    const pickerLocale = isRomanian ? roRO : enUS;
     const colorMode = useMemo(
         () => ({
             mode,
@@ -54,8 +61,17 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     return (
         <ColorModeContext.Provider value={colorMode}>
             <MuiThemeProvider theme={theme}>
-                <CssBaseline />
-                {children}
+                <LocalizationProvider
+                    dateAdapter={AdapterDayjs}
+                    adapterLocale={isRomanian ? 'ro' : 'en-gb'}
+                    localeText={
+                        pickerLocale.components.MuiLocalizationProvider
+                            .defaultProps.localeText
+                    }
+                >
+                    <CssBaseline />
+                    {children}
+                </LocalizationProvider>
             </MuiThemeProvider>
         </ColorModeContext.Provider>
     );

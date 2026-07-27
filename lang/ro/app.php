@@ -19,5 +19,8 @@ return [
     'incompatible_measurement_unit' => 'Alege o unitate compatibilă cu acest aliment.',
     'entry_removed' => 'Înregistrarea a fost ștearsă.',
     'targets_updated' => 'Obiectivele au fost actualizate.',
+    'weight_saved' => 'Greutatea a fost salvată.',
+    'weight_updated' => 'Înregistrarea greutății a fost actualizată.',
+    'weight_removed' => 'Înregistrarea greutății a fost ștearsă.',
     'account_deleted' => 'Contul și datele tale nutriționale au fost șterse.',
 ];
