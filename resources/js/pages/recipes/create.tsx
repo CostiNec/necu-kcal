@@ -20,12 +20,12 @@ import {
     DialogContent,
     DialogTitle,
     Divider,
-    Drawer,
     Grid,
     IconButton,
     InputAdornment,
     MenuItem,
     Paper,
+    SwipeableDrawer,
     Stack,
     TextField,
     Typography,
@@ -1059,10 +1059,15 @@ function RecipeLeaveDrawer({
     }
 
     return (
-        <Drawer
+        <SwipeableDrawer
             anchor="bottom"
             open={open}
-            onClose={saving ? undefined : onCancel}
+            onClose={() => {
+                if (!saving) onCancel();
+            }}
+            onOpen={() => undefined}
+            disableSwipeToOpen
+            hysteresis={0.3}
             slotProps={{
                 paper: {
                     sx: {
@@ -1073,6 +1078,7 @@ function RecipeLeaveDrawer({
                 },
             }}
         >
+            <DrawerHandle />
             <Stack
                 spacing={2}
                 sx={{
@@ -1080,7 +1086,7 @@ function RecipeLeaveDrawer({
                     maxWidth: 640,
                     mx: 'auto',
                     px: 2,
-                    pt: 1.5,
+                    pt: 1,
                     pb: 'max(24px, env(safe-area-inset-bottom))',
                 }}
             >
@@ -1107,7 +1113,7 @@ function RecipeLeaveDrawer({
                     {actions}
                 </Stack>
             </Stack>
-        </Drawer>
+        </SwipeableDrawer>
     );
 }
 
@@ -1214,11 +1220,9 @@ function CreateFoodDialog({
     };
 
     return (
-        <Dialog
+        <ResponsiveRecipeFoodDialog
             open={open}
             onClose={handleClose}
-            maxWidth="sm"
-            fullWidth
         >
             <Box
                 component="form"
@@ -1414,6 +1418,88 @@ function CreateFoodDialog({
                     </Button>
                 </DialogActions>
             </Box>
-        </Dialog>
+        </ResponsiveRecipeFoodDialog>
+    );
+}
+
+function ResponsiveRecipeFoodDialog({
+    open,
+    onClose,
+    children,
+}: {
+    open: boolean;
+    onClose: () => void;
+    children: React.ReactNode;
+}) {
+    const theme = useTheme();
+    const desktop = useMediaQuery(theme.breakpoints.up('md'));
+
+    if (desktop) {
+        return (
+            <Dialog
+                open={open}
+                onClose={onClose}
+                maxWidth="sm"
+                fullWidth
+            >
+                {children}
+            </Dialog>
+        );
+    }
+
+    return (
+        <SwipeableDrawer
+            anchor="bottom"
+            open={open}
+            onClose={onClose}
+            onOpen={() => undefined}
+            disableSwipeToOpen
+            hysteresis={0.3}
+            slotProps={{
+                paper: {
+                    sx: {
+                        maxHeight: '92dvh',
+                        overflow: 'hidden',
+                        borderTopLeftRadius: 24,
+                        borderTopRightRadius: 24,
+                        backgroundImage: 'none',
+                        '& > form': {
+                            display: 'flex',
+                            minHeight: 0,
+                            flexDirection: 'column',
+                        },
+                        '& .MuiDialogContent-root': {
+                            overflowY: 'auto',
+                        },
+                        '& .MuiDialogActions-root': {
+                            px: 3,
+                            pb: 'max(24px, env(safe-area-inset-bottom))',
+                        },
+                    },
+                },
+            }}
+        >
+            <DrawerHandle />
+            {children}
+        </SwipeableDrawer>
+    );
+}
+
+function DrawerHandle() {
+    return (
+        <Box
+            aria-hidden
+            sx={{
+                width: 44,
+                height: 5,
+                flexShrink: 0,
+                mx: 'auto',
+                mt: 1.25,
+                mb: 0.25,
+                borderRadius: 999,
+                bgcolor: 'divider',
+                cursor: 'grab',
+            }}
+        />
     );
 }
