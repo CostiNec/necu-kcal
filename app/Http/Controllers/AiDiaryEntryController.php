@@ -76,9 +76,13 @@ class AiDiaryEntryController extends Controller
             ],
         ]);
 
+        $date = CarbonImmutable::createFromFormat(
+            'Y-m-d',
+            $validated['date']
+        )->startOfDay();
         $day = DiaryDay::firstOrCreate([
             'user_id' => $request->user()->id,
-            'date' => $validated['date'],
+            'date' => $date,
         ]);
         $weight = (float) $validated['weight_grams'];
         $factor = $weight / 100;

@@ -28,6 +28,47 @@ class OpenAiNutritionEstimator extends AbstractNutritionEstimator
         string $locale,
         array $images = []
     ): array {
+        return $this->generateEstimate(
+            $description,
+            $images,
+            $this->instructions($locale),
+            $this->schema(),
+            'nutrition_estimate',
+            2048,
+            false
+        );
+    }
+
+    public function estimateDay(
+        string $description,
+        string $locale,
+        array $images = []
+    ): array {
+        return $this->generateEstimate(
+            $description,
+            $images,
+            $this->dayInstructions($locale),
+            $this->daySchema(),
+            'day_nutrition_estimate',
+            8192,
+            true
+        );
+    }
+
+    /**
+     * @param  array<int, UploadedFile>  $images
+     * @param  array<string, mixed>  $schema
+     * @return array<string, mixed>
+     */
+    private function generateEstimate(
+        string $description,
+        array $images,
+        string $instructions,
+        array $schema,
+        string $schemaName,
+        int $maxOutputTokens,
+        bool $fullDay
+    ): array {
         $apiKey = (string) config('services.openai.api_key');
 
         if ($apiKey === '') {
@@ -42,31 +83,34 @@ class OpenAiNutritionEstimator extends AbstractNutritionEstimator
             ->withToken($apiKey)
             ->acceptJson()
             ->asJson()
-            ->timeout((int) config('services.openai.timeout'))
-            ->retry(2, 250, throw: false)
+            ->timeout($fullDay
+                ? (int) config('nutrition-ai.full_day_timeout')
+                : (int) config('services.openai.timeout'))
+            ->retry($fullDay ? 1 : 2, 250, throw: false)
             ->post('/responses', [
                 'model' => config('services.openai.nutrition_model'),
                 'store' => false,
-                'max_output_tokens' => 500,
+                'max_output_tokens' => $maxOutputTokens,
                 'input' => [
                     [
                         'role' => 'system',
-                        'content' => $this->instructions($locale),
+                        'content' => $instructions,
                     ],
                     [
                         'role' => 'user',
                         'content' => $this->userContent(
                             $description,
-                            $images
+                            $images,
+                            $fullDay
                         ),
                     ],
                 ],
                 'text' => [
                     'format' => [
                         'type' => 'json_schema',
-                        'name' => 'nutrition_estimate',
+                        'name' => $schemaName,
                         'strict' => true,
-                        'schema' => $this->schema(),
+                        'schema' => $schema,
                     ],
                 ],
             ]);
@@ -77,20 +121,29 @@ class OpenAiNutritionEstimator extends AbstractNutritionEstimator
             );
         }
 
-        return $this->validatedEstimate($this->outputText($response));
+        $output = $this->outputText($response);
+
+        return $fullDay
+            ? $this->validatedDayEstimate($output)
+            : $this->validatedEstimate($output);
     }
 
     /**
      * @param  array<int, UploadedFile>  $images
      * @return array<int, array<string, string>>
      */
-    private function userContent(string $description, array $images): array
-    {
+    private function userContent(
+        string $description,
+        array $images,
+        bool $fullDay
+    ): array {
         $content = [[
             'type' => 'input_text',
             'text' => $description !== ''
                 ? $description
-                : 'Estimate the photographed food.',
+                : ($fullDay
+                    ? 'Reconstruct the photographed food-diary day.'
+                    : 'Estimate the photographed food.'),
         ]];
 
         foreach ($images as $image) {

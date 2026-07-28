@@ -1,6 +1,7 @@
 import { router, usePage } from '@inertiajs/react';
 import { useEchoNotification } from '@laravel/echo-react';
 import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
+import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded';
 import BarChartOutlined from '@mui/icons-material/BarChartOutlined';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import RestaurantMenuOutlined from '@mui/icons-material/RestaurantMenuOutlined';
@@ -108,6 +109,12 @@ const desktopNavigation = [
         icon: SettingsOutlined,
         match: ['/settings'],
     },
+    {
+        labelKey: 'diary.ai_day_import',
+        href: '/ai-day',
+        icon: AutoAwesomeRounded,
+        match: ['/ai-day'],
+    },
 ];
 
 const mobileNavigation = ['/today', '/foods', '/recipes', '/weight'].map(
@@ -214,10 +221,22 @@ export function AppLayout({
         }
     }, [flash.error, flash.success]);
 
-    const isActive = (matches: string[]) =>
-        matches.some(
+    const isAiDayPage = /^\/diary\/\d{4}-\d{2}-\d{2}\/ai-day(?:[/?]|$)/.test(
+        page.url,
+    );
+    const isActive = (matches: string[]) => {
+        if (matches.includes('/ai-day')) {
+            return page.url === '/ai-day' || isAiDayPage;
+        }
+
+        if (isAiDayPage && matches.includes('/diary')) {
+            return false;
+        }
+
+        return matches.some(
             (path) => page.url === path || page.url.startsWith(`${path}/`),
         );
+    };
 
     const activeIndex = mobileNavigation.findIndex((item) =>
         isActive(item.match),

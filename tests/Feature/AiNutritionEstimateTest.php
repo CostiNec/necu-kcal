@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
@@ -103,6 +104,108 @@ class AiNutritionEstimateTest extends TestCase
                 && $payload['text']['format']['type'] === 'json_schema'
                 && $payload['text']['format']['strict'] === true;
         });
+    }
+
+    public function test_gemini_keys_are_used_in_round_robin_order(): void
+    {
+        config([
+            'nutrition-ai.provider' => 'gemini',
+            'services.gemini.api_key' => 'first-key',
+            'services.gemini.api_key_2' => 'second-key',
+            'services.gemini.api_key_3' => 'third-key',
+            'services.gemini.base_url' => 'https://gemini.test/v1beta',
+            'services.gemini.nutrition_model' => 'gemini-3.6-flash',
+        ]);
+        Cache::forget('nutrition-ai:gemini:api-key-cursor');
+        Http::fake([
+            'gemini.test/*' => Http::response([
+                'candidates' => [[
+                    'content' => [
+                        'parts' => [[
+                            'text' => json_encode($this->estimatePayload()),
+                        ]],
+                    ],
+                ]],
+            ]),
+        ]);
+        $this->actingAs($this->onboardedUser());
+
+        $this->postJson('/diary-entries/ai/estimate', [
+            'description' => 'First meal',
+        ])->assertOk();
+        $this->postJson('/diary-entries/ai/estimate', [
+            'description' => 'Second meal',
+        ])->assertOk();
+        $this->postJson('/diary-entries/ai/estimate', [
+            'description' => 'Third meal',
+        ])->assertOk();
+
+        $keys = Http::recorded()->map(
+            fn (array $pair): string => $pair[0]
+                ->header('x-goog-api-key')[0]
+        )->all();
+
+        $this->assertSame(['first-key', 'second-key', 'third-key'], $keys);
+    }
+
+    public function test_remaining_gemini_keys_are_tried_until_one_succeeds(): void
+    {
+        config([
+            'nutrition-ai.provider' => 'gemini',
+            'services.gemini.api_key' => 'rate-limited-key',
+            'services.gemini.api_key_2' => 'unavailable-key',
+            'services.gemini.api_key_3' => 'working-key',
+            'services.gemini.base_url' => 'https://gemini.test/v1beta',
+            'services.gemini.nutrition_model' => 'gemini-3.6-flash',
+        ]);
+        Cache::forget('nutrition-ai:gemini:api-key-cursor');
+        Http::fake(function (Request $request) {
+            if ($request->hasHeader('x-goog-api-key', 'rate-limited-key')) {
+                return Http::response([
+                    'error' => [
+                        'status' => 'RESOURCE_EXHAUSTED',
+                        'message' => 'Please retry in 36 seconds.',
+                    ],
+                ], 429);
+            }
+
+            if ($request->hasHeader('x-goog-api-key', 'unavailable-key')) {
+                return Http::response([
+                    'error' => [
+                        'status' => 'UNAVAILABLE',
+                        'message' => 'Please retry later.',
+                    ],
+                ], 503);
+            }
+
+            return Http::response([
+                'candidates' => [[
+                    'content' => [
+                        'parts' => [[
+                            'text' => json_encode($this->estimatePayload()),
+                        ]],
+                    ],
+                ]],
+            ]);
+        });
+
+        $this->actingAs($this->onboardedUser())
+            ->postJson('/diary-entries/ai/estimate', [
+                'description' => 'A bowl of oatmeal',
+            ])
+            ->assertOk()
+            ->assertJsonPath('estimate.name', 'Eggs, toast and latte');
+
+        $keys = Http::recorded()->map(
+            fn (array $pair): string => $pair[0]
+                ->header('x-goog-api-key')[0]
+        )->all();
+
+        $this->assertSame([
+            'rate-limited-key',
+            'unavailable-key',
+            'working-key',
+        ], $keys);
     }
 
     public function test_the_estimate_requires_text_or_an_image(): void
@@ -202,7 +305,10 @@ class AiNutritionEstimateTest extends TestCase
         config([
             'nutrition-ai.provider' => 'gemini',
             'services.gemini.api_key' => null,
+            'services.gemini.api_key_2' => null,
+            'services.gemini.api_key_3' => null,
         ]);
+        Cache::forget('nutrition-ai:gemini:api-key-cursor');
         Http::fake();
 
         $this->actingAs($this->onboardedUser())
@@ -221,9 +327,12 @@ class AiNutritionEstimateTest extends TestCase
         config([
             'nutrition-ai.provider' => 'gemini',
             'services.gemini.api_key' => 'test-key',
+            'services.gemini.api_key_2' => null,
+            'services.gemini.api_key_3' => null,
             'services.gemini.base_url' => 'https://gemini.test/v1beta',
             'services.gemini.nutrition_model' => 'gemini-3.6-flash',
         ]);
+        Cache::forget('nutrition-ai:gemini:api-key-cursor');
         Http::fake([
             'gemini.test/*' => Http::response([
                 'candidates' => [

@@ -4,11 +4,15 @@ namespace App\Services\NutritionEstimation;
 
 use Illuminate\Http\Client\Response;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 class GeminiNutritionEstimator extends AbstractNutritionEstimator
 {
+    private const API_KEY_CURSOR_CACHE_KEY =
+        'nutrition-ai:gemini:api-key-cursor';
+
     /**
      * @param  array<int, UploadedFile>  $images
      * @return array{
@@ -28,43 +32,110 @@ class GeminiNutritionEstimator extends AbstractNutritionEstimator
         string $locale,
         array $images = []
     ): array {
-        $apiKey = (string) config('services.gemini.api_key');
+        return $this->generateEstimate(
+            $description,
+            $images,
+            $this->instructions($locale),
+            $this->schema(),
+            2048,
+            false
+        );
+    }
 
-        if ($apiKey === '') {
+    public function estimateDay(
+        string $description,
+        string $locale,
+        array $images = []
+    ): array {
+        return $this->generateEstimate(
+            $description,
+            $images,
+            $this->dayInstructions($locale),
+            $this->daySchema(),
+            8192,
+            true
+        );
+    }
+
+    /**
+     * @param  array<int, UploadedFile>  $images
+     * @param  array<string, mixed>  $schema
+     * @return array<string, mixed>
+     */
+    private function generateEstimate(
+        string $description,
+        array $images,
+        string $instructions,
+        array $schema,
+        int $maxOutputTokens,
+        bool $fullDay
+    ): array {
+        $apiKeys = array_values(array_unique(array_filter([
+            trim((string) config('services.gemini.api_key')),
+            trim((string) config('services.gemini.api_key_2')),
+            trim((string) config('services.gemini.api_key_3')),
+        ])));
+
+        if ($apiKeys === []) {
             throw new RuntimeException(
                 'The Gemini API key is not configured.'
             );
         }
 
         $model = (string) config('services.gemini.nutrition_model');
-        $response = Http::baseUrl(
-            rtrim((string) config('services.gemini.base_url'), '/')
-        )
-            ->withHeaders(['x-goog-api-key' => $apiKey])
-            ->acceptJson()
-            ->asJson()
-            ->timeout((int) config('services.gemini.timeout'))
-            ->retry(2, 250, throw: false)
-            ->post(
-                '/models/'.rawurlencode($model).':generateContent',
-                [
-                    'contents' => [[
-                        'role' => 'user',
-                        'parts' => $this->userParts(
-                            $description,
-                            $locale,
-                            $images
-                        ),
-                    ]],
-                    'generationConfig' => [
-                        'maxOutputTokens' => 2048,
-                        'responseMimeType' => 'application/json',
-                        'responseJsonSchema' => $this->schema(),
-                    ],
-                ]
-            );
+        $payload = [
+            'contents' => [[
+                'role' => 'user',
+                'parts' => $this->userParts(
+                    $description,
+                    $images,
+                    $instructions,
+                    $fullDay
+                ),
+            ]],
+            'generationConfig' => [
+                'maxOutputTokens' => $maxOutputTokens,
+                'responseMimeType' => 'application/json',
+                'responseJsonSchema' => $schema,
+            ],
+        ];
+        $response = null;
 
-        if (! $response->successful()) {
+        foreach ($this->orderedApiKeys($apiKeys) as $apiKey) {
+            $response = Http::baseUrl(
+                rtrim((string) config('services.gemini.base_url'), '/')
+            )
+                ->withHeaders(['x-goog-api-key' => $apiKey])
+                ->acceptJson()
+                ->asJson()
+                ->timeout($fullDay
+                    ? (int) config('nutrition-ai.full_day_timeout')
+                    : (int) config('services.gemini.timeout'))
+                ->retry(
+                    $fullDay || count($apiKeys) > 1 ? 1 : 2,
+                    250,
+                    throw: false
+                )
+                ->post(
+                    '/models/'.rawurlencode($model).':generateContent',
+                    $payload
+                );
+
+            if (
+                $response->successful()
+                || ! $this->shouldTryAnotherKey($response)
+            ) {
+                break;
+            }
+        }
+
+        if (! $response?->successful()) {
+            if (! $response) {
+                throw new RuntimeException(
+                    'No Gemini API key could be selected.'
+                );
+            }
+
             $status = $response->status();
             $providerStatus = trim(
                 (string) $response->json('error.status', '')
@@ -83,7 +154,42 @@ class GeminiNutritionEstimator extends AbstractNutritionEstimator
             );
         }
 
-        return $this->validatedEstimate($this->outputText($response));
+        $output = $this->outputText($response);
+
+        return $fullDay
+            ? $this->validatedDayEstimate($output)
+            : $this->validatedEstimate($output);
+    }
+
+    /**
+     * @param  array<int, string>  $apiKeys
+     * @return array<int, string>
+     */
+    private function orderedApiKeys(array $apiKeys): array
+    {
+        Cache::add(
+            self::API_KEY_CURSOR_CACHE_KEY,
+            -1,
+            now()->addYears(10)
+        );
+        $cursor = Cache::increment(self::API_KEY_CURSOR_CACHE_KEY);
+        $startIndex = is_numeric($cursor)
+            ? (int) $cursor % count($apiKeys)
+            : 0;
+        $ordered = [];
+
+        foreach (range(0, count($apiKeys) - 1) as $offset) {
+            $index = ($startIndex + $offset) % count($apiKeys);
+            $ordered[] = $apiKeys[$index];
+        }
+
+        return $ordered;
+    }
+
+    private function shouldTryAnotherKey(Response $response): bool
+    {
+        return in_array($response->status(), [401, 403, 429], true)
+            || $response->serverError();
     }
 
     /**
@@ -92,15 +198,20 @@ class GeminiNutritionEstimator extends AbstractNutritionEstimator
      */
     private function userParts(
         string $description,
-        string $locale,
-        array $images
+        array $images,
+        string $instructions,
+        bool $fullDay
     ): array {
         $food = $description !== ''
             ? $description
-            : 'Estimate the photographed food.';
+            : ($fullDay
+                ? 'Reconstruct the photographed food-diary day.'
+                : 'Estimate the photographed food.');
         $parts = [[
-            'text' => $this->instructions($locale)
-                ."\n\nFood to estimate:\n{$food}",
+            'text' => $instructions
+                .($fullDay
+                    ? "\n\nFull-day notes:\n{$food}"
+                    : "\n\nFood to estimate:\n{$food}"),
         ]];
 
         foreach ($images as $image) {
