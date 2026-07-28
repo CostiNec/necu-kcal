@@ -32,7 +32,12 @@ import SwipeableDrawer from '@mui/material/SwipeableDrawer';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { alpha } from '@mui/material/styles';
-import { useEffect, useState, type PropsWithChildren } from 'react';
+import {
+    useEffect,
+    useState,
+    type MouseEvent,
+    type PropsWithChildren,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrandMark } from '@/components/brand-mark';
 import { ColorModeButton } from '@/components/color-mode-button';
@@ -117,11 +122,12 @@ export function AppLayout({
     back,
 }: PropsWithChildren<{
     title?: string;
-    subtitle?: string;
+    subtitle?: React.ReactNode;
     actions?: React.ReactNode;
     back?: {
         href: string;
         label: string;
+        useHistory?: boolean;
     };
 }>) {
     const page = usePage<SharedProps>();
@@ -216,6 +222,12 @@ export function AppLayout({
     const activeIndex = mobileNavigation.findIndex((item) =>
         isActive(item.match),
     );
+    const handleBack = (event: MouseEvent<Element>) => {
+        if (!back?.useHistory || window.history.length <= 1) return;
+
+        event.preventDefault();
+        window.history.back();
+    };
 
     return (
         <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -507,6 +519,7 @@ export function AppLayout({
                             {back ? (
                                 <RouterLink
                                     href={back.href}
+                                    onClick={handleBack}
                                     style={{ color: 'inherit' }}
                                 >
                                     <IconButton
@@ -538,6 +551,7 @@ export function AppLayout({
                             {back && (
                                 <RouterLink
                                     href={back.href}
+                                    onClick={handleBack}
                                     style={{
                                         color: 'inherit',
                                         textDecoration: 'none',

@@ -84,6 +84,9 @@ export default function RecipeFormPage({
     const { t } = useTranslation();
     const editing = recipe !== null;
     const [foodDialogOpen, setFoodDialogOpen] = useState(false);
+    const [foodDialogBarcode, setFoodDialogBarcode] = useState('');
+    const [createdFoodIngredientIndex, setCreatedFoodIngredientIndex] =
+        useState<number | null>(null);
     const [foodOptions, setFoodOptions] = useState<FoodOption[]>(
         [
             ...(recipe?.ingredients
@@ -237,12 +240,14 @@ export default function RecipeFormPage({
             return Array.from(options.values());
         });
 
-        const emptyIndex = form.data.ingredients.findIndex(
-            (ingredient) => ingredient.food_id === null,
-        );
+        const emptyIndex =
+            createdFoodIngredientIndex ??
+            form.data.ingredients.findIndex(
+                (ingredient) => ingredient.food_id === null,
+            );
         const nextIngredients = [...form.data.ingredients];
 
-        if (emptyIndex >= 0) {
+        if (emptyIndex >= 0 && emptyIndex < nextIngredients.length) {
             nextIngredients[emptyIndex] = {
                 ...nextIngredients[emptyIndex],
                 food_id: createdFood.id,
@@ -256,6 +261,7 @@ export default function RecipeFormPage({
         }
 
         form.setData('ingredients', nextIngredients);
+        setCreatedFoodIngredientIndex(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [createdFood?.id]);
 
@@ -306,7 +312,10 @@ export default function RecipeFormPage({
             const food = payload.foods[0];
 
             if (!food) {
-                toast.error(t('food.barcode_not_found'), {
+                setFoodDialogBarcode(barcode.trim());
+                setCreatedFoodIngredientIndex(ingredientIndex);
+                setFoodDialogOpen(true);
+                toast.info(t('food.barcode_not_found'), {
                     id: `recipe-barcode-${barcode}`,
                 });
 
@@ -448,7 +457,11 @@ export default function RecipeFormPage({
                                 <Button
                                     variant="soft"
                                     startIcon={<AddRounded />}
-                                    onClick={() => setFoodDialogOpen(true)}
+                                    onClick={() => {
+                                        setFoodDialogBarcode('');
+                                        setCreatedFoodIngredientIndex(null);
+                                        setFoodDialogOpen(true);
+                                    }}
                                 >
                                     {t('recipe.create_food')}
                                 </Button>
@@ -844,8 +857,18 @@ export default function RecipeFormPage({
             </Stack>
 
             <CreateFoodDialog
+                key={foodDialogBarcode || 'custom-food'}
                 open={foodDialogOpen}
-                onClose={() => setFoodDialogOpen(false)}
+                initialBarcode={foodDialogBarcode}
+                onClose={() => {
+                    setFoodDialogOpen(false);
+                    setFoodDialogBarcode('');
+                    setCreatedFoodIngredientIndex(null);
+                }}
+                onCreated={() => {
+                    setFoodDialogOpen(false);
+                    setFoodDialogBarcode('');
+                }}
             />
             <BarcodeScannerDialog
                 open={scannerIngredientIndex !== null}
@@ -911,10 +934,14 @@ function NutritionPreview({
 
 function CreateFoodDialog({
     open,
+    initialBarcode,
     onClose,
+    onCreated,
 }: {
     open: boolean;
+    initialBarcode: string;
     onClose: () => void;
+    onCreated: () => void;
 }) {
     const { t } = useTranslation();
     const form = useForm<{
@@ -931,7 +958,7 @@ function CreateFoodDialog({
     }>({
         name: '',
         brand: '',
-        barcode: '',
+        barcode: initialBarcode,
         calories: 0,
         nutrition_basis_amount: 100,
         nutrition_basis_unit: 'g',
@@ -969,14 +996,37 @@ function CreateFoodDialog({
                         preserveScroll: true,
                         onSuccess: () => {
                             form.reset();
-                            onClose();
+                            onCreated();
                         },
                     });
                 }}
             >
-                <DialogTitle>{t('recipe.create_food_title')}</DialogTitle>
+                <DialogTitle>
+                    {initialBarcode
+                        ? t('food.add_product_details')
+                        : t('recipe.create_food_title')}
+                </DialogTitle>
                 <DialogContent>
                     <Stack spacing={2}>
+                        {initialBarcode && (
+                            <>
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                >
+                                    {t('food.barcode_not_found_copy')}
+                                </Typography>
+                                <TextField
+                                    label={t('food.barcode')}
+                                    value={form.data.barcode}
+                                    error={Boolean(form.errors.barcode)}
+                                    helperText={form.errors.barcode}
+                                    slotProps={{
+                                        input: { readOnly: true },
+                                    }}
+                                />
+                            </>
+                        )}
                         <Grid container spacing={2}>
                             <Grid size={{ xs: 12, sm: 7 }}>
                                 <TextField
@@ -1104,7 +1154,9 @@ function CreateFoodDialog({
                             ))}
                         </Grid>
                         <Alert severity="info">
-                            {t('recipe.create_food_help')}
+                            {initialBarcode
+                                ? t('food.shared_product_help')
+                                : t('recipe.create_food_help')}
                         </Alert>
                     </Stack>
                 </DialogContent>
@@ -1124,7 +1176,9 @@ function CreateFoodDialog({
                             )
                         }
                     >
-                        {t('recipe.create_and_select')}
+                        {initialBarcode
+                            ? t('food.save_product')
+                            : t('recipe.create_and_select')}
                     </Button>
                 </DialogActions>
             </Box>

@@ -8,6 +8,7 @@ use App\Http\Controllers\FriendshipController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\RecipeCommentController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
@@ -42,13 +43,25 @@ Route::middleware('auth')->group(function () {
             ->name('foods.destroy');
         Route::post('/foods/{food}/favourite', [FavouriteFoodController::class, 'toggle'])
             ->name('foods.favourite');
+        Route::delete('/foods/{food}/favourite', [FavouriteFoodController::class, 'destroy'])
+            ->name('foods.favourite.destroy');
 
         Route::get('/recipes', [RecipeController::class, 'index'])
             ->name('recipes.index');
         Route::get('/recipes/create', [RecipeController::class, 'create'])
             ->name('recipes.create');
+        Route::get('/recipes/{recipe}', [RecipeController::class, 'show'])
+            ->name('recipes.show');
         Route::get('/recipes/{recipe}/edit', [RecipeController::class, 'edit'])
             ->name('recipes.edit');
+        Route::post(
+            '/recipes/{recipe}/comments',
+            [RecipeCommentController::class, 'store']
+        )->name('recipes.comments.store');
+        Route::put(
+            '/recipes/{recipe}/comments/{comment}',
+            [RecipeCommentController::class, 'update']
+        )->name('recipes.comments.update');
         Route::post('/recipes', [RecipeController::class, 'store'])
             ->name('recipes.store');
         Route::put('/recipes/{recipe}', [RecipeController::class, 'update'])

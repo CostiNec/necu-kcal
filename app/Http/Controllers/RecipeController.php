@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Food;
+use App\Models\Friendship;
 use App\Models\Recipe;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,14 +18,104 @@ class RecipeController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
+        $activeTab = $request->query('tab') === 'friends'
+            ? 'friends'
+            : 'mine';
+        $highlightedRecipeId = $request->integer('recipe') ?: null;
         $recipes = $user->recipes()
-            ->with('ingredients.food.translation')
+            ->with([
+                'user:id,name,username',
+                'ingredients.food.translation',
+            ])
             ->latest()
             ->get()
-            ->map(fn (Recipe $recipe) => [
+            ->map(fn (Recipe $recipe) => $this->recipeIndexPayload(
+                $recipe,
+                true
+            ));
+        $friendIds = Friendship::query()
+            ->where('status', Friendship::STATUS_ACCEPTED)
+            ->where(
+                fn ($query) => $query
+                    ->where('user_id', $user->id)
+                    ->orWhere('friend_id', $user->id)
+            )
+            ->get(['user_id', 'friend_id'])
+            ->map(
+                fn (Friendship $friendship) => $friendship->user_id === $user->id
+                    ? $friendship->friend_id
+                    : $friendship->user_id
+            );
+        $friendRecipes = Recipe::query()
+            ->whereIn('user_id', $friendIds)
+            ->whereNotNull('food_id')
+            ->whereExists(function ($query) use ($user) {
+                $query
+                    ->selectRaw('1')
+                    ->from('food_favourites')
+                    ->whereColumn(
+                        'food_favourites.food_id',
+                        'recipes.food_id'
+                    )
+                    ->where('food_favourites.user_id', $user->id);
+            })
+            ->with([
+                'user:id,name,username',
+                'ingredients.food.translation',
+            ])
+            ->latest()
+            ->get()
+            ->when(
+                $highlightedRecipeId,
+                fn (Collection $recipes) => $recipes
+                    ->sortByDesc(
+                        fn (Recipe $recipe) => $recipe->id
+                            === $highlightedRecipeId
+                    )
+                    ->values()
+            )
+            ->map(fn (Recipe $recipe) => $this->recipeIndexPayload(
+                $recipe,
+                false
+            ));
+
+        return Inertia::render('recipes/index', [
+            'recipes' => $recipes,
+            'friendRecipes' => $friendRecipes,
+            'filters' => [
+                'tab' => $activeTab,
+                'recipe' => $highlightedRecipeId,
+            ],
+        ]);
+    }
+
+    public function create(Request $request): Response
+    {
+        $createdFood = $this->createdFood($request);
+
+        return Inertia::render('recipes/create', [
+            'createdFood' => $createdFood
+                ? $this->foodPayload($createdFood)
+                : null,
+        ]);
+    }
+
+    public function show(Request $request, Recipe $recipe): Response
+    {
+        abort_unless($recipe->isVisibleTo($request->user()), 404);
+
+        $recipe->load([
+            'user:id,name,username',
+            'ingredients.food.translation',
+            'comments' => fn ($query) => $query
+                ->with('user:id,name,username')
+                ->oldest(),
+        ]);
+
+        return Inertia::render('recipes/show', [
+            'recipe' => [
                 ...$recipe->only([
                     'id',
-                    'food_id',
                     'name',
                     'cooked_weight',
                     'total_calories',
@@ -33,6 +124,12 @@ class RecipeController extends Controller
                     'total_fat',
                     'total_fibre',
                 ]),
+                'owner' => $recipe->user->only([
+                    'id',
+                    'name',
+                    'username',
+                ]),
+                'is_owner' => $recipe->user_id === $request->user()->id,
                 'calories' => $this->perHundred(
                     $recipe->total_calories,
                     $recipe->cooked_weight
@@ -53,29 +150,30 @@ class RecipeController extends Controller
                     $recipe->total_fibre,
                     $recipe->cooked_weight
                 ),
-                'ingredients' => $recipe->ingredients->map(fn ($ingredient) => [
-                    'id' => $ingredient->id,
-                    'food_id' => $ingredient->food_id,
-                    'name' => $ingredient->food?->localizedName()
-                        ?? $ingredient->food_name,
-                    'amount' => $ingredient->amount,
-                    'unit' => $ingredient->unit,
-                ])->values(),
-            ]);
-
-        return Inertia::render('recipes/index', [
-            'recipes' => $recipes,
-        ]);
-    }
-
-    public function create(Request $request): Response
-    {
-        $createdFood = $this->createdFood($request);
-
-        return Inertia::render('recipes/create', [
-            'createdFood' => $createdFood
-                ? $this->foodPayload($createdFood)
-                : null,
+                'ingredients' => $recipe->ingredients->map(
+                    fn ($ingredient) => [
+                        'id' => $ingredient->id,
+                        'name' => $ingredient->food?->localizedName()
+                            ?? $ingredient->food_name,
+                        'amount' => $ingredient->amount,
+                        'unit' => $ingredient->unit,
+                    ]
+                )->values(),
+                'comments' => $recipe->comments->map(
+                    fn ($comment) => [
+                        'id' => $comment->id,
+                        'body' => $comment->body,
+                        'created_at' => $comment->created_at->toIso8601String(),
+                        'can_edit' => $comment->user_id
+                            === $request->user()->id,
+                        'user' => $comment->user->only([
+                            'id',
+                            'name',
+                            'username',
+                        ]),
+                    ]
+                )->values(),
+            ],
         ]);
     }
 
@@ -413,6 +511,58 @@ class RecipeController extends Controller
                 'fibre',
             ]),
             'name' => $food->localizedName(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function recipeIndexPayload(
+        Recipe $recipe,
+        bool $isOwner
+    ): array {
+        return [
+            ...$recipe->only([
+                'id',
+                'food_id',
+                'name',
+                'cooked_weight',
+                'total_calories',
+                'total_protein',
+                'total_carbohydrates',
+                'total_fat',
+                'total_fibre',
+            ]),
+            'owner' => $recipe->user->only(['name', 'username']),
+            'is_owner' => $isOwner,
+            'calories' => $this->perHundred(
+                $recipe->total_calories,
+                $recipe->cooked_weight
+            ),
+            'protein' => $this->perHundred(
+                $recipe->total_protein,
+                $recipe->cooked_weight
+            ),
+            'carbohydrates' => $this->perHundred(
+                $recipe->total_carbohydrates,
+                $recipe->cooked_weight
+            ),
+            'fat' => $this->perHundred(
+                $recipe->total_fat,
+                $recipe->cooked_weight
+            ),
+            'fibre' => $this->perHundred(
+                $recipe->total_fibre,
+                $recipe->cooked_weight
+            ),
+            'ingredients' => $recipe->ingredients->map(fn ($ingredient) => [
+                'id' => $ingredient->id,
+                'food_id' => $ingredient->food_id,
+                'name' => $ingredient->food?->localizedName()
+                    ?? $ingredient->food_name,
+                'amount' => $ingredient->amount,
+                'unit' => $ingredient->unit,
+            ])->values(),
         ];
     }
 

@@ -46,4 +46,15 @@ class Recipe extends Model
     {
         return $this->hasMany(RecipeIngredient::class)->orderBy('position');
     }
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(RecipeComment::class);
+    }
+
+    public function isVisibleTo(User $user): bool
+    {
+        return $this->user_id === $user->id
+            || $user->isFriendsWith($this->user_id);
+    }
 }

@@ -11,13 +11,7 @@ class FavouriteFoodController extends Controller
 {
     public function toggle(Request $request, Food $food): RedirectResponse
     {
-        abort_unless(
-            Food::query()
-                ->visibleTo($request->user())
-                ->whereKey($food->id)
-                ->exists(),
-            403
-        );
+        $this->ensureVisible($request, $food);
 
         $query = DB::table('food_favourites')->where([
             'user_id' => $request->user()->id,
@@ -36,5 +30,28 @@ class FavouriteFoodController extends Controller
         }
 
         return back();
+    }
+
+    public function destroy(Request $request, Food $food): RedirectResponse
+    {
+        $this->ensureVisible($request, $food);
+
+        DB::table('food_favourites')->where([
+            'user_id' => $request->user()->id,
+            'food_id' => $food->id,
+        ])->delete();
+
+        return back();
+    }
+
+    private function ensureVisible(Request $request, Food $food): void
+    {
+        abort_unless(
+            Food::query()
+                ->visibleTo($request->user())
+                ->whereKey($food->id)
+                ->exists(),
+            403
+        );
     }
 }

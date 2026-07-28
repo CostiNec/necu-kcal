@@ -441,6 +441,138 @@ class NutritionTrackingTest extends TestCase
             );
     }
 
+    public function test_food_page_contains_the_last_100_distinct_logged_foods(): void
+    {
+        $user = $this->onboardedUser();
+        $day = DiaryDay::create([
+            'user_id' => $user->id,
+            'date' => '2026-07-28',
+        ]);
+        $foods = collect(range(1, 102))->map(
+            fn (int $index) => Food::create([
+                'name' => "Recent food {$index}",
+                'calories' => 100,
+                'is_public' => true,
+            ])
+        );
+        $now = now();
+
+        foreach ($foods as $food) {
+            DB::table('diary_entries')->insert([
+                'diary_day_id' => $day->id,
+                'food_id' => $food->id,
+                'meal' => 'dinner',
+                'food_name' => $food->name,
+                'amount' => 100,
+                'calories' => 100,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+
+        DB::table('diary_entries')->insert([
+            'diary_day_id' => $day->id,
+            'food_id' => null,
+            'meal' => 'dinner',
+            'food_name' => 'Quick calories',
+            'amount' => 1,
+            'calories' => 250,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('diary_entries')->insert([
+            'diary_day_id' => $day->id,
+            'food_id' => $foods->first()->id,
+            'meal' => 'dinner',
+            'food_name' => $foods->first()->name,
+            'amount' => 100,
+            'calories' => 100,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $this->actingAs($user)
+            ->get('/foods?date=2026-07-28&meal=dinner')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('lists.recent', 100)
+                ->where('lists.recent.0.id', $foods->first()->id)
+                ->where(
+                    'lists.recent.99.id',
+                    $foods->get(3)->id
+                )
+            );
+    }
+
+    public function test_recipe_food_list_contains_own_and_favourited_friend_recipes(): void
+    {
+        $user = $this->onboardedUser();
+        $user->update(['username' => 'recipe-list-user']);
+        $friend = $this->onboardedUser();
+        $friend->update(['username' => 'recipe-list-friend']);
+        $ownRecipe = Food::create([
+            'user_id' => $user->id,
+            'name' => 'My recipe',
+            'food_type' => 'recipe',
+            'calories' => 100,
+            'is_public' => false,
+        ]);
+        $favouriteFriendRecipe = Food::create([
+            'user_id' => $friend->id,
+            'name' => 'Favourite friend recipe',
+            'food_type' => 'recipe',
+            'calories' => 120,
+            'is_public' => false,
+        ]);
+        $otherFriendRecipe = Food::create([
+            'user_id' => $friend->id,
+            'name' => 'Other friend recipe',
+            'food_type' => 'recipe',
+            'calories' => 140,
+            'is_public' => false,
+        ]);
+        DB::table('friendships')->insert([
+            'user_id' => $user->id,
+            'friend_id' => $friend->id,
+            'requested_by' => $user->id,
+            'status' => 'accepted',
+            'accepted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('food_favourites')->insert([
+            'user_id' => $user->id,
+            'food_id' => $favouriteFriendRecipe->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->get('/foods')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('lists.recipes', 2)
+                ->where(
+                    'lists.recipes.0.recipe_owner.username',
+                    'recipe-list-friend'
+                )
+                ->where(
+                    'lists.recipes',
+                    fn ($recipes) => collect($recipes)
+                        ->pluck('id')
+                        ->sort()
+                        ->values()
+                        ->all() === collect([
+                            $ownRecipe->id,
+                            $favouriteFriendRecipe->id,
+                        ])->sort()->values()->all()
+                        && ! collect($recipes)
+                            ->pluck('id')
+                            ->contains($otherFriendRecipe->id)
+                )
+            );
+    }
+
     public function test_food_page_defaults_to_todays_meal_for_the_users_timezone(): void
     {
         CarbonImmutable::setTestNow(
@@ -748,10 +880,12 @@ class NutritionTrackingTest extends TestCase
         $this->assertSame('"CRISPY" translated', $food->localizedName());
     }
 
-    public function test_recipe_index_only_contains_the_authenticated_users_recipes(): void
+    public function test_recipe_index_separates_own_and_friend_recipes(): void
     {
         $user = $this->onboardedUser();
-        $otherUser = $this->onboardedUser();
+        $friend = $this->onboardedUser();
+        $friend->update(['username' => 'recipe-friend']);
+        $stranger = $this->onboardedUser();
         $ownRecipe = $user->recipes()->create([
             'name' => 'My soup',
             'cooked_weight' => 500,
@@ -761,7 +895,55 @@ class NutritionTrackingTest extends TestCase
             'total_fat' => 10,
             'total_fibre' => 5,
         ]);
-        $otherUser->recipes()->create([
+        $friendRecipeFood = $friend->foods()->create([
+            'name' => 'Friend soup',
+            'food_type' => 'recipe',
+            'calories' => 90,
+            'is_public' => false,
+        ]);
+        $friendRecipe = $friend->recipes()->create([
+            'food_id' => $friendRecipeFood->id,
+            'name' => 'Friend soup',
+            'cooked_weight' => 500,
+            'total_calories' => 450,
+            'total_protein' => 22,
+            'total_carbohydrates' => 45,
+            'total_fat' => 11,
+            'total_fibre' => 5,
+        ]);
+        $newerFriendRecipeFood = $friend->foods()->create([
+            'name' => 'Newer friend recipe',
+            'food_type' => 'recipe',
+            'calories' => 90,
+            'is_public' => false,
+        ]);
+        $friend->recipes()->create([
+            'food_id' => $newerFriendRecipeFood->id,
+            'name' => 'Newer friend recipe',
+            'cooked_weight' => 400,
+            'total_calories' => 360,
+            'total_protein' => 18,
+            'total_carbohydrates' => 36,
+            'total_fat' => 9,
+            'total_fibre' => 4,
+        ]);
+        $unsavedFriendRecipeFood = $friend->foods()->create([
+            'name' => 'Unsaved friend recipe',
+            'food_type' => 'recipe',
+            'calories' => 80,
+            'is_public' => false,
+        ]);
+        $unsavedFriendRecipe = $friend->recipes()->create([
+            'food_id' => $unsavedFriendRecipeFood->id,
+            'name' => 'Unsaved friend recipe',
+            'cooked_weight' => 400,
+            'total_calories' => 320,
+            'total_protein' => 16,
+            'total_carbohydrates' => 32,
+            'total_fat' => 8,
+            'total_fibre' => 4,
+        ]);
+        $stranger->recipes()->create([
             'name' => 'Private soup',
             'cooked_weight' => 500,
             'total_calories' => 500,
@@ -770,15 +952,55 @@ class NutritionTrackingTest extends TestCase
             'total_fat' => 12,
             'total_fibre' => 6,
         ]);
+        DB::table('friendships')->insert([
+            'user_id' => min($user->id, $friend->id),
+            'friend_id' => max($user->id, $friend->id),
+            'requested_by' => $user->id,
+            'status' => 'accepted',
+            'accepted_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('food_favourites')->insert([
+            [
+                'user_id' => $user->id,
+                'food_id' => $friendRecipeFood->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'user_id' => $user->id,
+                'food_id' => $newerFriendRecipeFood->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
 
         $this->actingAs($user)
-            ->get('/recipes')
+            ->get("/recipes?tab=friends&recipe={$friendRecipe->id}")
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('recipes/index')
                 ->has('recipes', 1)
                 ->where('recipes.0.id', $ownRecipe->id)
                 ->where('recipes.0.name', 'My soup')
+                ->where('recipes.0.is_owner', true)
+                ->has('friendRecipes', 2)
+                ->where('friendRecipes.0.id', $friendRecipe->id)
+                ->where('friendRecipes.0.name', 'Friend soup')
+                ->where(
+                    'friendRecipes.0.owner.username',
+                    'recipe-friend'
+                )
+                ->where('friendRecipes.0.is_owner', false)
+                ->where(
+                    'friendRecipes',
+                    fn ($recipes) => ! collect($recipes)
+                        ->pluck('id')
+                        ->contains($unsavedFriendRecipe->id)
+                )
+                ->where('filters.tab', 'friends')
+                ->where('filters.recipe', $friendRecipe->id)
             );
     }
 

@@ -5,9 +5,9 @@ import FavoriteBorderRounded from '@mui/icons-material/FavoriteBorderRounded';
 import FavoriteRounded from '@mui/icons-material/FavoriteRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
-import SearchRounded from '@mui/icons-material/SearchRounded';
 import QrCodeScannerRounded from '@mui/icons-material/QrCodeScannerRounded';
 import {
+    Avatar,
     Box,
     Button,
     Card,
@@ -20,16 +20,12 @@ import {
     InputAdornment,
     MenuItem,
     Stack,
+    Tab,
+    Tabs,
     TextField,
     Typography,
 } from '@mui/material';
-import {
-    useCallback,
-    useEffect,
-    useRef,
-    useState,
-    type FormEvent,
-} from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/layouts/app-layout';
 import { BarcodeScannerDialog } from '@/components/barcode-scanner-dialog';
@@ -54,16 +50,28 @@ const mealLabels = {
 };
 
 type Meal = keyof typeof mealLabels;
+type FoodTab = 'recent' | 'favourites' | 'recipes';
 
 const isBarcode = (value: string) => /^\d{6,18}$/.test(value.trim());
+const matchesLocalSearch = (food: Food, search: string) => {
+    const query = search.trim().toLocaleLowerCase();
+
+    if (!query) return true;
+
+    return [food.name, food.brand, food.barcode].some((value) =>
+        value?.toLocaleLowerCase().includes(query),
+    );
+};
 
 export default function FoodsIndex({
     foods,
+    lists,
     filters,
     pagination,
     context,
 }: {
     foods: Food[];
+    lists: Record<FoodTab, Food[]>;
     filters: { search: string };
     pagination: { next_cursor: string | null };
     context: { date: string | null; meal: Meal; today: string };
@@ -75,9 +83,12 @@ export default function FoodsIndex({
     const [barcodeSearch, setBarcodeSearch] = useState<string | null>(
         isBarcode(filters.search) ? filters.search.trim() : null,
     );
-    const [resolvedSearch, setResolvedSearch] = useState(
-        filters.search.trim(),
+    const [activeTab, setActiveTab] = useState<FoodTab>('recent');
+    const [tabLists, setTabLists] = useState(lists);
+    const [databaseSearch, setDatabaseSearch] = useState(
+        filters.search.trim() !== '',
     );
+    const [resolvedSearch, setResolvedSearch] = useState(filters.search.trim());
     const [results, setResults] = useState(foods);
     const [nextCursor, setNextCursor] = useState(pagination.next_cursor);
     const [searching, setSearching] = useState(false);
@@ -85,42 +96,57 @@ export default function FoodsIndex({
     const [showCreate, setShowCreate] = useState(false);
     const [createBarcode, setCreateBarcode] = useState<string | null>(null);
     const [scannerOpen, setScannerOpen] = useState(false);
-    const initialSearch = useRef(true);
+    const requestSequence = useRef(0);
     const logging = Boolean(context.date);
     const activeSearch = barcodeSearch ?? search;
-    const normalizedActiveSearch = activeSearch.trim();
-    const resultsReady =
-        !searching && resolvedSearch === normalizedActiveSearch;
+    const localResults = useMemo(
+        () =>
+            tabLists[activeTab].filter((food) =>
+                matchesLocalSearch(food, search),
+            ),
+        [activeTab, search, tabLists],
+    );
+    const visibleResults = databaseSearch ? results : localResults;
 
-    const loadFoods = useCallback(
-        async ({
-            value,
-            cursor,
-            append,
-            signal,
-        }: {
-            value: string;
-            cursor?: string | null;
-            append: boolean;
-            signal?: AbortSignal;
-        }) => {
-            const params = new URLSearchParams();
-            const trimmedSearch = value.trim();
+    const loadFoods = async ({
+        value,
+        cursor,
+        append,
+    }: {
+        value: string;
+        cursor?: string | null;
+        append: boolean;
+    }) => {
+        const trimmedSearch = value.trim();
 
-            if (trimmedSearch) {
-                params.set('search', trimmedSearch);
-            } else {
-                params.set('favourites_only', '1');
-            }
+        if (!trimmedSearch) {
+            requestSequence.current += 1;
+            setDatabaseSearch(false);
+            setSearching(false);
+            setResults([]);
+            setNextCursor(null);
+            setResolvedSearch('');
+            return;
+        }
 
-            if (cursor) {
-                params.set('cursor', cursor);
-            }
+        const requestId = append
+            ? requestSequence.current
+            : ++requestSequence.current;
+        const params = new URLSearchParams({ search: trimmedSearch });
 
-            const response = await fetch(`/foods/search?${params.toString()}`, {
-                signal,
-                headers: { Accept: 'application/json' },
-            });
+        if (cursor) {
+            params.set('cursor', cursor);
+        }
+
+        setDatabaseSearch(true);
+        setSearching(true);
+        setResolvedSearch(trimmedSearch);
+
+        try {
+            const response = await fetch(
+                `/foods/search?${params.toString()}`,
+                { headers: { Accept: 'application/json' } },
+            );
 
             if (!response.ok) {
                 throw new Error('Unable to load foods.');
@@ -131,51 +157,29 @@ export default function FoodsIndex({
                 next_cursor: string | null;
             };
 
-            setResolvedSearch(trimmedSearch);
+            if (requestId !== requestSequence.current) return;
+
             setResults((current) =>
                 append ? [...current, ...payload.foods] : payload.foods,
             );
             setNextCursor(payload.next_cursor);
-        },
-        [],
-    );
+        } catch {
+            if (requestId !== requestSequence.current) return;
 
-    useEffect(() => {
-        if (initialSearch.current) {
-            initialSearch.current = false;
-            return;
-        }
-
-        const controller = new AbortController();
-        setSearching(true);
-        const timeout = window.setTimeout(async () => {
-            try {
-                await loadFoods({
-                    value: activeSearch,
-                    append: false,
-                    signal: controller.signal,
-                });
-            } catch (error) {
-                if (
-                    !(error instanceof DOMException) ||
-                    error.name !== 'AbortError'
-                ) {
-                    setResults([]);
-                    setNextCursor(null);
-                    setResolvedSearch(normalizedActiveSearch);
-                }
-            } finally {
-                if (!controller.signal.aborted) {
-                    setSearching(false);
-                }
+            setResults([]);
+            setNextCursor(null);
+        } finally {
+            if (requestId === requestSequence.current) {
+                setSearching(false);
             }
-        }, barcodeSearch ? 0 : 300);
+        }
+    };
 
-        return () => {
-            window.clearTimeout(timeout);
-            controller.abort();
-        };
-    }, [activeSearch, barcodeSearch, loadFoods, normalizedActiveSearch]);
+    const runDatabaseSearch = (value = activeSearch) => {
+        setCreateBarcode(null);
+        setShowCreate(false);
+        void loadFoods({ value, append: false });
+    };
 
     const loadNextPage = async () => {
         if (!nextCursor || loadingMore) return;
@@ -183,7 +187,7 @@ export default function FoodsIndex({
         setLoadingMore(true);
         try {
             await loadFoods({
-                value: activeSearch,
+                value: resolvedSearch,
                 cursor: nextCursor,
                 append: true,
             });
@@ -193,6 +197,12 @@ export default function FoodsIndex({
     };
 
     const toggleFavourite = (food: Food) => {
+        const willBeFavourite = !food.is_favourite;
+        const updatedFood = {
+            ...food,
+            is_favourite: willBeFavourite,
+        };
+
         router.post(
             `/foods/${food.id}/favourite`,
             {},
@@ -201,39 +211,74 @@ export default function FoodsIndex({
                 preserveState: true,
                 onSuccess: () => {
                     setResults((current) =>
-                        activeSearch.trim() === ''
-                            ? current.filter((item) => item.id !== food.id)
-                            : current.map((item) =>
-                                  item.id === food.id
-                                      ? {
-                                            ...item,
-                                            is_favourite:
-                                                !item.is_favourite,
-                                        }
-                                      : item,
-                              ),
+                        current.map((item) =>
+                            item.id === food.id ? updatedFood : item,
+                        ),
                     );
+                    setTabLists((current) => {
+                        const updateFlags = (items: Food[]) =>
+                            items.map((item) =>
+                                item.id === food.id ? updatedFood : item,
+                            );
+                        const favourites = willBeFavourite
+                            ? current.favourites.some(
+                                  (item) => item.id === food.id,
+                              )
+                                ? updateFlags(current.favourites)
+                                : [updatedFood, ...current.favourites]
+                            : current.favourites.filter(
+                                  (item) => item.id !== food.id,
+                              );
+                        const belongsInRecipes =
+                            food.is_recipe &&
+                            (food.is_owned || willBeFavourite);
+                        const recipes = belongsInRecipes
+                            ? current.recipes.some(
+                                  (item) => item.id === food.id,
+                              )
+                                ? updateFlags(current.recipes)
+                                : [updatedFood, ...current.recipes]
+                            : current.recipes.filter(
+                                  (item) => item.id !== food.id,
+                              );
+
+                        return {
+                            recent: updateFlags(current.recent),
+                            favourites,
+                            recipes,
+                        };
+                    });
                 },
             },
         );
     };
 
-    const refreshResults = () =>
-        loadFoods({ value: activeSearch, append: false });
-    const handleBarcodeDetected = useCallback((barcode: string) => {
-        setSearching(true);
+    const refreshResults = () => {
+        if (databaseSearch && activeSearch.trim()) {
+            runDatabaseSearch();
+        }
+    };
+    const handleBarcodeDetected = (barcode: string) => {
+        const value = barcode.trim();
+
         setSearch('');
-        setBarcodeSearch(barcode.trim());
+        setBarcodeSearch(value);
         setCreateBarcode(null);
         setShowCreate(false);
         setScannerOpen(false);
-    }, []);
+        runDatabaseSearch(value);
+    };
     const clearSearch = () => {
-        setSearching(true);
+        requestSequence.current += 1;
         setSearch('');
         setBarcodeSearch(null);
         setCreateBarcode(null);
         setShowCreate(false);
+        setDatabaseSearch(false);
+        setSearching(false);
+        setResults([]);
+        setNextCursor(null);
+        setResolvedSearch('');
     };
     const toggleCreate = () => {
         setShowCreate((value) => {
@@ -305,54 +350,77 @@ export default function FoodsIndex({
                     </TextField>
                 )}
 
-                <TextField
-                    fullWidth
-                    value={search}
-                    onChange={(event) => {
-                        setSearching(true);
-                        setBarcodeSearch(null);
-                        setSearch(event.target.value);
+                <Box
+                    component="form"
+                    onSubmit={(event: FormEvent) => {
+                        event.preventDefault();
+                        runDatabaseSearch();
                     }}
-                    placeholder={t('food.search_placeholder')}
-                    slotProps={{
-                        input: {
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchRounded color="action" />
-                                </InputAdornment>
-                            ),
-                            endAdornment: (
-                                <InputAdornment position="end">
-                                    <IconButton
-                                        size="small"
-                                        color="primary"
-                                        aria-label={t(
-                                            'food.scan_barcode',
+                >
+                    <TextField
+                        fullWidth
+                        value={search}
+                        onChange={(event) => {
+                            requestSequence.current += 1;
+                            setBarcodeSearch(null);
+                            setSearch(event.target.value);
+                            setDatabaseSearch(false);
+                            setSearching(false);
+                        }}
+                        onKeyDown={(event) => {
+                            if (event.key !== 'Enter') return;
+
+                            event.preventDefault();
+                            runDatabaseSearch();
+                        }}
+                        placeholder={t('food.search_placeholder')}
+                        slotProps={{
+                            input: {
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        {activeSearch && (
+                                            <IconButton
+                                                type="button"
+                                                size="small"
+                                                aria-label={t(
+                                                    'food.clear_search',
+                                                )}
+                                                onClick={clearSearch}
+                                            >
+                                                <CloseRounded fontSize="small" />
+                                            </IconButton>
                                         )}
-                                        onClick={() =>
-                                            setScannerOpen(true)
-                                        }
-                                    >
-                                        <QrCodeScannerRounded fontSize="small" />
-                                    </IconButton>
-                                    {searching ? (
-                                        <CircularProgress size={20} />
-                                    ) : activeSearch ? (
                                         <IconButton
+                                            type="button"
                                             size="small"
+                                            color="primary"
                                             aria-label={t(
-                                                'food.clear_search',
+                                                'food.scan_barcode',
                                             )}
-                                            onClick={clearSearch}
+                                            onClick={() =>
+                                                setScannerOpen(true)
+                                            }
                                         >
-                                            <CloseRounded fontSize="small" />
+                                            <QrCodeScannerRounded fontSize="small" />
                                         </IconButton>
-                                    ) : null}
-                                </InputAdornment>
-                            ),
-                        },
-                    }}
-                />
+                                        {searching ? (
+                                            <CircularProgress size={20} />
+                                        ) : (
+                                            <Button
+                                                type="submit"
+                                                size="small"
+                                                variant="contained"
+                                                sx={{ ml: 0.5 }}
+                                            >
+                                                {t('common.search')}
+                                            </Button>
+                                        )}
+                                    </InputAdornment>
+                                ),
+                            },
+                        }}
+                    />
+                </Box>
 
                 <BarcodeScannerDialog
                     open={scannerOpen}
@@ -393,8 +461,43 @@ export default function FoodsIndex({
                     </>
                 )}
 
+                {!databaseSearch && (
+                    <Tabs
+                        value={activeTab}
+                        onChange={(_, value: FoodTab) => setActiveTab(value)}
+                        variant="scrollable"
+                        scrollButtons="auto"
+                        aria-label={t('food.food_lists')}
+                    >
+                        <Tab
+                            value="recent"
+                            label={`${t('food.recent')} (${tabLists.recent.length})`}
+                        />
+                        <Tab
+                            value="favourites"
+                            label={`${t('food.favourites')} (${tabLists.favourites.length})`}
+                        />
+                        <Tab
+                            value="recipes"
+                            label={`${t('common.recipes')} (${tabLists.recipes.length})`}
+                        />
+                    </Tabs>
+                )}
+
+                {databaseSearch && !searching && (
+                    <Typography variant="subtitle2" color="text.secondary">
+                        {t('food.database_results_for', {
+                            search: resolvedSearch,
+                        })}
+                    </Typography>
+                )}
+
                 <Stack spacing={2}>
-                    {!resultsReady ? null : results.length === 0 ? (
+                    {searching ? (
+                        <Box sx={{ display: 'grid', placeItems: 'center', py: 6 }}>
+                            <CircularProgress />
+                        </Box>
+                    ) : visibleResults.length === 0 ? (
                         barcodeSearch &&
                         showCreate &&
                         createBarcode ? (
@@ -412,27 +515,7 @@ export default function FoodsIndex({
                                         : 'dashed',
                                 }}
                             >
-                            <CardContent>
-                                <Stack
-                                    direction={{ xs: 'column', sm: 'row' }}
-                                    alignItems={{ xs: 'flex-start', sm: 'center' }}
-                                    spacing={2}
-                                >
-                                    {!barcodeSearch && (
-                                        <Box
-                                            sx={{
-                                                display: 'grid',
-                                                placeItems: 'center',
-                                                width: 48,
-                                                height: 48,
-                                                borderRadius: 2,
-                                                color: 'primary.main',
-                                                bgcolor: 'primary.lighter',
-                                            }}
-                                        >
-                                            <SearchRounded />
-                                        </Box>
-                                    )}
+                                <CardContent>
                                     <Box sx={{ flex: 1 }}>
                                         <Typography variant="h6">
                                             {barcodeSearch
@@ -443,9 +526,7 @@ export default function FoodsIndex({
                                                 ? t('food.no_results_for', {
                                                       search: search.trim(),
                                                   })
-                                                : t(
-                                                      'food.empty_favourites',
-                                                  )}
+                                                : t(`food.empty_${activeTab}`)}
                                         </Typography>
                                         <Typography
                                             variant="body2"
@@ -457,9 +538,13 @@ export default function FoodsIndex({
                                                       'food.barcode_not_found_copy',
                                                   )
                                                 : search.trim()
-                                                ? t('food.no_results_copy')
+                                                ? databaseSearch
+                                                    ? t('food.no_results_copy')
+                                                    : t(
+                                                          'food.local_no_results_copy',
+                                                      )
                                                 : t(
-                                                      'food.empty_favourites_copy',
+                                                      `food.empty_${activeTab}_copy`,
                                                   )}
                                         </Typography>
                                         {barcodeSearch && (
@@ -481,12 +566,11 @@ export default function FoodsIndex({
                                             </Button>
                                         )}
                                     </Box>
-                                </Stack>
-                            </CardContent>
+                                </CardContent>
                             </Card>
                         )
                     ) : (
-                        results.map((food) => (
+                        visibleResults.map((food) => (
                             <FoodRow
                                 key={`${food.id}-${context.date ?? 'library'}-${context.meal}`}
                                 food={food}
@@ -500,7 +584,7 @@ export default function FoodsIndex({
                         ))
                     )}
 
-                    {resultsReady && nextCursor && (
+                    {databaseSearch && !searching && nextCursor && (
                         <Button
                             variant="outlined"
                             disabled={loadingMore}
@@ -555,16 +639,64 @@ function FoodRow({
                 Number(form.data.quantity),
             )) /
         food.nutrition_basis_amount;
+    const libraryDestination =
+        food.is_recipe && food.recipe_id
+            ? `/recipes/${food.recipe_id}`
+            : `/foods?date=${targetDate}&meal=${meal}`;
+    const recipeCardIsClickable =
+        !date && food.is_recipe && food.recipe_id !== null;
 
     return (
         <Card
+            role={recipeCardIsClickable ? 'link' : undefined}
+            tabIndex={recipeCardIsClickable ? 0 : undefined}
+            aria-label={recipeCardIsClickable ? food.name : undefined}
+            onClick={
+                recipeCardIsClickable
+                    ? () => router.visit(libraryDestination)
+                    : undefined
+            }
+            onKeyDown={
+                recipeCardIsClickable
+                    ? (event) => {
+                          if (
+                              event.currentTarget !== event.target ||
+                              event.key !== 'Enter'
+                          ) {
+                              return;
+                          }
+
+                          event.preventDefault();
+                          router.visit(libraryDestination);
+                      }
+                    : undefined
+            }
             sx={{
                 transition: (theme) =>
-                    theme.transitions.create(['transform', 'box-shadow']),
-                '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: (theme) => theme.shadows[8],
-                },
+                    theme.transitions.create(
+                        ['transform', 'box-shadow', 'background-color'],
+                        { duration: theme.transitions.duration.shorter },
+                    ),
+                ...(recipeCardIsClickable && {
+                    cursor: 'pointer',
+                    touchAction: 'manipulation',
+                    WebkitTapHighlightColor: 'transparent',
+                    '@media (hover: hover)': {
+                        '&:hover': {
+                            transform: 'translateY(-2px)',
+                            boxShadow: (theme) => theme.shadows[8],
+                        },
+                    },
+                    '&:active': {
+                        transform: 'scale(0.985)',
+                        bgcolor: 'action.hover',
+                    },
+                    '&:focus-visible': {
+                        outline: '2px solid',
+                        outlineColor: 'primary.main',
+                        outlineOffset: 2,
+                    },
+                }),
             }}
         >
             <CardContent>
@@ -576,7 +708,11 @@ function FoodRow({
                                 ? t('food.remove_favourite', { food: food.name })
                                 : t('food.add_favourite', { food: food.name })
                         }
-                        onClick={onToggleFavourite}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onToggleFavourite();
+                        }}
+                        onKeyDown={(event) => event.stopPropagation()}
                     >
                         {food.is_favourite ? (
                             <FavoriteRounded />
@@ -585,14 +721,20 @@ function FoodRow({
                         )}
                     </IconButton>
                     <Box
-                        role={date ? undefined : 'button'}
-                        tabIndex={date ? undefined : 0}
+                        role={
+                            date || recipeCardIsClickable
+                                ? undefined
+                                : 'button'
+                        }
+                        tabIndex={
+                            date || recipeCardIsClickable ? undefined : 0
+                        }
                         onClick={
-                            date
+                            date || recipeCardIsClickable
                                 ? undefined
                                 : () =>
                                       router.visit(
-                                          `/foods?date=${targetDate}&meal=${meal}`,
+                                          libraryDestination,
                                           {
                                               preserveScroll: true,
                                               preserveState: true,
@@ -600,7 +742,7 @@ function FoodRow({
                                       )
                         }
                         onKeyDown={
-                            date
+                            date || recipeCardIsClickable
                                 ? undefined
                                 : (event) => {
                                       if (
@@ -612,7 +754,7 @@ function FoodRow({
 
                                       event.preventDefault();
                                       router.visit(
-                                          `/foods?date=${targetDate}&meal=${meal}`,
+                                          libraryDestination,
                                           {
                                               preserveScroll: true,
                                               preserveState: true,
@@ -623,7 +765,10 @@ function FoodRow({
                         sx={{
                             minWidth: 0,
                             flex: 1,
-                            cursor: date ? 'default' : 'pointer',
+                            cursor:
+                                date || recipeCardIsClickable
+                                    ? 'inherit'
+                                    : 'pointer',
                             borderRadius: 1,
                             '&:focus-visible': {
                                 outline: '2px solid',
@@ -656,12 +801,66 @@ function FoodRow({
                                     })}
                                 </Typography>
                             </Box>
-                            <Chip
-                                size="small"
-                                color="primary"
-                                variant="filled"
-                                label={`${formatNumber(food.calories)} kcal`}
-                            />
+                            <Stack
+                                direction="row"
+                                spacing={0.75}
+                                alignItems="center"
+                                sx={{ flexShrink: 0 }}
+                            >
+                                {food.is_recipe &&
+                                    !food.is_owned &&
+                                    food.recipe_owner && (
+                                        <Chip
+                                            clickable
+                                            size="small"
+                                            variant="outlined"
+                                            avatar={
+                                                <Avatar>
+                                                    {food.recipe_owner.name
+                                                        .charAt(0)
+                                                        .toUpperCase()}
+                                                </Avatar>
+                                            }
+                                            label={`@${food.recipe_owner.username}`}
+                                            aria-label={t(
+                                                'food.view_recipe_owner',
+                                                {
+                                                    name: food.recipe_owner
+                                                        .name,
+                                                },
+                                            )}
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                router.visit(
+                                                    `/users/${food.recipe_owner?.username}`,
+                                                );
+                                            }}
+                                            onKeyDown={(event) =>
+                                                event.stopPropagation()
+                                            }
+                                            sx={{
+                                                maxWidth: {
+                                                    xs: 120,
+                                                    sm: 150,
+                                                },
+                                                '& .MuiChip-label': {
+                                                    display: 'block',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                },
+                                                '& .MuiChip-avatar': {
+                                                    mr: -0.5,
+                                                },
+                                            }}
+                                        />
+                                    )}
+                                <Chip
+                                    size="small"
+                                    color="primary"
+                                    variant="filled"
+                                    label={`${formatNumber(food.calories)} kcal`}
+                                />
+                            </Stack>
                         </Stack>
                         <Typography
                             variant="caption"

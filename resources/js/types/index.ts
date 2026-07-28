@@ -56,6 +56,10 @@ export type Food = {
     fat: number | null;
     fibre: number | null;
     is_custom: boolean;
+    is_recipe: boolean;
+    recipe_id: number | null;
+    is_owned: boolean;
+    recipe_owner: { name: string; username: string } | null;
     is_favourite?: boolean;
 };
 

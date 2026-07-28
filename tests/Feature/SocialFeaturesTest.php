@@ -219,11 +219,184 @@ class SocialFeaturesTest extends TestCase
             'calories' => 150,
         ]);
 
+        $this->actingAs($friend)
+            ->get('/recipes?tab=friends')
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('friendRecipes', 1)
+                ->where('friendRecipes.0.id', $recipe->id)
+            );
+        $this->actingAs($friend)
+            ->delete("/foods/{$recipeFood->id}/favourite")
+            ->assertRedirect();
+        $this->assertDatabaseMissing('food_favourites', [
+            'user_id' => $friend->id,
+            'food_id' => $recipeFood->id,
+        ]);
+        $this->actingAs($friend)
+            ->get('/recipes?tab=friends')
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->has('friendRecipes', 0)
+            );
+
         $friendship->delete();
 
         $this->actingAs($friend)
             ->post('/diary-entries', $this->diaryPayload($recipeFood))
             ->assertNotFound();
+    }
+
+    public function test_recipe_details_and_comments_are_private_to_friends(): void
+    {
+        $owner = $this->onboardedUser(['username' => 'chef']);
+        $friend = $this->onboardedUser(['username' => 'friend']);
+        $stranger = $this->onboardedUser(['username' => 'stranger']);
+        [$recipe] = $this->recipeFor($owner);
+        $ingredientFood = Food::create([
+            'name' => 'Carrot',
+            'calories' => 41,
+            'protein' => 0.9,
+            'carbohydrates' => 9.6,
+            'fat' => 0.2,
+            'fibre' => 2.8,
+            'nutrition_basis_amount' => 100,
+            'nutrition_basis_unit' => 'g',
+            'is_public' => true,
+        ]);
+        $recipe->ingredients()->create([
+            'food_id' => $ingredientFood->id,
+            'food_name' => 'Carrot',
+            'amount' => 250,
+            'unit' => 'g',
+            'calories' => 41,
+            'protein' => 0.9,
+            'carbohydrates' => 9.6,
+            'fat' => 0.2,
+            'fibre' => 2.8,
+            'position' => 0,
+        ]);
+
+        $this->actingAs($stranger)
+            ->get("/recipes/{$recipe->id}")
+            ->assertNotFound();
+        $this->actingAs($stranger)
+            ->post("/recipes/{$recipe->id}/comments", [
+                'body' => 'This should stay private.',
+            ])
+            ->assertNotFound();
+
+        $this->acceptedFriendship($owner, $friend);
+
+        $this->actingAs($friend)
+            ->get("/recipes/{$recipe->id}")
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('recipes/show')
+                ->where('recipe.id', $recipe->id)
+                ->where('recipe.name', 'Friend soup')
+                ->where('recipe.owner.username', 'chef')
+                ->where('recipe.is_owner', false)
+                ->where('recipe.calories', 150)
+                ->where('recipe.protein', 8)
+                ->has('recipe.ingredients', 1)
+                ->where('recipe.ingredients.0.name', 'Carrot')
+                ->has('recipe.comments', 0)
+            );
+
+        $this->actingAs($friend)
+            ->getJson('/foods/search?search=Friend%20soup')
+            ->assertOk()
+            ->assertJsonPath('foods.0.recipe_id', $recipe->id);
+
+        $this->actingAs($friend)
+            ->post("/recipes/{$recipe->id}/comments", [
+                'body' => '  Great recipe!  ',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('recipe_comments', [
+            'recipe_id' => $recipe->id,
+            'user_id' => $friend->id,
+            'body' => 'Great recipe!',
+        ]);
+
+        $this->actingAs($owner)
+            ->get("/recipes/{$recipe->id}")
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('recipe.is_owner', true)
+                ->has('recipe.comments', 1)
+                ->where('recipe.comments.0.body', 'Great recipe!')
+                ->where('recipe.comments.0.can_edit', false)
+                ->where('recipe.comments.0.user.username', 'friend')
+            );
+    }
+
+    public function test_comment_author_can_edit_and_delete_by_saving_empty_text(): void
+    {
+        $owner = $this->onboardedUser(['username' => 'chef']);
+        $friend = $this->onboardedUser(['username' => 'friend']);
+        [$recipe] = $this->recipeFor($owner);
+        $this->acceptedFriendship($owner, $friend);
+        $comment = $recipe->comments()->create([
+            'user_id' => $friend->id,
+            'body' => 'Original comment',
+        ]);
+
+        $this->actingAs($owner)
+            ->put("/recipes/{$recipe->id}/comments/{$comment->id}", [
+                'body' => 'Owner cannot rewrite this',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($friend)
+            ->get("/recipes/{$recipe->id}")
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('recipe.comments.0.can_edit', true)
+            );
+
+        $this->actingAs($friend)
+            ->put("/recipes/{$recipe->id}/comments/{$comment->id}", [
+                'body' => '  Updated comment  ',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('recipe_comments', [
+            'id' => $comment->id,
+            'body' => 'Updated comment',
+        ]);
+
+        $this->actingAs($friend)
+            ->put("/recipes/{$recipe->id}/comments/{$comment->id}", [
+                'body' => '   ',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('recipe_comments', [
+            'id' => $comment->id,
+        ]);
+    }
+
+    public function test_recipe_comment_is_required_and_limited(): void
+    {
+        $owner = $this->onboardedUser();
+        [$recipe] = $this->recipeFor($owner);
+
+        $this->actingAs($owner)
+            ->from("/recipes/{$recipe->id}")
+            ->post("/recipes/{$recipe->id}/comments", ['body' => ''])
+            ->assertRedirect("/recipes/{$recipe->id}")
+            ->assertSessionHasErrors('body');
+
+        $this->actingAs($owner)
+            ->from("/recipes/{$recipe->id}")
+            ->post("/recipes/{$recipe->id}/comments", [
+                'body' => str_repeat('a', 2001),
+            ])
+            ->assertRedirect("/recipes/{$recipe->id}")
+            ->assertSessionHasErrors('body');
+
+        $this->assertDatabaseCount('recipe_comments', 0);
     }
 
     public function test_only_the_recipient_can_accept_a_friend_request(): void

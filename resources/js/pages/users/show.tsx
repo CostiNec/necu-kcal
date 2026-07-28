@@ -265,9 +265,71 @@ function ProfileAction({
 
 function RecipeCard({ recipe }: { recipe: FriendRecipe }) {
     const { t } = useTranslation();
+    const [usingRecipe, setUsingRecipe] = useState(false);
+    const openInFriendRecipes = () =>
+        router.visit(`/recipes?tab=friends&recipe=${recipe.id}`);
+    const useRecipe = () => {
+        if (!recipe.food_id || recipe.is_favourite) {
+            openInFriendRecipes();
+            return;
+        }
+
+        router.post(
+            `/foods/${recipe.food_id}/favourite`,
+            {},
+            {
+                preserveScroll: true,
+                onStart: () => setUsingRecipe(true),
+                onSuccess: openInFriendRecipes,
+                onFinish: () => setUsingRecipe(false),
+            },
+        );
+    };
 
     return (
-        <Card sx={{ height: 1 }}>
+        <Card
+            role="link"
+            tabIndex={0}
+            aria-label={recipe.name}
+            onClick={() => router.visit(`/recipes/${recipe.id}`)}
+            onKeyDown={(event) => {
+                if (
+                    event.currentTarget !== event.target ||
+                    event.key !== 'Enter'
+                ) {
+                    return;
+                }
+
+                event.preventDefault();
+                router.visit(`/recipes/${recipe.id}`);
+            }}
+            sx={{
+                height: 1,
+                cursor: 'pointer',
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
+                transition: (theme) =>
+                    theme.transitions.create(
+                        ['transform', 'box-shadow', 'background-color'],
+                        { duration: theme.transitions.duration.shorter },
+                    ),
+                '@media (hover: hover)': {
+                    '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: (theme) => theme.shadows[8],
+                    },
+                },
+                '&:active': {
+                    transform: 'scale(0.985)',
+                    bgcolor: 'action.hover',
+                },
+                '&:focus-visible': {
+                    outline: '2px solid',
+                    outlineColor: 'primary.main',
+                    outlineOffset: 2,
+                },
+            }}
+        >
             <CardContent>
                 <Stack spacing={2}>
                     <Stack
@@ -308,12 +370,16 @@ function RecipeCard({ recipe }: { recipe: FriendRecipe }) {
                                               food: recipe.name,
                                           })
                                 }
-                                onClick={() =>
+                                onClick={(event) => {
+                                    event.stopPropagation();
                                     router.post(
                                         `/foods/${recipe.food_id}/favourite`,
                                         {},
                                         { preserveScroll: true },
-                                    )
+                                    );
+                                }}
+                                onKeyDown={(event) =>
+                                    event.stopPropagation()
                                 }
                             >
                                 {recipe.is_favourite ? (
@@ -351,11 +417,12 @@ function RecipeCard({ recipe }: { recipe: FriendRecipe }) {
                     </Stack>
                     <Button
                         variant="soft"
-                        onClick={() =>
-                            router.visit(
-                                `/foods?search=${encodeURIComponent(recipe.name)}`,
-                            )
-                        }
+                        disabled={usingRecipe}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            useRecipe();
+                        }}
+                        onKeyDown={(event) => event.stopPropagation()}
                     >
                         {t('social.find_in_foods')}
                     </Button>

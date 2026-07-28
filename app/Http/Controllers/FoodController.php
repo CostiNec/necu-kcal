@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -32,18 +34,64 @@ class FoodController extends Controller
         )
             ? $requestedMeal
             : $this->mealForHour($now->hour);
-        $paginator = $this->paginatedQuery(
-            $user,
-            $search,
-            $search === ''
-        )->cursorPaginate(20);
+        $recentFoodIds = DB::table('diary_entries')
+            ->join(
+                'diary_days',
+                'diary_days.id',
+                '=',
+                'diary_entries.diary_day_id'
+            )
+            ->where('diary_days.user_id', $user->id)
+            ->whereNotNull('diary_entries.food_id')
+            ->select('diary_entries.food_id')
+            ->selectRaw('MAX(diary_entries.id) AS latest_entry_id')
+            ->groupBy('diary_entries.food_id')
+            ->orderByDesc('latest_entry_id')
+            ->limit(100)
+            ->pluck('food_id');
+
+        $recentFoods = $recentFoodIds->isEmpty()
+            ? collect()
+            : $this->libraryQuery($user)
+                ->whereIn('foods.id', $recentFoodIds)
+                ->get()
+                ->sortBy(
+                    fn (Food $food) => $recentFoodIds->search($food->id)
+                )
+                ->values();
+        $favouriteFoods = $this->libraryQuery($user)
+            ->whereNotNull('favourite.id')
+            ->orderBy('foods.name')
+            ->orderBy('foods.id')
+            ->get();
+        $recipeFoods = $this->libraryQuery($user)
+            ->where('foods.food_type', 'recipe')
+            ->where(
+                fn (Builder $query) => $query
+                    ->where('foods.user_id', $user->id)
+                    ->orWhereNotNull('favourite.id')
+            )
+            ->orderBy('foods.name')
+            ->orderBy('foods.id')
+            ->get();
+
+        $paginator = $search === ''
+            ? null
+            : $this->paginatedQuery($user, $search, false)
+                ->cursorPaginate(20);
 
         return Inertia::render('foods/index', [
-            'foods' => collect($paginator->items())
-                ->map(fn (Food $food) => $this->foodPayload($food)),
+            'foods' => $search === ''
+                ? $this->foodPayloads($favouriteFoods)
+                : $this->foodPayloads(collect($paginator?->items())),
+            'lists' => [
+                'recent' => $this->foodPayloads($recentFoods),
+                'favourites' => $this->foodPayloads($favouriteFoods),
+                'recipes' => $this->foodPayloads($recipeFoods),
+            ],
             'filters' => ['search' => $search],
             'pagination' => [
-                'next_cursor' => $paginator->nextCursor()?->encode(),
+                'next_cursor' => $paginator?->nextCursor()?->encode(),
             ],
             'context' => [
                 'date' => $request->query('date'),
@@ -145,7 +193,20 @@ class FoodController extends Controller
         string $search,
         bool $favouritesOnly
     ): Builder {
-        $query = $this->foodSearch
+        $query = $this->libraryQuery($user, $search)
+            ->when(
+                $favouritesOnly,
+                fn (Builder $query) => $query->whereNotNull('favourite.id')
+            );
+
+        return $this->foodSearch->order($query, $search);
+    }
+
+    private function libraryQuery(
+        User $user,
+        string $search = ''
+    ): Builder {
+        return $this->foodSearch
             ->query($user, $search)
             ->leftJoin('food_favourites as favourite', function ($join) use ($user) {
                 $join
@@ -156,13 +217,20 @@ class FoodController extends Controller
             ->selectRaw(
                 'CASE WHEN favourite.id IS NULL THEN 0 ELSE 1 END AS is_favourite'
             )
-            ->with('translation')
-            ->when(
-                $favouritesOnly,
-                fn (Builder $query) => $query->whereNotNull('favourite.id')
-            );
+            ->with([
+                'translation',
+                'recipe:id,food_id',
+                'creator:id,name,username',
+            ]);
+    }
 
-        return $this->foodSearch->order($query, $search);
+    /**
+     * @param  Collection<int, Food>  $foods
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function foodPayloads(Collection $foods): Collection
+    {
+        return $foods->map(fn (Food $food) => $this->foodPayload($food));
     }
 
     /**
@@ -185,6 +253,12 @@ class FoodController extends Controller
             ]),
             'name' => $food->localizedName(),
             'is_custom' => $food->food_type === 'custom',
+            'is_recipe' => $food->food_type === 'recipe',
+            'recipe_id' => $food->recipe?->id,
+            'is_owned' => $food->user_id === auth()->id(),
+            'recipe_owner' => $food->food_type === 'recipe' && $food->creator
+                ? $food->creator->only(['name', 'username'])
+                : null,
             'is_favourite' => (bool) $food->is_favourite,
         ];
     }
