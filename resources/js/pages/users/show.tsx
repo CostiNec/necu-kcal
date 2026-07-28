@@ -266,6 +266,9 @@ function ProfileAction({
 function RecipeCard({ recipe }: { recipe: FriendRecipe }) {
     const { t } = useTranslation();
     const [usingRecipe, setUsingRecipe] = useState(false);
+    const ingredientsByAmount = [...recipe.ingredients].sort(
+        (first, second) => second.amount - first.amount,
+    );
     const openInFriendRecipes = () =>
         router.visit(`/recipes?tab=friends&recipe=${recipe.id}`);
     const useRecipe = () => {
@@ -402,8 +405,16 @@ function RecipeCard({ recipe }: { recipe: FriendRecipe }) {
                             fibre: formatNumber(recipe.fibre, 1),
                         })}
                     </Typography>
-                    <Stack direction="row" flexWrap="wrap" gap={0.75}>
-                        {recipe.ingredients.map((ingredient) => (
+                    <Stack
+                        direction="row"
+                        flexWrap="wrap"
+                        gap={0.75}
+                        sx={{
+                            maxHeight: 54,
+                            overflow: 'hidden',
+                        }}
+                    >
+                        {ingredientsByAmount.map((ingredient) => (
                             <Chip
                                 key={ingredient.id}
                                 size="small"

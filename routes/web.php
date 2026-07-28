@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\AiDiaryEntryController;
 use App\Http\Controllers\DiaryController;
 use App\Http\Controllers\DiaryEntryController;
+use App\Http\Controllers\EstimateDiaryEntryController;
 use App\Http\Controllers\FavouriteFoodController;
 use App\Http\Controllers\FoodController;
 use App\Http\Controllers\FriendshipController;
@@ -34,6 +36,9 @@ Route::middleware('auth')->group(function () {
         Route::put('/diary/{date}/notes', [DiaryController::class, 'updateNotes'])
             ->where('date', '\d{4}-\d{2}-\d{2}')
             ->name('diary.notes.update');
+        Route::get('/diary/{date}/ai-entry', [AiDiaryEntryController::class, 'create'])
+            ->where('date', '\d{4}-\d{2}-\d{2}')
+            ->name('diary-entries.ai.create');
 
         Route::get('/foods', [FoodController::class, 'index'])->name('foods.index');
         Route::get('/foods/search', [FoodController::class, 'search'])
@@ -75,6 +80,12 @@ Route::middleware('auth')->group(function () {
             '/diary-entries/quick',
             [DiaryEntryController::class, 'storeQuick']
         )->name('diary-entries.quick.store');
+        Route::post(
+            '/diary-entries/ai/estimate',
+            EstimateDiaryEntryController::class
+        )->middleware('throttle:4,1')->name('diary-entries.ai.estimate');
+        Route::post('/diary-entries/ai', [AiDiaryEntryController::class, 'store'])
+            ->name('diary-entries.ai.store');
         Route::put('/diary-entries/{diaryEntry}', [DiaryEntryController::class, 'update'])
             ->name('diary-entries.update');
         Route::delete('/diary-entries/{diaryEntry}', [DiaryEntryController::class, 'destroy'])

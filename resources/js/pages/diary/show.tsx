@@ -1,5 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import AddRounded from '@mui/icons-material/AddRounded';
+import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded';
 import CookieRounded from '@mui/icons-material/CookieRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import DinnerDiningRounded from '@mui/icons-material/DinnerDiningRounded';
@@ -464,6 +465,19 @@ function MealCard({
                         <EditNoteOutlined fontSize="small" />
                     </ListItemIcon>
                     <ListItemText>{t('diary.quick_entry')}</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        closeMenu();
+                        router.visit(
+                            `/diary/${date}/ai-entry?meal=${meal.key}`,
+                        );
+                    }}
+                >
+                    <ListItemIcon>
+                        <AutoAwesomeRounded fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText>{t('diary.ai_entry')}</ListItemText>
                 </MenuItem>
             </Menu>
             <Divider />

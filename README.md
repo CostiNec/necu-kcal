@@ -57,6 +57,27 @@ For Vite hot reloading, use `npm run dev` in a second terminal.
 and the Reverb WebSocket server together. Realtime notifications require both
 the queue worker and Reverb process to be running.
 
+## AI nutrition estimates
+
+Google Gemini is the default provider. Create an API key in Google AI Studio,
+then configure it in `.env`:
+
+```dotenv
+AI_NUTRITION_PROVIDER=gemini
+GEMINI_API_KEY=your-key
+GEMINI_NUTRITION_MODEL=gemini-3.6-flash
+```
+
+Clear cached configuration after changing providers or keys:
+
+```bash
+php artisan config:clear
+```
+
+OpenAI remains available as a fallback. Set
+`AI_NUTRITION_PROVIDER=openai` and configure `OPENAI_API_KEY` to switch without
+changing application code.
+
 ## Verification
 
 ```bash

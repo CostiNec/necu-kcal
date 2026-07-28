@@ -5,6 +5,7 @@ import '@fontsource-variable/public-sans';
 import { createInertiaApp } from '@inertiajs/react';
 import type { ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
+import { NumberInputBehavior } from '@/components/number-input-behavior';
 import { ThemeProvider } from '@/theme/theme-provider';
 import { Snackbar } from '@/components/snackbar';
 import { configureEcho } from '@laravel/echo-react';
@@ -32,6 +33,7 @@ createInertiaApp({
 
         createRoot(el).render(
             <ThemeProvider>
+                <NumberInputBehavior />
                 <App {...props} />
                 <Snackbar />
             </ThemeProvider>,

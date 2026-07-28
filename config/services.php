@@ -22,6 +22,26 @@ return [
         'key' => env('RESEND_API_KEY'),
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+        'nutrition_model' => env('OPENAI_NUTRITION_MODEL', 'gpt-5.6-luna'),
+        'timeout' => env('OPENAI_TIMEOUT', 30),
+    ],
+
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'base_url' => env(
+            'GEMINI_BASE_URL',
+            'https://generativelanguage.googleapis.com/v1beta'
+        ),
+        'nutrition_model' => env(
+            'GEMINI_NUTRITION_MODEL',
+            'gemini-3.6-flash'
+        ),
+        'timeout' => env('GEMINI_TIMEOUT', 30),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
