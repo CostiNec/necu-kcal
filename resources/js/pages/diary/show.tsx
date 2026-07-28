@@ -161,7 +161,7 @@ export default function DiaryShow({
         }
 
         swipeNavigationPending.current = true;
-        const targetDate = deltaX < 0 ? previousDate : nextDate;
+        const targetDate = deltaX < 0 ? nextDate : previousDate;
 
         router.visit(`/diary/${targetDate}`, {
             preserveScroll: true,
