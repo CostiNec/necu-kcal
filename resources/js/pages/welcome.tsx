@@ -23,8 +23,9 @@ import {
     SwipeableDrawer,
     Toolbar,
     Typography,
+    useMediaQuery,
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -41,6 +42,8 @@ const featureIcons = [SearchRounded, TrackChangesRounded, InsightsRounded];
 export default function Welcome() {
     const { auth } = usePage<SharedProps>().props;
     const { t } = useTranslation();
+    const theme = useTheme();
+    const desktop = useMediaQuery(theme.breakpoints.up('sm'));
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     return (
@@ -61,10 +64,10 @@ export default function Welcome() {
                 <Toolbar
                     sx={{
                         width: 1,
-                        maxWidth: 1280,
+                        maxWidth: 1200,
                         minHeight: { xs: 72, sm: 80 },
                         mx: 'auto',
-                        px: 2,
+                        px: { xs: 2, sm: 3 },
                     }}
                 >
                     <BrandMark />
@@ -74,6 +77,7 @@ export default function Welcome() {
                         spacing={1}
                         sx={{ ml: 'auto', display: { xs: 'none', sm: 'flex' } }}
                     >
+                        {desktop && <InstallAppButton compact />}
                         <LanguageSwitcher compact />
                         <ColorModeButton />
                         {!auth.user && (
@@ -157,10 +161,6 @@ export default function Welcome() {
                     >
                         <SidebarPreferences />
 
-                        <Box sx={{ mt: 2.5 }}>
-                            <InstallAppButton />
-                        </Box>
-
                         {!auth.user && (
                             <Box sx={{ mt: 'auto', pt: 3 }}>
                                 <Divider sx={{ mb: 2 }} />
@@ -212,8 +212,18 @@ export default function Welcome() {
             </SwipeableDrawer>
 
             <Box component="main" sx={{ bgcolor: 'background.default' }}>
-                <Container maxWidth="lg" sx={{ py: { xs: 8, md: 12 } }}>
-                    <Grid container spacing={{ xs: 7, lg: 10 }} alignItems="center">
+                <Container
+                    maxWidth="lg"
+                    sx={{
+                        pt: { xs: 4, md: 8 },
+                        pb: { xs: 8, md: 12 },
+                    }}
+                >
+                    <Grid
+                        container
+                        columnSpacing={{ lg: 10 }}
+                        alignItems="center"
+                    >
                         <Grid size={{ xs: 12, lg: 7 }}>
                             <motion.div
                                 initial={{ opacity: 0, y: 18 }}
@@ -261,34 +271,101 @@ export default function Welcome() {
                                 </Typography>
 
                                 <Stack
-                                    direction={{ xs: 'column', sm: 'row' }}
                                     spacing={2}
                                     sx={{ mt: 4 }}
                                 >
-                                    <RouterLink
-                                        href={auth.user ? '/today' : '/register'}
-                                    >
-                                        <Button
-                                            size="large"
-                                            variant="contained"
-                                            endIcon={<ArrowForwardRounded />}
+                                    {!desktop && <InstallAppButton compact />}
+                                    <Stack direction="row" spacing={2}>
+                                        <Box
+                                            sx={{
+                                                minWidth: 0,
+                                                flex: {
+                                                    xs: 1,
+                                                    sm: '0 0 auto',
+                                                },
+                                            }}
                                         >
-                                            {auth.user
-                                                ? t('landing.open_your_diary')
-                                                : t(
-                                                      'landing.create_free_account',
-                                                  )}
-                                        </Button>
-                                    </RouterLink>
-                                    {!auth.user && (
-                                        <RouterLink href="/login">
-                                            <Button size="large" variant="outlined">
-                                                {t(
-                                                    'landing.already_have_account',
-                                                )}
-                                            </Button>
-                                        </RouterLink>
-                                    )}
+                                            <RouterLink
+                                                href={
+                                                    auth.user
+                                                        ? '/today'
+                                                        : '/register'
+                                                }
+                                                style={{
+                                                    display: 'block',
+                                                    height: '100%',
+                                                }}
+                                            >
+                                                <Button
+                                                    fullWidth
+                                                    size="large"
+                                                    variant="contained"
+                                                    endIcon={
+                                                        <ArrowForwardRounded />
+                                                    }
+                                                    sx={{
+                                                        height: '100%',
+                                                        px: {
+                                                            xs: 1.25,
+                                                            sm: 3,
+                                                        },
+                                                        whiteSpace: {
+                                                            xs: 'normal',
+                                                            sm: 'nowrap',
+                                                        },
+                                                    }}
+                                                >
+                                                    {auth.user
+                                                        ? t(
+                                                              'landing.open_your_diary',
+                                                          )
+                                                        : t(
+                                                              'landing.create_free_account',
+                                                          )}
+                                                </Button>
+                                            </RouterLink>
+                                        </Box>
+                                        {!auth.user && (
+                                            <Box
+                                                sx={{
+                                                    minWidth: 0,
+                                                    flex: {
+                                                        xs: 1,
+                                                        sm: '0 0 auto',
+                                                    },
+                                                }}
+                                            >
+                                                <RouterLink
+                                                    href="/login"
+                                                    style={{
+                                                        display: 'block',
+                                                        height: '100%',
+                                                    }}
+                                                >
+                                                    <Button
+                                                        fullWidth
+                                                        size="large"
+                                                        variant="outlined"
+                                                        sx={{
+                                                            height: '100%',
+                                                            px: {
+                                                                xs: 1.25,
+                                                                sm: 3,
+                                                            },
+                                                            whiteSpace: {
+                                                                xs: 'normal',
+                                                                sm: 'nowrap',
+                                                            },
+                                                        }}
+                                                    >
+                                                        {t(
+                                                            'landing.already_have_account',
+                                                        )}
+                                                    </Button>
+                                                </RouterLink>
+                                            </Box>
+                                        )}
+                                    </Stack>
                                 </Stack>
 
                                 <Stack
@@ -314,7 +391,13 @@ export default function Welcome() {
                             </motion.div>
                         </Grid>
 
-                        <Grid size={{ xs: 12, lg: 5 }}>
+                        <Grid
+                            size={{ xs: 12, lg: 5 }}
+                            sx={{
+                                width: 1,
+                                mt: { xs: 7, lg: 0 },
+                            }}
+                        >
                             <motion.div
                                 initial={{ opacity: 0, scale: 0.96, y: 24 }}
                                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -327,7 +410,8 @@ export default function Welcome() {
                                 <Card
                                     variant="outlined"
                                     sx={{
-                                        maxWidth: 460,
+                                        width: 1,
+                                        maxWidth: { xs: '100%', lg: 460 },
                                         mx: 'auto',
                                         boxShadow: 'none',
                                     }}

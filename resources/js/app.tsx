@@ -9,10 +9,12 @@ import { NumberInputBehavior } from '@/components/number-input-behavior';
 import { ThemeProvider } from '@/theme/theme-provider';
 import { Snackbar } from '@/components/snackbar';
 import { configureEcho } from '@laravel/echo-react';
+import { initializePwaInstallPrompt } from '@/lib/pwa-install';
 
 configureEcho({
     broadcaster: 'reverb',
 });
+initializePwaInstallPrompt();
 
 const appName = import.meta.env.VITE_APP_NAME || 'NecuTrack';
 const pages = import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx');
