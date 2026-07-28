@@ -15,7 +15,6 @@ import {
     CardContent,
     CardHeader,
     CircularProgress,
-    Dialog,
     DialogActions,
     DialogContent,
     DialogTitle,
@@ -25,13 +24,10 @@ import {
     InputAdornment,
     MenuItem,
     Paper,
-    SwipeableDrawer,
     Stack,
     TextField,
     Typography,
-    useMediaQuery,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
 import {
     useEffect,
     useMemo,
@@ -41,6 +37,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BarcodeScannerDialog } from '@/components/barcode-scanner-dialog';
+import { ResponsiveDialog } from '@/components/responsive-dialog';
 import { toast } from '@/components/snackbar';
 import { AppLayout } from '@/layouts/app-layout';
 import {
@@ -990,8 +987,6 @@ function RecipeLeaveDrawer({
     onLeaveAndSave: () => void;
 }) {
     const { t } = useTranslation();
-    const theme = useTheme();
-    const desktop = useMediaQuery(theme.breakpoints.up('md'));
     const title = t(
         editing
             ? 'recipe.leave_edit_title'
@@ -1030,90 +1025,33 @@ function RecipeLeaveDrawer({
         </>
     );
 
-    if (desktop) {
-        return (
-            <Dialog
-                open={open}
-                onClose={saving ? undefined : onCancel}
-                maxWidth="sm"
-                fullWidth
-            >
-                <DialogTitle>{title}</DialogTitle>
-                <DialogContent>
-                    <Typography variant="body2" color="text.secondary">
-                        {t('recipe.leave_description')}
-                    </Typography>
-                </DialogContent>
-                <DialogActions
-                    sx={{
-                        gap: 1,
-                        px: 3,
-                        pb: 3,
-                        '& > button': { minHeight: 44 },
-                    }}
-                >
-                    {actions}
-                </DialogActions>
-            </Dialog>
-        );
-    }
-
     return (
-        <SwipeableDrawer
-            anchor="bottom"
+        <ResponsiveDialog
             open={open}
             onClose={() => {
                 if (!saving) onCancel();
             }}
-            onOpen={() => undefined}
-            disableSwipeToOpen
-            hysteresis={0.3}
-            slotProps={{
-                paper: {
-                    sx: {
-                        borderTopLeftRadius: 24,
-                        borderTopRightRadius: 24,
-                        backgroundImage: 'none',
-                    },
-                },
-            }}
+            maxWidth="sm"
+            fullWidth
+            mobileActionsDirection="column"
         >
-            <DrawerHandle />
-            <Stack
-                spacing={2}
+            <DialogTitle>{title}</DialogTitle>
+            <DialogContent>
+                <Typography variant="body2" color="text.secondary">
+                    {t('recipe.leave_description')}
+                </Typography>
+            </DialogContent>
+            <DialogActions
                 sx={{
-                    width: 1,
-                    maxWidth: 640,
-                    mx: 'auto',
-                    px: 2,
-                    pt: 1,
-                    pb: 'max(24px, env(safe-area-inset-bottom))',
+                    gap: 1,
+                    px: 3,
+                    pb: 3,
+                    '& > button': { minHeight: 44 },
                 }}
             >
-                <Box>
-                    <Typography variant="h6">{title}</Typography>
-                    <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mt: 0.5 }}
-                    >
-                        {t('recipe.leave_description')}
-                    </Typography>
-                </Box>
-                <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={1}
-                    sx={{
-                        '& > button': {
-                            minHeight: 48,
-                            flex: 1,
-                        },
-                    }}
-                >
-                    {actions}
-                </Stack>
-            </Stack>
-        </SwipeableDrawer>
+                {actions}
+            </DialogActions>
+        </ResponsiveDialog>
     );
 }
 
@@ -1220,9 +1158,11 @@ function CreateFoodDialog({
     };
 
     return (
-        <ResponsiveRecipeFoodDialog
+        <ResponsiveDialog
             open={open}
             onClose={handleClose}
+            maxWidth="sm"
+            fullWidth
         >
             <Box
                 component="form"
@@ -1418,88 +1358,6 @@ function CreateFoodDialog({
                     </Button>
                 </DialogActions>
             </Box>
-        </ResponsiveRecipeFoodDialog>
-    );
-}
-
-function ResponsiveRecipeFoodDialog({
-    open,
-    onClose,
-    children,
-}: {
-    open: boolean;
-    onClose: () => void;
-    children: React.ReactNode;
-}) {
-    const theme = useTheme();
-    const desktop = useMediaQuery(theme.breakpoints.up('md'));
-
-    if (desktop) {
-        return (
-            <Dialog
-                open={open}
-                onClose={onClose}
-                maxWidth="sm"
-                fullWidth
-            >
-                {children}
-            </Dialog>
-        );
-    }
-
-    return (
-        <SwipeableDrawer
-            anchor="bottom"
-            open={open}
-            onClose={onClose}
-            onOpen={() => undefined}
-            disableSwipeToOpen
-            hysteresis={0.3}
-            slotProps={{
-                paper: {
-                    sx: {
-                        maxHeight: '92dvh',
-                        overflow: 'hidden',
-                        borderTopLeftRadius: 24,
-                        borderTopRightRadius: 24,
-                        backgroundImage: 'none',
-                        '& > form': {
-                            display: 'flex',
-                            minHeight: 0,
-                            flexDirection: 'column',
-                        },
-                        '& .MuiDialogContent-root': {
-                            overflowY: 'auto',
-                        },
-                        '& .MuiDialogActions-root': {
-                            px: 3,
-                            pb: 'max(24px, env(safe-area-inset-bottom))',
-                        },
-                    },
-                },
-            }}
-        >
-            <DrawerHandle />
-            {children}
-        </SwipeableDrawer>
-    );
-}
-
-function DrawerHandle() {
-    return (
-        <Box
-            aria-hidden
-            sx={{
-                width: 44,
-                height: 5,
-                flexShrink: 0,
-                mx: 'auto',
-                mt: 1.25,
-                mb: 0.25,
-                borderRadius: 999,
-                bgcolor: 'divider',
-                cursor: 'grab',
-            }}
-        />
+        </ResponsiveDialog>
     );
 }

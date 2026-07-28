@@ -11,7 +11,6 @@ import {
     Card,
     CardContent,
     Chip,
-    Dialog,
     DialogActions,
     DialogContent,
     DialogTitle,
@@ -28,6 +27,7 @@ import {
 } from '@mui/material';
 import { useDeferredValue, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ResponsiveDialog } from '@/components/responsive-dialog';
 import { RouterLink } from '@/components/router-link';
 import { AppLayout } from '@/layouts/app-layout';
 import { formatNumber } from '@/lib/utils';
@@ -230,7 +230,7 @@ export default function RecipesIndex({
                 )}
             </Stack>
 
-            <Dialog
+            <ResponsiveDialog
                 open={Boolean(recipeToDelete)}
                 onClose={() => setRecipeToDelete(null)}
                 maxWidth="xs"
@@ -266,9 +266,9 @@ export default function RecipesIndex({
                         {t('recipe.delete')}
                     </Button>
                 </DialogActions>
-            </Dialog>
+            </ResponsiveDialog>
 
-            <Dialog
+            <ResponsiveDialog
                 open={Boolean(recipeToRemove)}
                 onClose={() => {
                     if (!removingFriendRecipe) setRecipeToRemove(null);
@@ -317,7 +317,7 @@ export default function RecipesIndex({
                         {t('recipe.remove_from_list')}
                     </Button>
                 </DialogActions>
-            </Dialog>
+            </ResponsiveDialog>
         </AppLayout>
     );
 }

@@ -7,18 +7,16 @@ import {
     Box,
     Button,
     CircularProgress,
-    Dialog,
     DialogContent,
     DialogTitle,
     IconButton,
     Stack,
     Typography,
-    useMediaQuery,
-    useTheme,
 } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { IScannerControls } from '@zxing/browser';
+import { ResponsiveDialog } from '@/components/responsive-dialog';
 
 type ScannerError =
     | 'permission'
@@ -67,8 +65,6 @@ export function BarcodeScannerDialog({
     onDetected: (barcode: string) => void;
 }) {
     const { t } = useTranslation();
-    const theme = useTheme();
-    const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
     const videoRef = useRef<HTMLVideoElement>(null);
     const videoTrackRef = useRef<MediaStreamTrack | null>(null);
     const handledRef = useRef(false);
@@ -379,10 +375,9 @@ export function BarcodeScannerDialog({
                 : t('food.camera_error');
 
     return (
-        <Dialog
+        <ResponsiveDialog
             open={open}
             onClose={onClose}
-            fullScreen={fullScreen}
             fullWidth
             maxWidth="sm"
         >
@@ -515,6 +510,6 @@ export function BarcodeScannerDialog({
                     )}
                 </Stack>
             </DialogContent>
-        </Dialog>
+        </ResponsiveDialog>
     );
 }

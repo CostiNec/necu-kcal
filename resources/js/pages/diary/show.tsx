@@ -15,7 +15,6 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardHeader from '@mui/material/CardHeader';
 import CircularProgress from '@mui/material/CircularProgress';
-import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -39,6 +38,7 @@ import {
     type TouchEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ResponsiveDialog } from '@/components/responsive-dialog';
 import { AppLayout } from '@/layouts/app-layout';
 import { MacroProgress } from '@/components/macro-progress';
 import { PeriodNavigator } from '@/components/period-navigator';
@@ -533,7 +533,7 @@ function QuickEntryDialog({
         value === '' ? '' : Number(value);
 
     return (
-        <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+        <ResponsiveDialog open onClose={onClose} maxWidth="sm" fullWidth>
             <Box
                 component="form"
                 onSubmit={(event: FormEvent) => {
@@ -669,7 +669,7 @@ function QuickEntryDialog({
                     </Button>
                 </DialogActions>
             </Box>
-        </Dialog>
+        </ResponsiveDialog>
     );
 }
 
@@ -767,7 +767,7 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                     </Button>
                 </Stack>
             </Stack>
-            <Dialog
+            <ResponsiveDialog
                 open={editing}
                 onClose={() => setEditing(false)}
                 maxWidth="xs"
@@ -869,7 +869,7 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                         </Button>
                     </DialogActions>
                 </Box>
-            </Dialog>
+            </ResponsiveDialog>
         </>
     );
 }

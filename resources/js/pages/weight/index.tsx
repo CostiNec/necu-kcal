@@ -18,7 +18,6 @@ import {
     CardHeader,
     CircularProgress,
     Collapse,
-    Dialog,
     DialogActions,
     DialogContent,
     DialogTitle,
@@ -41,6 +40,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ResponsiveDialog } from '@/components/responsive-dialog';
 import {
     CartesianGrid,
     Line,
@@ -771,7 +771,7 @@ export default function WeightIndex({
                 </Card>
             </Stack>
 
-            <Dialog
+            <ResponsiveDialog
                 fullWidth
                 maxWidth="xs"
                 open={detailsEntry !== null}
@@ -844,9 +844,9 @@ export default function WeightIndex({
                         {t('common.close')}
                     </Button>
                 </DialogActions>
-            </Dialog>
+            </ResponsiveDialog>
 
-            <Dialog
+            <ResponsiveDialog
                 fullWidth
                 maxWidth="xs"
                 open={entryToDelete !== null}
@@ -891,7 +891,7 @@ export default function WeightIndex({
                         {t('weight.delete_action')}
                     </Button>
                 </DialogActions>
-            </Dialog>
+            </ResponsiveDialog>
         </AppLayout>
     );
 }

@@ -11,7 +11,6 @@ import {
     Card,
     CardContent,
     Chip,
-    Dialog,
     DialogActions,
     DialogContent,
     DialogTitle,
@@ -24,6 +23,7 @@ import {
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/layouts/app-layout';
+import { ResponsiveDialog } from '@/components/responsive-dialog';
 import { formatNumber } from '@/lib/utils';
 
 type FriendshipState = 'self' | 'none' | 'outgoing' | 'incoming' | 'friends';
@@ -160,7 +160,7 @@ function ProfileAction({
                 >
                     {t('social.remove_friend')}
                 </Button>
-                <Dialog
+                <ResponsiveDialog
                     fullWidth
                     maxWidth="xs"
                     open={removeDialogOpen}
@@ -206,7 +206,7 @@ function ProfileAction({
                             {t('social.remove_friend')}
                         </Button>
                     </DialogActions>
-                </Dialog>
+                </ResponsiveDialog>
             </>
         );
     }

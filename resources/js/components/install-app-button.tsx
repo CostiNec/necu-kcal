@@ -1,7 +1,6 @@
 import InstallMobileRounded from '@mui/icons-material/InstallMobileRounded';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -11,6 +10,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ResponsiveDialog } from '@/components/responsive-dialog';
 
 type BeforeInstallPromptEvent = Event & {
     prompt: () => Promise<void>;
@@ -118,7 +118,7 @@ export function InstallAppButton() {
                 </ListItemButton>
             </Box>
 
-            <Dialog
+            <ResponsiveDialog
                 open={instructionsOpen}
                 onClose={() => setInstructionsOpen(false)}
                 maxWidth="xs"
@@ -143,7 +143,7 @@ export function InstallAppButton() {
                         {t('common.close')}
                     </Button>
                 </DialogActions>
-            </Dialog>
+            </ResponsiveDialog>
         </>
     );
 }
