@@ -1,4 +1,5 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
+import type { PendingVisit, VisitOptions } from '@inertiajs/core';
 import AddRounded from '@mui/icons-material/AddRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import QrCodeScannerRounded from '@mui/icons-material/QrCodeScannerRounded';
@@ -19,6 +20,7 @@ import {
     DialogContent,
     DialogTitle,
     Divider,
+    Drawer,
     Grid,
     IconButton,
     InputAdornment,
@@ -27,8 +29,16 @@ import {
     Stack,
     TextField,
     Typography,
+    useMediaQuery,
 } from '@mui/material';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useTheme } from '@mui/material/styles';
+import {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type FormEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { BarcodeScannerDialog } from '@/components/barcode-scanner-dialog';
 import { toast } from '@/components/snackbar';
@@ -100,6 +110,9 @@ export default function RecipeFormPage({
     const [scannerIngredientIndex, setScannerIngredientIndex] = useState<
         number | null
     >(null);
+    const [leaveDrawerOpen, setLeaveDrawerOpen] = useState(false);
+    const pendingVisitRef = useRef<PendingVisit | null>(null);
+    const allowNextVisitRef = useRef(false);
     const form = useForm<{
         name: string;
         cooked_weight: NumberInputValue;
@@ -167,6 +180,77 @@ export default function RecipeFormPage({
         ) as typeof totals;
     }, [form.data.cooked_weight, totals]);
     const fieldErrors = form.errors as Record<string, string>;
+
+    useEffect(() => {
+        const removeBeforeListener = router.on('before', (event) => {
+            if (allowNextVisitRef.current) {
+                allowNextVisitRef.current = false;
+                return;
+            }
+
+            const visit = event.detail.visit;
+            const isPageExit =
+                !visit.prefetch &&
+                (visit.method === 'get' ||
+                    (visit.method === 'post' &&
+                        visit.url.pathname === '/logout'));
+
+            if (!isPageExit) return;
+
+            pendingVisitRef.current = visit;
+            setLeaveDrawerOpen(true);
+
+            return false;
+        });
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+            removeBeforeListener();
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, []);
+
+    const resumePendingVisit = () => {
+        const visit = pendingVisitRef.current;
+
+        if (!visit) return;
+
+        const {
+            url,
+            id: _id,
+            completed: _completed,
+            cancelled: _cancelled,
+            interrupted: _interrupted,
+            ...options
+        } = visit;
+
+        pendingVisitRef.current = null;
+        allowNextVisitRef.current = true;
+        router.visit(url, options as VisitOptions);
+    };
+
+    const submitRecipe = (onSuccess?: () => void) => {
+        allowNextVisitRef.current = true;
+        const options = {
+            onError: () => {
+                allowNextVisitRef.current = false;
+                pendingVisitRef.current = null;
+            },
+            onSuccess,
+        };
+
+        if (recipe) {
+            form.put(`/recipes/${recipe.id}`, options);
+            return;
+        }
+
+        form.post('/recipes', options);
+    };
 
     useEffect(() => {
         const search = foodSearch.trim();
@@ -367,13 +451,7 @@ export default function RecipeFormPage({
                             spacing={2}
                             onSubmit={(event: FormEvent) => {
                                 event.preventDefault();
-
-                                if (recipe) {
-                                    form.put(`/recipes/${recipe.id}`);
-                                    return;
-                                }
-
-                                form.post('/recipes');
+                                submitRecipe();
                             }}
                         >
                             <Grid container spacing={2}>
@@ -875,7 +953,161 @@ export default function RecipeFormPage({
                 onClose={() => setScannerIngredientIndex(null)}
                 onDetected={handleBarcodeDetected}
             />
+            <RecipeLeaveDrawer
+                open={leaveDrawerOpen}
+                editing={editing}
+                saving={form.processing}
+                onCancel={() => {
+                    pendingVisitRef.current = null;
+                    setLeaveDrawerOpen(false);
+                }}
+                onLeave={() => {
+                    setLeaveDrawerOpen(false);
+                    resumePendingVisit();
+                }}
+                onLeaveAndSave={() => {
+                    setLeaveDrawerOpen(false);
+                    submitRecipe(resumePendingVisit);
+                }}
+            />
         </AppLayout>
+    );
+}
+
+function RecipeLeaveDrawer({
+    open,
+    editing,
+    saving,
+    onCancel,
+    onLeave,
+    onLeaveAndSave,
+}: {
+    open: boolean;
+    editing: boolean;
+    saving: boolean;
+    onCancel: () => void;
+    onLeave: () => void;
+    onLeaveAndSave: () => void;
+}) {
+    const { t } = useTranslation();
+    const theme = useTheme();
+    const desktop = useMediaQuery(theme.breakpoints.up('md'));
+    const title = t(
+        editing
+            ? 'recipe.leave_edit_title'
+            : 'recipe.leave_create_title',
+    );
+    const actions = (
+        <>
+            <Button
+                color="inherit"
+                variant="outlined"
+                disabled={saving}
+                onClick={onCancel}
+            >
+                {t('common.cancel')}
+            </Button>
+            <Button
+                color="error"
+                variant="soft"
+                disabled={saving}
+                onClick={onLeave}
+            >
+                {t('recipe.leave')}
+            </Button>
+            <Button
+                variant="contained"
+                disabled={saving}
+                onClick={onLeaveAndSave}
+                startIcon={
+                    saving ? (
+                        <CircularProgress size={18} color="inherit" />
+                    ) : undefined
+                }
+            >
+                {t('recipe.leave_and_save')}
+            </Button>
+        </>
+    );
+
+    if (desktop) {
+        return (
+            <Dialog
+                open={open}
+                onClose={saving ? undefined : onCancel}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>{title}</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" color="text.secondary">
+                        {t('recipe.leave_description')}
+                    </Typography>
+                </DialogContent>
+                <DialogActions
+                    sx={{
+                        gap: 1,
+                        px: 3,
+                        pb: 3,
+                        '& > button': { minHeight: 44 },
+                    }}
+                >
+                    {actions}
+                </DialogActions>
+            </Dialog>
+        );
+    }
+
+    return (
+        <Drawer
+            anchor="bottom"
+            open={open}
+            onClose={saving ? undefined : onCancel}
+            slotProps={{
+                paper: {
+                    sx: {
+                        borderTopLeftRadius: 24,
+                        borderTopRightRadius: 24,
+                        backgroundImage: 'none',
+                    },
+                },
+            }}
+        >
+            <Stack
+                spacing={2}
+                sx={{
+                    width: 1,
+                    maxWidth: 640,
+                    mx: 'auto',
+                    px: 2,
+                    pt: 1.5,
+                    pb: 'max(24px, env(safe-area-inset-bottom))',
+                }}
+            >
+                <Box>
+                    <Typography variant="h6">{title}</Typography>
+                    <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mt: 0.5 }}
+                    >
+                        {t('recipe.leave_description')}
+                    </Typography>
+                </Box>
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    sx={{
+                        '& > button': {
+                            minHeight: 48,
+                            flex: 1,
+                        },
+                    }}
+                >
+                    {actions}
+                </Stack>
+            </Stack>
+        </Drawer>
     );
 }
 
