@@ -24,6 +24,10 @@ import {
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RouterLink } from '@/components/router-link';
+import {
+    RecipeReactions,
+    type RecipeReactionSummary,
+} from '@/components/recipe-reactions';
 import { AppLayout } from '@/layouts/app-layout';
 import { formatNumber } from '@/lib/utils';
 
@@ -39,7 +43,7 @@ type RecipeComment = {
     };
 };
 
-type Recipe = {
+type Recipe = RecipeReactionSummary & {
     id: number;
     name: string;
     cooked_weight: number;
@@ -168,7 +172,16 @@ export default function RecipeShow({ recipe }: { recipe: Recipe }) {
                                 </Typography>
                             </Box>
                         </Stack>
-                        <Stack direction="row" flexWrap="wrap" gap={1}>
+                        <Stack
+                            direction="row"
+                            alignItems="center"
+                            flexWrap="wrap"
+                            gap={1}
+                        >
+                            <RecipeReactions
+                                recipeId={recipe.id}
+                                reaction={recipe}
+                            />
                             <Chip
                                 color="primary"
                                 label={`${formatNumber(

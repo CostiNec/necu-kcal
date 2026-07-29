@@ -1,4 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import AddPhotoAlternateRounded from '@mui/icons-material/AddPhotoAlternateRounded';
 import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded';
@@ -25,7 +25,6 @@ import {
     useState,
     type ChangeEvent,
     type ClipboardEvent,
-    type FormEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/layouts/app-layout';
@@ -34,22 +33,15 @@ import { formatDate, formatNumber, parseNumberInput } from '@/lib/utils';
 
 type MealKey = 'breakfast' | 'lunch' | 'dinner' | 'snacks';
 type NumberValue = number | string;
+type NutritionKey =
+    | 'weight_grams'
+    | 'calories_per_100g'
+    | 'protein_per_100g'
+    | 'carbohydrates_per_100g'
+    | 'fat_per_100g'
+    | 'fibre_per_100g';
 
-type AiNutritionEstimate = {
-    name: string;
-    weight_grams: number;
-    calories_per_100g: number;
-    protein_per_100g: number;
-    carbohydrates_per_100g: number;
-    fat_per_100g: number;
-    fibre_per_100g: number;
-    confidence: 'low' | 'medium' | 'high';
-    assumptions: string;
-};
-
-type AiEntryForm = {
-    date: string;
-    meal: MealKey;
+type AiFoodEntry = {
     name: string;
     weight_grams: NumberValue;
     calories_per_100g: NumberValue;
@@ -57,6 +49,12 @@ type AiEntryForm = {
     carbohydrates_per_100g: NumberValue;
     fat_per_100g: NumberValue;
     fibre_per_100g: NumberValue;
+    confidence: 'low' | 'medium' | 'high';
+    assumptions: string;
+};
+
+type MealEstimate = {
+    entries: AiFoodEntry[];
 };
 
 const mealLabelKeys: Record<MealKey, string> = {
@@ -65,9 +63,15 @@ const mealLabelKeys: Record<MealKey, string> = {
     dinner: 'diary.dinner',
     snacks: 'diary.snacks',
 };
-
+const maximumImages = 2;
 const targetImageBytes = Math.floor(1.8 * 1024 * 1024);
 const maximumImageDimension = 2560;
+
+const asNumber = (value: NumberValue): number =>
+    value === '' ? 0 : Number(value);
+
+const numberValue = (value: string): NumberValue =>
+    parseNumberInput(value);
 
 export default function AiAddDiaryEntry({
     date,
@@ -79,23 +83,14 @@ export default function AiAddDiaryEntry({
     const { t } = useTranslation();
     const [description, setDescription] = useState('');
     const [images, setImages] = useState<File[]>([]);
+    const [entries, setEntries] = useState<AiFoodEntry[] | null>(null);
     const [inputError, setInputError] = useState('');
     const [estimateError, setEstimateError] = useState('');
+    const [saveError, setSaveError] = useState('');
     const [estimating, setEstimating] = useState(false);
     const [processingImages, setProcessingImages] = useState(false);
-    const [estimate, setEstimate] = useState<AiNutritionEstimate | null>(null);
-    const nutritionDetailsRef = useRef<HTMLDivElement | null>(null);
-    const form = useForm<AiEntryForm>({
-        date,
-        meal,
-        name: '',
-        weight_grams: '',
-        calories_per_100g: '',
-        protein_per_100g: '',
-        carbohydrates_per_100g: '',
-        fat_per_100g: '',
-        fibre_per_100g: '',
-    });
+    const [saving, setSaving] = useState(false);
+    const reviewRef = useRef<HTMLDivElement | null>(null);
     const previews = useMemo(
         () =>
             images.map((file) => ({
@@ -113,12 +108,12 @@ export default function AiAddDiaryEntry({
     );
 
     useEffect(() => {
-        if (!estimate) {
+        if (!entries) {
             return;
         }
 
         const frame = window.requestAnimationFrame(() => {
-            nutritionDetailsRef.current?.scrollIntoView({
+            reviewRef.current?.scrollIntoView({
                 behavior: window.matchMedia(
                     '(prefers-reduced-motion: reduce)',
                 ).matches
@@ -129,38 +124,14 @@ export default function AiAddDiaryEntry({
         });
 
         return () => window.cancelAnimationFrame(frame);
-    }, [estimate]);
+    }, [entries]);
 
-    const asNumber = (value: NumberValue): number =>
-        value === '' ? 0 : Number(value);
-    const numberValue = (value: string): NumberValue =>
-        parseNumberInput(value);
-    const factor = asNumber(form.data.weight_grams) / 100;
-    const totals = {
-        calories: asNumber(form.data.calories_per_100g) * factor,
-        protein: asNumber(form.data.protein_per_100g) * factor,
-        carbohydrates:
-            asNumber(form.data.carbohydrates_per_100g) * factor,
-        fat: asNumber(form.data.fat_per_100g) * factor,
-        fibre: asNumber(form.data.fibre_per_100g) * factor,
-    };
     const canEstimate = description.trim() !== '' || images.length > 0;
 
     const resetEstimate = () => {
-        setEstimate(null);
+        setEntries(null);
         setEstimateError('');
-        form.clearErrors();
-        form.setData({
-            date,
-            meal,
-            name: '',
-            weight_grams: '',
-            calories_per_100g: '',
-            protein_per_100g: '',
-            carbohydrates_per_100g: '',
-            fat_per_100g: '',
-            fibre_per_100g: '',
-        });
+        setSaveError('');
     };
 
     const addImageFiles = async (selected: File[]) => {
@@ -173,7 +144,7 @@ export default function AiAddDiaryEntry({
             return;
         }
 
-        if (images.length + selected.length > 2) {
+        if (images.length + selected.length > maximumImages) {
             setInputError(t('diary.ai_too_many_images'));
             return;
         }
@@ -241,6 +212,7 @@ export default function AiAddDiaryEntry({
 
         setInputError('');
         setEstimateError('');
+        setSaveError('');
         setEstimating(true);
 
         try {
@@ -267,12 +239,16 @@ export default function AiAddDiaryEntry({
                 body: requestData,
             });
             const payload = (await response.json().catch(() => ({}))) as {
-                estimate?: AiNutritionEstimate;
+                estimate?: MealEstimate;
                 message?: string;
                 errors?: Record<string, string[]>;
             };
 
-            if (!response.ok || !payload.estimate) {
+            if (
+                !response.ok ||
+                !payload.estimate ||
+                payload.estimate.entries.length === 0
+            ) {
                 const validationError = Object.values(
                     payload.errors ?? {},
                 ).flat()[0];
@@ -284,20 +260,7 @@ export default function AiAddDiaryEntry({
                 );
             }
 
-            setEstimate(payload.estimate);
-            form.clearErrors();
-            form.setData({
-                date,
-                meal,
-                name: payload.estimate.name,
-                weight_grams: payload.estimate.weight_grams,
-                calories_per_100g: payload.estimate.calories_per_100g,
-                protein_per_100g: payload.estimate.protein_per_100g,
-                carbohydrates_per_100g:
-                    payload.estimate.carbohydrates_per_100g,
-                fat_per_100g: payload.estimate.fat_per_100g,
-                fibre_per_100g: payload.estimate.fibre_per_100g,
-            });
+            setEntries(payload.estimate.entries);
         } catch (error) {
             setEstimateError(
                 error instanceof Error
@@ -309,11 +272,93 @@ export default function AiAddDiaryEntry({
         }
     };
 
-    const submit = (event: FormEvent) => {
-        event.preventDefault();
-        form.post('/diary-entries/ai');
+    const updateEntry = <Key extends keyof AiFoodEntry>(
+        index: number,
+        key: Key,
+        value: AiFoodEntry[Key],
+    ) => {
+        setEntries((current) =>
+            current
+                ? current.map((entry, entryIndex) =>
+                      entryIndex === index
+                          ? { ...entry, [key]: value }
+                          : entry,
+                  )
+                : current,
+        );
+        setSaveError('');
     };
 
+    const removeEntry = (index: number) => {
+        setEntries((current) =>
+            current
+                ? current.filter(
+                      (_, entryIndex) => entryIndex !== index,
+                  )
+                : current,
+        );
+        setSaveError('');
+    };
+
+    const saveEntries = () => {
+        if (!entries || entries.length === 0) {
+            setSaveError(t('diary.ai_meal_no_entries'));
+            return;
+        }
+
+        const reviewedEntries = entries.map(
+            ({ confidence: _confidence, assumptions: _assumptions, ...entry }) =>
+                entry,
+        );
+
+        setSaveError('');
+        router.post(
+            '/diary-entries/ai',
+            { date, meal, entries: reviewedEntries },
+            {
+                onStart: () => setSaving(true),
+                onError: (errors) => {
+                    setSaveError(
+                        String(
+                            Object.values(errors)[0] ??
+                                t('diary.ai_meal_save_error'),
+                        ),
+                    );
+                },
+                onFinish: () => setSaving(false),
+            },
+        );
+    };
+
+    const totals = (entries ?? []).reduce(
+        (sum, entry) => {
+            const factor = asNumber(entry.weight_grams) / 100;
+
+            return {
+                calories:
+                    sum.calories +
+                    asNumber(entry.calories_per_100g) * factor,
+                protein:
+                    sum.protein +
+                    asNumber(entry.protein_per_100g) * factor,
+                carbohydrates:
+                    sum.carbohydrates +
+                    asNumber(entry.carbohydrates_per_100g) * factor,
+                fat:
+                    sum.fat + asNumber(entry.fat_per_100g) * factor,
+                fibre:
+                    sum.fibre +
+                    asNumber(entry.fibre_per_100g) * factor,
+            };
+        },
+        {
+            calories: 0,
+            protein: 0,
+            carbohydrates: 0,
+            fat: 0,
+            fibre: 0,
+        },
+    );
     const mealLabel = t(mealLabelKeys[meal]);
 
     return (
@@ -332,11 +377,7 @@ export default function AiAddDiaryEntry({
             }
         >
             <Head title={t('diary.ai_entry')} />
-            <Box
-                component="form"
-                onSubmit={submit}
-                sx={{ maxWidth: 880, mx: 'auto' }}
-            >
+            <Box sx={{ maxWidth: 980, mx: 'auto' }}>
                 <Stack spacing={2}>
                     <Card>
                         <CardContent>
@@ -348,9 +389,7 @@ export default function AiAddDiaryEntry({
                                     placeholder={t(
                                         'diary.ai_food_placeholder',
                                     )}
-                                    helperText={t(
-                                        'diary.ai_paste_images',
-                                    )}
+                                    helperText={t('diary.ai_paste_images')}
                                     value={description}
                                     slotProps={{
                                         htmlInput: { maxLength: 1000 },
@@ -362,6 +401,7 @@ export default function AiAddDiaryEntry({
                                     }}
                                     onPaste={pasteImages}
                                 />
+
                                 <Box>
                                     <Typography variant="subtitle2">
                                         {t('diary.ai_images')}
@@ -373,6 +413,7 @@ export default function AiAddDiaryEntry({
                                         {t('diary.ai_images_help')}
                                     </Typography>
                                 </Box>
+
                                 {previews.length > 0 && (
                                     <Grid container spacing={1.5}>
                                         {previews.map(
@@ -431,10 +472,6 @@ export default function AiAddDiaryEntry({
                                                                 right: 6,
                                                                 bgcolor:
                                                                     'background.paper',
-                                                                '&:hover': {
-                                                                    bgcolor:
-                                                                        'background.paper',
-                                                                },
                                                             }}
                                                         >
                                                             <DeleteOutlineRounded fontSize="small" />
@@ -445,7 +482,8 @@ export default function AiAddDiaryEntry({
                                         )}
                                     </Grid>
                                 )}
-                                {images.length < 2 && (
+
+                                {images.length < maximumImages && (
                                     <Stack
                                         direction={{
                                             xs: 'column',
@@ -491,6 +529,7 @@ export default function AiAddDiaryEntry({
                                         </Button>
                                     </Stack>
                                 )}
+
                                 {processingImages && (
                                     <Alert
                                         severity="info"
@@ -517,7 +556,7 @@ export default function AiAddDiaryEntry({
                                         {estimateError}
                                     </Alert>
                                 )}
-                                {!estimate && (
+                                {!entries && (
                                     <Button
                                         type="button"
                                         variant="contained"
@@ -541,11 +580,7 @@ export default function AiAddDiaryEntry({
                                             void estimateNutrition()
                                         }
                                     >
-                                        {processingImages
-                                            ? t(
-                                                  'diary.ai_processing_images',
-                                              )
-                                            : estimating
+                                        {estimating
                                             ? t(
                                                   'diary.estimating_nutrition',
                                               )
@@ -558,262 +593,92 @@ export default function AiAddDiaryEntry({
                         </CardContent>
                     </Card>
 
-                    <Card
-                        ref={nutritionDetailsRef}
-                        sx={{ scrollMarginTop: 96 }}
-                    >
+                    <Card ref={reviewRef} sx={{ scrollMarginTop: 96 }}>
                         <CardHeader
                             title={
-                                estimate
-                                    ? t('diary.ai_review_title')
+                                entries
+                                    ? t('diary.ai_meal_review_title')
                                     : t('diary.ai_food_details')
                             }
                             subheader={
-                                estimate
-                                    ? t('diary.ai_review_help')
+                                entries
+                                    ? t('diary.ai_meal_review_help')
                                     : t('diary.ai_food_details_waiting')
                             }
                         />
                         <CardContent>
-                            <Stack spacing={2}>
-                                {estimate && (
-                                    <Alert severity="warning">
-                                        <Typography variant="body2">
-                                            {t('diary.ai_confidence', {
-                                                confidence: t(
-                                                    `diary.ai_confidence_${estimate.confidence}`,
-                                                ),
-                                            })}
-                                        </Typography>
-                                        {estimate.assumptions && (
-                                            <Typography variant="body2">
+                            {!entries ? (
+                                <Alert severity="info">
+                                    {t('diary.ai_food_details_waiting')}
+                                </Alert>
+                            ) : (
+                                <Stack spacing={2}>
+                                    {entries.length === 0 && (
+                                        <Alert severity="warning">
+                                            {t(
+                                                'diary.ai_meal_no_entries',
+                                            )}
+                                        </Alert>
+                                    )}
+
+                                    {entries.map((entry, index) => (
+                                        <AiFoodEditor
+                                            key={index}
+                                            index={index}
+                                            entry={entry}
+                                            onChange={updateEntry}
+                                            onRemove={removeEntry}
+                                        />
+                                    ))}
+
+                                    {entries.length > 0 && (
+                                        <Alert severity="success">
+                                            <Typography variant="subtitle2">
                                                 {t(
-                                                    'diary.ai_assumptions',
+                                                    'diary.ai_meal_total_title',
                                                     {
-                                                        assumptions:
-                                                            estimate.assumptions,
+                                                        count: entries.length,
                                                     },
                                                 )}
                                             </Typography>
-                                        )}
-                                    </Alert>
-                                )}
-                                <Grid container spacing={2}>
-                                    <Grid size={{ xs: 8, sm: 9 }}>
-                                        <TextField
-                                            required
-                                            disabled={!estimate}
-                                            fullWidth
-                                            label={t('diary.ai_food_name')}
-                                            value={form.data.name}
-                                            error={Boolean(form.errors.name)}
-                                            helperText={form.errors.name}
-                                            slotProps={{
-                                                htmlInput: {
-                                                    maxLength: 255,
-                                                },
-                                            }}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'name',
-                                                    event.target.value,
-                                                )}
-                                        />
-                                    </Grid>
-                                    <Grid size={{ xs: 4, sm: 3 }}>
-                                        <TextField
-                                            required
-                                            disabled={!estimate}
-                                            fullWidth
-                                            type="text"
-                                            label={t(
-                                                'diary.ai_total_amount',
-                                            )}
-                                            value={form.data.weight_grams}
-                                            error={Boolean(
-                                                form.errors.weight_grams,
-                                            )}
-                                            helperText={
-                                                form.errors.weight_grams
-                                            }
-                                            slotProps={{
-                                                input: {
-                                                    endAdornment: (
-                                                        <InputAdornment position="end">
-                                                            g
-                                                        </InputAdornment>
-                                                    ),
-                                                },
-                                                htmlInput: {
-                                                    inputMode: 'decimal',
-                                                    min: 0.01,
-                                                    max: 1000000,
-                                                    step: 0.01,
-                                                },
-                                            }}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'weight_grams',
-                                                    numberValue(
-                                                        event.target.value,
-                                                    ),
-                                                )}
-                                        />
-                                    </Grid>
-                                </Grid>
-                                <Divider>
-                                    <Typography
-                                        variant="caption"
-                                        color="text.secondary"
-                                    >
-                                        {t(
-                                            'diary.ai_nutrition_per_100g',
-                                        )}
-                                    </Typography>
-                                </Divider>
-                                <Grid container spacing={2}>
-                                    {(
-                                        [
-                                            [
-                                                'calories_per_100g',
-                                                t('common.calories'),
-                                                'kcal',
-                                                0.01,
-                                                100000,
-                                            ],
-                                            [
-                                                'protein_per_100g',
-                                                t('common.protein'),
-                                                'g',
-                                                0,
-                                                10000,
-                                            ],
-                                            [
-                                                'carbohydrates_per_100g',
-                                                t('common.carbohydrates'),
-                                                'g',
-                                                0,
-                                                10000,
-                                            ],
-                                            [
-                                                'fat_per_100g',
-                                                t('common.fat'),
-                                                'g',
-                                                0,
-                                                10000,
-                                            ],
-                                            [
-                                                'fibre_per_100g',
-                                                t('common.fibre'),
-                                                'g',
-                                                0,
-                                                10000,
-                                            ],
-                                        ] as const
-                                    ).map(
-                                        ([
-                                            key,
-                                            label,
-                                            unit,
-                                            minimum,
-                                            maximum,
-                                        ]) => (
-                                            <Grid
-                                                key={key}
-                                                size={{
-                                                    xs: 6,
-                                                    sm: 4,
-                                                }}
-                                            >
-                                                <TextField
-                                                    required
-                                                    disabled={!estimate}
-                                                    fullWidth
-                                                    type="text"
-                                                    label={label}
-                                                    value={form.data[key]}
-                                                    error={Boolean(
-                                                        form.errors[key],
-                                                    )}
-                                                    helperText={
-                                                        form.errors[key]
-                                                    }
-                                                    slotProps={{
-                                                        input: {
-                                                            endAdornment: (
-                                                                <InputAdornment position="end">
-                                                                    {unit}
-                                                                </InputAdornment>
+                                            <Typography variant="body2">
+                                                {t(
+                                                    'diary.ai_total_summary',
+                                                    {
+                                                        calories:
+                                                            formatNumber(
+                                                                totals.calories,
+                                                                1,
                                                             ),
-                                                        },
-                                                        htmlInput: {
-                                                            inputMode:
-                                                                'decimal',
-                                                            min: minimum,
-                                                            max: maximum,
-                                                            step: 0.01,
-                                                        },
-                                                    }}
-                                                    onChange={(event) =>
-                                                        form.setData(
-                                                            key,
-                                                            numberValue(
-                                                                event.target
-                                                                    .value,
+                                                        protein:
+                                                            formatNumber(
+                                                                totals.protein,
+                                                                1,
                                                             ),
-                                                        )
-                                                    }
-                                                />
-                                            </Grid>
-                                        ),
-                                    )}
-                                </Grid>
-                                {estimate && (
-                                    <Alert severity="success">
-                                        <Typography variant="subtitle2">
-                                            {t(
-                                                'diary.ai_estimated_totals',
-                                                {
-                                                    weight: formatNumber(
-                                                        asNumber(
-                                                            form.data
-                                                                .weight_grams,
+                                                        carbs: formatNumber(
+                                                            totals.carbohydrates,
+                                                            1,
                                                         ),
-                                                        1,
-                                                    ),
-                                                },
-                                            )}
-                                        </Typography>
-                                        <Typography variant="body2">
-                                            {t(
-                                                'diary.ai_total_summary',
-                                                {
-                                                    calories: formatNumber(
-                                                        totals.calories,
-                                                        1,
-                                                    ),
-                                                    protein: formatNumber(
-                                                        totals.protein,
-                                                        1,
-                                                    ),
-                                                    carbs: formatNumber(
-                                                        totals.carbohydrates,
-                                                        1,
-                                                    ),
-                                                    fat: formatNumber(
-                                                        totals.fat,
-                                                        1,
-                                                    ),
-                                                    fibre: formatNumber(
-                                                        totals.fibre,
-                                                        1,
-                                                    ),
-                                                },
-                                            )}
-                                        </Typography>
-                                    </Alert>
-                                )}
-                                {estimate && (
+                                                        fat: formatNumber(
+                                                            totals.fat,
+                                                            1,
+                                                        ),
+                                                        fibre: formatNumber(
+                                                            totals.fibre,
+                                                            1,
+                                                        ),
+                                                    },
+                                                )}
+                                            </Typography>
+                                        </Alert>
+                                    )}
+
+                                    {saveError && (
+                                        <Alert severity="error">
+                                            {saveError}
+                                        </Alert>
+                                    )}
+
                                     <Stack
                                         direction={{
                                             xs: 'column-reverse',
@@ -823,7 +688,6 @@ export default function AiAddDiaryEntry({
                                         justifyContent="flex-end"
                                     >
                                         <Button
-                                            type="button"
                                             variant="outlined"
                                             startIcon={
                                                 estimating ? (
@@ -834,7 +698,11 @@ export default function AiAddDiaryEntry({
                                                     <AutoAwesomeRounded />
                                                 )
                                             }
-                                            disabled={estimating}
+                                            disabled={
+                                                estimating ||
+                                                processingImages ||
+                                                !canEstimate
+                                            }
                                             onClick={() =>
                                                 void estimateNutrition()
                                             }
@@ -848,21 +716,244 @@ export default function AiAddDiaryEntry({
                                                   )}
                                         </Button>
                                         <Button
-                                            type="submit"
                                             variant="contained"
                                             disabled={
-                                                form.processing || estimating
+                                                saving ||
+                                                estimating ||
+                                                entries.length === 0
                                             }
+                                            onClick={saveEntries}
                                         >
-                                            {t('diary.add_ai_entry')}
+                                            {saving
+                                                ? t(
+                                                      'diary.ai_meal_saving',
+                                                  )
+                                                : t(
+                                                      'diary.ai_meal_add_entries',
+                                                      {
+                                                          count: entries.length,
+                                                      },
+                                                  )}
                                         </Button>
                                     </Stack>
-                                )}
-                            </Stack>
+                                </Stack>
+                            )}
                         </CardContent>
                     </Card>
                 </Stack>
             </Box>
         </AppLayout>
+    );
+}
+
+function AiFoodEditor({
+    index,
+    entry,
+    onChange,
+    onRemove,
+}: {
+    index: number;
+    entry: AiFoodEntry;
+    onChange: <Key extends keyof AiFoodEntry>(
+        index: number,
+        key: Key,
+        value: AiFoodEntry[Key],
+    ) => void;
+    onRemove: (index: number) => void;
+}) {
+    const { t } = useTranslation();
+    const nutrients: Array<{
+        key: Exclude<NutritionKey, 'weight_grams'>;
+        label: string;
+        unit: string;
+        minimum: number;
+        maximum: number;
+    }> = [
+        {
+            key: 'calories_per_100g',
+            label: t('common.calories'),
+            unit: 'kcal',
+            minimum: 0.01,
+            maximum: 100000,
+        },
+        {
+            key: 'protein_per_100g',
+            label: t('common.protein'),
+            unit: 'g',
+            minimum: 0,
+            maximum: 10000,
+        },
+        {
+            key: 'carbohydrates_per_100g',
+            label: t('common.carbohydrates'),
+            unit: 'g',
+            minimum: 0,
+            maximum: 10000,
+        },
+        {
+            key: 'fat_per_100g',
+            label: t('common.fat'),
+            unit: 'g',
+            minimum: 0,
+            maximum: 10000,
+        },
+        {
+            key: 'fibre_per_100g',
+            label: t('common.fibre'),
+            unit: 'g',
+            minimum: 0,
+            maximum: 10000,
+        },
+    ];
+
+    return (
+        <Card variant="outlined">
+            <CardHeader
+                title={t('diary.ai_meal_entry_number', {
+                    number: index + 1,
+                })}
+                action={
+                    <IconButton
+                        color="error"
+                        aria-label={t('diary.ai_meal_remove_entry')}
+                        onClick={() => onRemove(index)}
+                    >
+                        <DeleteOutlineRounded />
+                    </IconButton>
+                }
+            />
+            <CardContent>
+                <Stack spacing={2}>
+                    <Grid container spacing={2}>
+                        <Grid size={{ xs: 8, sm: 9 }}>
+                            <TextField
+                                required
+                                fullWidth
+                                label={t('diary.ai_food_name')}
+                                value={entry.name}
+                                slotProps={{
+                                    htmlInput: { maxLength: 255 },
+                                }}
+                                onChange={(event) =>
+                                    onChange(
+                                        index,
+                                        'name',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 4, sm: 3 }}>
+                            <TextField
+                                required
+                                fullWidth
+                                type="text"
+                                label={t('diary.ai_total_amount')}
+                                value={entry.weight_grams}
+                                slotProps={{
+                                    input: {
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                g
+                                            </InputAdornment>
+                                        ),
+                                    },
+                                    htmlInput: {
+                                        inputMode: 'decimal',
+                                        min: 0.01,
+                                        max: 1000000,
+                                        step: 0.01,
+                                    },
+                                }}
+                                onChange={(event) =>
+                                    onChange(
+                                        index,
+                                        'weight_grams',
+                                        numberValue(
+                                            event.target.value,
+                                        ),
+                                    )
+                                }
+                            />
+                        </Grid>
+                    </Grid>
+
+                    <Divider>
+                        <Typography
+                            variant="caption"
+                            color="text.secondary"
+                        >
+                            {t('diary.ai_nutrition_per_100g')}
+                        </Typography>
+                    </Divider>
+
+                    <Grid container spacing={2}>
+                        {nutrients.map(
+                            ({
+                                key,
+                                label,
+                                unit,
+                                minimum,
+                                maximum,
+                            }) => (
+                                <Grid
+                                    key={key}
+                                    size={{ xs: 6, sm: 4 }}
+                                >
+                                    <TextField
+                                        required
+                                        fullWidth
+                                        type="text"
+                                        label={label}
+                                        value={entry[key]}
+                                        slotProps={{
+                                            input: {
+                                                endAdornment: (
+                                                    <InputAdornment position="end">
+                                                        {unit}
+                                                    </InputAdornment>
+                                                ),
+                                            },
+                                            htmlInput: {
+                                                inputMode: 'decimal',
+                                                min: minimum,
+                                                max: maximum,
+                                                step: 0.01,
+                                            },
+                                        }}
+                                        onChange={(event) =>
+                                            onChange(
+                                                index,
+                                                key,
+                                                numberValue(
+                                                    event.target.value,
+                                                ),
+                                            )
+                                        }
+                                    />
+                                </Grid>
+                            ),
+                        )}
+                    </Grid>
+
+                    <Alert severity="warning">
+                        <Typography variant="body2">
+                            {t('diary.ai_confidence', {
+                                confidence: t(
+                                    `diary.ai_confidence_${entry.confidence}`,
+                                ),
+                            })}
+                        </Typography>
+                        {entry.assumptions && (
+                            <Typography variant="body2">
+                                {t('diary.ai_assumptions', {
+                                    assumptions: entry.assumptions,
+                                })}
+                            </Typography>
+                        )}
+                    </Alert>
+                </Stack>
+            </CardContent>
+        </Card>
     );
 }

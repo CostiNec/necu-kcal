@@ -11,17 +11,7 @@ class OpenAiNutritionEstimator extends AbstractNutritionEstimator
 {
     /**
      * @param  array<int, UploadedFile>  $images
-     * @return array{
-     *     name: string,
-     *     weight_grams: float,
-     *     calories_per_100g: float,
-     *     protein_per_100g: float,
-     *     carbohydrates_per_100g: float,
-     *     fat_per_100g: float,
-     *     fibre_per_100g: float,
-     *     confidence: string,
-     *     assumptions: string
-     * }
+     * @return array{entries: array<int, array<string, float|string>>}
      */
     public function estimate(
         string $description,
@@ -34,7 +24,7 @@ class OpenAiNutritionEstimator extends AbstractNutritionEstimator
             $this->instructions($locale),
             $this->schema(),
             'nutrition_estimate',
-            2048,
+            4096,
             false
         );
     }

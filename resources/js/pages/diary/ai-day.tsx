@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import AddPhotoAlternateRounded from '@mui/icons-material/AddPhotoAlternateRounded';
 import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded';
+import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import PhotoCameraRounded from '@mui/icons-material/PhotoCameraRounded';
 import Alert from '@mui/material/Alert';
@@ -19,6 +20,8 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import dayjs, { type Dayjs } from 'dayjs';
 import {
     useEffect,
     useMemo,
@@ -87,6 +90,9 @@ export default function AiDayDiary({ date }: { date: string }) {
     const [estimating, setEstimating] = useState(false);
     const [processingImages, setProcessingImages] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<Dayjs | null>(
+        dayjs(date),
+    );
     const reviewRef = useRef<HTMLDivElement | null>(null);
     const previews = useMemo(
         () =>
@@ -103,6 +109,10 @@ export default function AiDayDiary({ date }: { date: string }) {
         },
         [previews],
     );
+
+    useEffect(() => {
+        setSelectedDate(dayjs(date));
+    }, [date]);
 
     useEffect(() => {
         if (!entries) {
@@ -379,6 +389,100 @@ export default function AiDayDiary({ date }: { date: string }) {
                         />
                         <CardContent>
                             <Stack spacing={2}>
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        flexDirection: {
+                                            xs: 'column',
+                                            sm: 'row',
+                                        },
+                                        alignItems: {
+                                            xs: 'stretch',
+                                            sm: 'center',
+                                        },
+                                        gap: 2,
+                                        p: 2,
+                                        borderRadius: 2,
+                                        bgcolor: 'action.hover',
+                                    }}
+                                >
+                                    <Box
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 1.5,
+                                            flex: 1,
+                                            minWidth: 0,
+                                        }}
+                                    >
+                                        <Box
+                                            sx={{
+                                                display: 'grid',
+                                                placeItems: 'center',
+                                                width: 40,
+                                                height: 40,
+                                                flexShrink: 0,
+                                                borderRadius: 1.5,
+                                                color: 'primary.main',
+                                                bgcolor: 'primary.lighter',
+                                            }}
+                                        >
+                                            <CalendarMonthRounded />
+                                        </Box>
+                                        <Box sx={{ minWidth: 0 }}>
+                                            <Typography variant="subtitle2">
+                                                {t('diary.ai_day_date_title')}
+                                            </Typography>
+                                            <Typography
+                                                variant="body2"
+                                                color="text.secondary"
+                                            >
+                                                {t('diary.ai_day_date_help')}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <DatePicker
+                                        label={t('diary.ai_day_date')}
+                                        format="DD.MM.YYYY"
+                                        value={selectedDate}
+                                        slotProps={{
+                                            textField: {
+                                                size: 'small',
+                                                fullWidth: true,
+                                                sx: {
+                                                    maxWidth: {
+                                                        sm: 220,
+                                                    },
+                                                    bgcolor:
+                                                        'background.paper',
+                                                },
+                                            },
+                                            actionBar: {
+                                                actions: [
+                                                    'today',
+                                                    'cancel',
+                                                    'accept',
+                                                ],
+                                            },
+                                        }}
+                                        onChange={setSelectedDate}
+                                        onAccept={(value) => {
+                                            if (!value?.isValid()) {
+                                                return;
+                                            }
+
+                                            const nextDate =
+                                                value.format('YYYY-MM-DD');
+
+                                            if (nextDate !== date) {
+                                                router.visit(
+                                                    `/diary/${nextDate}/ai-day`,
+                                                );
+                                            }
+                                        }}
+                                    />
+                                </Box>
+
                                 <TextField
                                     multiline
                                     minRows={4}

@@ -14,6 +14,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\RecipeCommentController;
 use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\RecipeReactionController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UserController;
@@ -74,6 +75,10 @@ Route::middleware('auth')->group(function () {
             '/recipes/{recipe}/comments/{comment}',
             [RecipeCommentController::class, 'update']
         )->name('recipes.comments.update');
+        Route::post(
+            '/recipes/{recipe}/reaction',
+            [RecipeReactionController::class, 'store']
+        )->name('recipes.reactions.store');
         Route::post('/recipes', [RecipeController::class, 'store'])
             ->name('recipes.store');
         Route::put('/recipes/{recipe}', [RecipeController::class, 'update'])

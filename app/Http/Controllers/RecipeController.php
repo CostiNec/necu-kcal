@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Food;
 use App\Models\Friendship;
 use App\Models\Recipe;
+use App\Models\RecipeReaction;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -104,6 +105,12 @@ class RecipeController extends Controller
     {
         abort_unless($recipe->isVisibleTo($request->user()), 404);
 
+        $recipe->loadCount([
+            'reactions as likes_count' => fn ($query) => $query
+                ->where('reaction', RecipeReaction::LIKE),
+            'reactions as dislikes_count' => fn ($query) => $query
+                ->where('reaction', RecipeReaction::DISLIKE),
+        ]);
         $recipe->load([
             'user:id,name,username',
             'ingredients.food.translation',
@@ -130,6 +137,12 @@ class RecipeController extends Controller
                     'username',
                 ]),
                 'is_owner' => $recipe->user_id === $request->user()->id,
+                'can_react' => $recipe->user_id !== $request->user()->id,
+                'viewer_reaction' => $recipe->reactions()
+                    ->where('user_id', $request->user()->id)
+                    ->value('reaction'),
+                'likes_count' => $recipe->likes_count,
+                'dislikes_count' => $recipe->dislikes_count,
                 'calories' => $this->perHundred(
                     $recipe->total_calories,
                     $recipe->cooked_weight

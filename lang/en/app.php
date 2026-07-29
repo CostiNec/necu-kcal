@@ -17,6 +17,7 @@ return [
     'ai_estimate_unavailable' => 'The nutrition estimate is unavailable right now. Try again in a moment.',
     'ai_input_required' => 'Describe the food or add at least one image.',
     'ai_entry_added' => 'AI-assisted diary entry added.',
+    'ai_entries_added' => 'AI-assisted foods added to the meal: :count.',
     'ai_day_images_too_large' => 'The combined images are too large. Remove a photo or try again.',
     'ai_day_entries_added' => 'AI-assisted foods added to the diary: :count.',
     'recipe_created' => 'Recipe created and added to your foods.',

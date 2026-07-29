@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react';
+import ChatBubbleOutlineRounded from '@mui/icons-material/ChatBubbleOutlineRounded';
 import CheckRounded from '@mui/icons-material/CheckRounded';
 import FavoriteBorderRounded from '@mui/icons-material/FavoriteBorderRounded';
 import FavoriteRounded from '@mui/icons-material/FavoriteRounded';
@@ -6,6 +7,7 @@ import HourglassTopRounded from '@mui/icons-material/HourglassTopRounded';
 import PersonAddAltRounded from '@mui/icons-material/PersonAddAltRounded';
 import PersonRemoveRounded from '@mui/icons-material/PersonRemoveRounded';
 import {
+    Avatar,
     Box,
     Button,
     Card,
@@ -14,6 +16,7 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
+    Divider,
     Grid,
     IconButton,
     Paper,
@@ -23,12 +26,16 @@ import {
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/layouts/app-layout';
+import {
+    RecipeReactions,
+    type RecipeReactionSummary,
+} from '@/components/recipe-reactions';
 import { ResponsiveDialog } from '@/components/responsive-dialog';
 import { formatNumber } from '@/lib/utils';
 
 type FriendshipState = 'self' | 'none' | 'outgoing' | 'incoming' | 'friends';
 
-type FriendRecipe = {
+type FriendRecipe = RecipeReactionSummary & {
     id: number;
     food_id: number | null;
     name: string;
@@ -44,6 +51,16 @@ type FriendRecipe = {
         name: string;
         amount: number;
         unit: string;
+    }[];
+    comments: {
+        id: number;
+        body: string;
+        created_at: string;
+        user: {
+            id: number;
+            name: string;
+            username: string;
+        };
     }[];
 };
 
@@ -264,7 +281,7 @@ function ProfileAction({
 }
 
 function RecipeCard({ recipe }: { recipe: FriendRecipe }) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [usingRecipe, setUsingRecipe] = useState(false);
     const ingredientsByAmount = [...recipe.ingredients].sort(
         (first, second) => second.amount - first.amount,
@@ -407,6 +424,28 @@ function RecipeCard({ recipe }: { recipe: FriendRecipe }) {
                     </Typography>
                     <Stack
                         direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        spacing={1}
+                    >
+                        <RecipeReactions
+                            recipeId={recipe.id}
+                            reaction={recipe}
+                        />
+                        <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={0.5}
+                            color="text.secondary"
+                        >
+                            <ChatBubbleOutlineRounded fontSize="small" />
+                            <Typography variant="body2">
+                                {recipe.comments.length}
+                            </Typography>
+                        </Stack>
+                    </Stack>
+                    <Stack
+                        direction="row"
                         flexWrap="wrap"
                         gap={0.75}
                         sx={{
@@ -425,6 +464,71 @@ function RecipeCard({ recipe }: { recipe: FriendRecipe }) {
                                 )} ${ingredient.unit}`}
                             />
                         ))}
+                    </Stack>
+                    <Divider />
+                    <Stack spacing={1.25}>
+                        <Typography variant="subtitle2">
+                            {t('recipe.comments', {
+                                count: recipe.comments.length,
+                            })}
+                        </Typography>
+                        {recipe.comments.length === 0 ? (
+                            <Typography
+                                variant="body2"
+                                color="text.secondary"
+                            >
+                                {t('recipe.no_comments_profile')}
+                            </Typography>
+                        ) : (
+                            recipe.comments.map((comment) => (
+                                <Stack
+                                    key={comment.id}
+                                    direction="row"
+                                    alignItems="flex-start"
+                                    spacing={1}
+                                >
+                                    <Avatar
+                                        sx={{
+                                            width: 30,
+                                            height: 30,
+                                            fontSize: 12,
+                                        }}
+                                    >
+                                        {comment.user.name
+                                            .slice(0, 1)
+                                            .toUpperCase()}
+                                    </Avatar>
+                                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                                        <Typography variant="caption">
+                                            <Box
+                                                component="span"
+                                                sx={{ fontWeight: 700 }}
+                                            >
+                                                @{comment.user.username}
+                                            </Box>{' '}
+                                            ·{' '}
+                                            {new Intl.DateTimeFormat(
+                                                i18n.language,
+                                                {
+                                                    dateStyle: 'medium',
+                                                },
+                                            ).format(
+                                                new Date(comment.created_at),
+                                            )}
+                                        </Typography>
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                whiteSpace: 'pre-wrap',
+                                                overflowWrap: 'anywhere',
+                                            }}
+                                        >
+                                            {comment.body}
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+                            ))
+                        )}
                     </Stack>
                     <Button
                         variant="soft"

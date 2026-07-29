@@ -399,6 +399,95 @@ class SocialFeaturesTest extends TestCase
         $this->assertDatabaseCount('recipe_comments', 0);
     }
 
+    public function test_friends_can_like_or_dislike_other_users_recipes(): void
+    {
+        $owner = $this->onboardedUser(['username' => 'chef']);
+        $friend = $this->onboardedUser(['username' => 'friend']);
+        $otherFriend = $this->onboardedUser(['username' => 'other_friend']);
+        $stranger = $this->onboardedUser(['username' => 'stranger']);
+        [$recipe] = $this->recipeFor($owner);
+        $this->acceptedFriendship($owner, $friend);
+        $this->acceptedFriendship($owner, $otherFriend);
+        $recipe->comments()->create([
+            'user_id' => $otherFriend->id,
+            'body' => 'Visible from the profile.',
+        ]);
+
+        $this->actingAs($owner)
+            ->post("/recipes/{$recipe->id}/reaction", [
+                'reaction' => 'like',
+            ])
+            ->assertForbidden();
+        $this->actingAs($stranger)
+            ->post("/recipes/{$recipe->id}/reaction", [
+                'reaction' => 'like',
+            ])
+            ->assertNotFound();
+
+        $this->actingAs($friend)
+            ->post("/recipes/{$recipe->id}/reaction", [
+                'reaction' => 'like',
+            ])
+            ->assertRedirect();
+        $this->actingAs($otherFriend)
+            ->post("/recipes/{$recipe->id}/reaction", [
+                'reaction' => 'dislike',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('recipe_reactions', [
+            'recipe_id' => $recipe->id,
+            'user_id' => $friend->id,
+            'reaction' => 'like',
+        ]);
+
+        $this->actingAs($friend)
+            ->get("/recipes/{$recipe->id}")
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('recipe.can_react', true)
+                ->where('recipe.viewer_reaction', 'like')
+                ->where('recipe.likes_count', 1)
+                ->where('recipe.dislikes_count', 1)
+            );
+        $this->actingAs($friend)
+            ->get("/users/{$owner->username}")
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('recipes.0.can_react', true)
+                ->where('recipes.0.viewer_reaction', 'like')
+                ->where('recipes.0.likes_count', 1)
+                ->where('recipes.0.dislikes_count', 1)
+                ->has('recipes.0.comments', 1)
+                ->where(
+                    'recipes.0.comments.0.body',
+                    'Visible from the profile.'
+                )
+                ->where(
+                    'recipes.0.comments.0.user.username',
+                    'other_friend'
+                )
+            );
+
+        $this->actingAs($friend)
+            ->post("/recipes/{$recipe->id}/reaction", [
+                'reaction' => 'dislike',
+            ]);
+        $this->assertDatabaseHas('recipe_reactions', [
+            'recipe_id' => $recipe->id,
+            'user_id' => $friend->id,
+            'reaction' => 'dislike',
+        ]);
+        $this->assertDatabaseCount('recipe_reactions', 2);
+
+        $this->actingAs($friend)
+            ->post("/recipes/{$recipe->id}/reaction", [
+                'reaction' => 'dislike',
+            ]);
+        $this->assertDatabaseMissing('recipe_reactions', [
+            'recipe_id' => $recipe->id,
+            'user_id' => $friend->id,
+        ]);
+    }
+
     public function test_only_the_recipient_can_accept_a_friend_request(): void
     {
         $sender = $this->onboardedUser(['username' => 'sender']);

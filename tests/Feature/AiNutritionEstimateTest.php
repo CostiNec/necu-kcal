@@ -25,10 +25,11 @@ class AiNutritionEstimateTest extends TestCase
                 'description' => '2 eggs, toast with butter and a small latte',
             ])
             ->assertOk()
-            ->assertJsonPath('estimate.name', 'Eggs, toast and latte')
-            ->assertJsonPath('estimate.weight_grams', 420)
-            ->assertJsonPath('estimate.calories_per_100g', 145)
-            ->assertJsonPath('estimate.confidence', 'medium');
+            ->assertJsonCount(3, 'estimate.entries')
+            ->assertJsonPath('estimate.entries.0.name', 'Scrambled eggs')
+            ->assertJsonPath('estimate.entries.1.name', 'Buttered toast')
+            ->assertJsonPath('estimate.entries.2.name', 'Small latte')
+            ->assertJsonPath('estimate.entries.0.confidence', 'medium');
 
         Http::assertSent(function (Request $request): bool {
             $payload = $request->data();
@@ -40,10 +41,15 @@ class AiNutritionEstimateTest extends TestCase
                     === 'application/json'
                 && $payload['generationConfig']['responseJsonSchema']['type']
                     === 'object'
-                && $payload['generationConfig']['maxOutputTokens'] === 2048
+                && $payload['generationConfig']['responseJsonSchema']['properties']['entries']['type'] === 'array'
+                && $payload['generationConfig']['maxOutputTokens'] === 4096
                 && str_contains(
                     $payload['contents'][0]['parts'][0]['text'],
                     '2 eggs, toast with butter and a small latte'
+                )
+                && str_contains(
+                    $payload['contents'][0]['parts'][0]['text'],
+                    'Return one entry for each distinct food or drink'
                 );
         });
     }
@@ -62,7 +68,7 @@ class AiNutritionEstimateTest extends TestCase
                 'images' => $images,
             ], ['Accept' => 'application/json'])
             ->assertOk()
-            ->assertJsonPath('estimate.weight_grams', 420);
+            ->assertJsonPath('estimate.entries.0.weight_grams', 120);
 
         Http::assertSent(function (Request $request): bool {
             $content = $request->data()['contents'][0]['parts'];
@@ -92,7 +98,7 @@ class AiNutritionEstimateTest extends TestCase
                 'description' => 'A bowl of oatmeal',
             ])
             ->assertOk()
-            ->assertJsonPath('estimate.name', 'Eggs, toast and latte');
+            ->assertJsonPath('estimate.entries.0.name', 'Scrambled eggs');
 
         Http::assertSent(function (Request $request): bool {
             $payload = $request->data();
@@ -194,7 +200,7 @@ class AiNutritionEstimateTest extends TestCase
                 'description' => 'A bowl of oatmeal',
             ])
             ->assertOk()
-            ->assertJsonPath('estimate.name', 'Eggs, toast and latte');
+            ->assertJsonPath('estimate.entries.0.name', 'Scrambled eggs');
 
         $keys = Http::recorded()->map(
             fn (array $pair): string => $pair[0]
@@ -248,31 +254,45 @@ class AiNutritionEstimateTest extends TestCase
             );
     }
 
-    public function test_user_can_store_reviewed_per_100g_ai_values(): void
+    public function test_user_can_store_multiple_reviewed_foods_for_a_meal(): void
     {
         $this->actingAs($this->onboardedUser())
             ->post('/diary-entries/ai', [
                 'date' => '2026-07-28',
                 'meal' => 'dinner',
-                'name' => 'Chicken and rice',
-                'weight_grams' => 350,
-                'calories_per_100g' => 160,
-                'protein_per_100g' => 12,
-                'carbohydrates_per_100g' => 18,
-                'fat_per_100g' => 4,
-                'fibre_per_100g' => 2,
+                'entries' => [
+                    [
+                        'name' => 'Chicken',
+                        'weight_grams' => 200,
+                        'calories_per_100g' => 165,
+                        'protein_per_100g' => 31,
+                        'carbohydrates_per_100g' => 0,
+                        'fat_per_100g' => 3.6,
+                        'fibre_per_100g' => 0,
+                    ],
+                    [
+                        'name' => 'Rice',
+                        'weight_grams' => 150,
+                        'calories_per_100g' => 130,
+                        'protein_per_100g' => 2.7,
+                        'carbohydrates_per_100g' => 28,
+                        'fat_per_100g' => 0.3,
+                        'fibre_per_100g' => 0.4,
+                    ],
+                ],
             ])
             ->assertRedirect('/diary/2026-07-28?focus_meal=dinner');
 
-        $entry = DiaryDay::firstOrFail()->entries()->firstOrFail();
+        $entries = DiaryDay::firstOrFail()->entries()
+            ->orderBy('position')
+            ->get();
 
-        $this->assertSame('Chicken and rice', $entry->food_name);
-        $this->assertSame(350.0, $entry->total_grams);
-        $this->assertSame(560.0, $entry->calories);
-        $this->assertSame(42.0, $entry->protein);
-        $this->assertSame(63.0, $entry->carbohydrates);
-        $this->assertSame(14.0, $entry->fat);
-        $this->assertSame(7.0, $entry->fibre);
+        $this->assertCount(2, $entries);
+        $this->assertSame(['Chicken', 'Rice'], $entries
+            ->pluck('food_name')->all());
+        $this->assertSame([1, 2], $entries->pluck('position')->all());
+        $this->assertSame(330.0, $entries[0]->calories);
+        $this->assertSame(195.0, $entries[1]->calories);
     }
 
     public function test_the_estimate_requires_authentication(): void
@@ -379,21 +399,45 @@ class AiNutritionEstimateTest extends TestCase
         ]);
     }
 
-    /**
-     * @return array<string, int|float|string>
-     */
+    /** @return array{entries: array<int, array<string, int|float|string>>} */
     private function estimatePayload(): array
     {
         return [
-            'name' => 'Eggs, toast and latte',
-            'weight_grams' => 420,
-            'calories_per_100g' => 145,
-            'protein_per_100g' => 6.7,
-            'carbohydrates_per_100g' => 12.9,
-            'fat_per_100g' => 7.4,
-            'fibre_per_100g' => 1.2,
-            'confidence' => 'medium',
-            'assumptions' => 'Two eggs and a small latte.',
+            'entries' => [
+                [
+                    'name' => 'Scrambled eggs',
+                    'weight_grams' => 120,
+                    'calories_per_100g' => 149,
+                    'protein_per_100g' => 10,
+                    'carbohydrates_per_100g' => 1.6,
+                    'fat_per_100g' => 11,
+                    'fibre_per_100g' => 0,
+                    'confidence' => 'medium',
+                    'assumptions' => 'Two large eggs.',
+                ],
+                [
+                    'name' => 'Buttered toast',
+                    'weight_grams' => 90,
+                    'calories_per_100g' => 320,
+                    'protein_per_100g' => 8,
+                    'carbohydrates_per_100g' => 42,
+                    'fat_per_100g' => 13,
+                    'fibre_per_100g' => 3,
+                    'confidence' => 'medium',
+                    'assumptions' => 'Two slices with butter.',
+                ],
+                [
+                    'name' => 'Small latte',
+                    'weight_grams' => 210,
+                    'calories_per_100g' => 52,
+                    'protein_per_100g' => 3.1,
+                    'carbohydrates_per_100g' => 4.8,
+                    'fat_per_100g' => 2.1,
+                    'fibre_per_100g' => 0,
+                    'confidence' => 'medium',
+                    'assumptions' => 'Made with dairy milk.',
+                ],
+            ],
         ];
     }
 

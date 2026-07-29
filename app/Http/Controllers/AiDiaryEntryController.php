@@ -6,6 +6,7 @@ use App\Models\DiaryDay;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,38 +38,39 @@ class AiDiaryEntryController extends Controller
         $validated = $request->validate([
             'date' => ['required', 'date_format:Y-m-d'],
             'meal' => ['required', 'in:breakfast,lunch,dinner,snacks'],
-            'name' => ['required', 'string', 'max:255'],
-            'weight_grams' => [
+            'entries' => ['required', 'array', 'min:1', 'max:15'],
+            'entries.*.name' => ['required', 'string', 'max:255'],
+            'entries.*.weight_grams' => [
                 'required',
                 'numeric',
                 'min:0.01',
                 'max:1000000',
             ],
-            'calories_per_100g' => [
+            'entries.*.calories_per_100g' => [
                 'required',
                 'numeric',
                 'min:0.01',
                 'max:100000',
             ],
-            'protein_per_100g' => [
+            'entries.*.protein_per_100g' => [
                 'required',
                 'numeric',
                 'min:0',
                 'max:10000',
             ],
-            'carbohydrates_per_100g' => [
+            'entries.*.carbohydrates_per_100g' => [
                 'required',
                 'numeric',
                 'min:0',
                 'max:10000',
             ],
-            'fat_per_100g' => [
+            'entries.*.fat_per_100g' => [
                 'required',
                 'numeric',
                 'min:0',
                 'max:10000',
             ],
-            'fibre_per_100g' => [
+            'entries.*.fibre_per_100g' => [
                 'required',
                 'numeric',
                 'min:0',
@@ -76,57 +78,66 @@ class AiDiaryEntryController extends Controller
             ],
         ]);
 
-        $date = CarbonImmutable::createFromFormat(
-            'Y-m-d',
-            $validated['date']
-        )->startOfDay();
-        $day = DiaryDay::firstOrCreate([
-            'user_id' => $request->user()->id,
-            'date' => $date,
-        ]);
-        $weight = (float) $validated['weight_grams'];
-        $factor = $weight / 100;
-
-        $day->entries()->create([
-            'food_id' => null,
-            'meal' => $validated['meal'],
-            'food_name' => trim($validated['name']),
-            'brand' => null,
-            'unit' => 'g',
-            'quantity' => 1,
-            'amount' => $weight,
-            'total_grams' => $weight,
-            'total_milliliters' => null,
-            'calories' => round(
-                (float) $validated['calories_per_100g'] * $factor,
-                2
-            ),
-            'protein' => round(
-                (float) $validated['protein_per_100g'] * $factor,
-                2
-            ),
-            'carbohydrates' => round(
-                (float) $validated['carbohydrates_per_100g'] * $factor,
-                2
-            ),
-            'fat' => round(
-                (float) $validated['fat_per_100g'] * $factor,
-                2
-            ),
-            'fibre' => round(
-                (float) $validated['fibre_per_100g'] * $factor,
-                2
-            ),
-            'position' => (int) $day->entries()
+        DB::transaction(function () use ($request, $validated): void {
+            $date = CarbonImmutable::createFromFormat(
+                'Y-m-d',
+                $validated['date']
+            )->startOfDay();
+            $day = DiaryDay::firstOrCreate([
+                'user_id' => $request->user()->id,
+                'date' => $date,
+            ]);
+            $position = (int) $day->entries()
                 ->where('meal', $validated['meal'])
-                ->max('position') + 1,
-        ]);
+                ->max('position');
+
+            foreach ($validated['entries'] as $entry) {
+                $weight = (float) $entry['weight_grams'];
+                $factor = $weight / 100;
+                $position++;
+
+                $day->entries()->create([
+                    'food_id' => null,
+                    'meal' => $validated['meal'],
+                    'food_name' => trim($entry['name']),
+                    'brand' => null,
+                    'unit' => 'g',
+                    'quantity' => 1,
+                    'amount' => $weight,
+                    'total_grams' => $weight,
+                    'total_milliliters' => null,
+                    'calories' => round(
+                        (float) $entry['calories_per_100g'] * $factor,
+                        2
+                    ),
+                    'protein' => round(
+                        (float) $entry['protein_per_100g'] * $factor,
+                        2
+                    ),
+                    'carbohydrates' => round(
+                        (float) $entry['carbohydrates_per_100g'] * $factor,
+                        2
+                    ),
+                    'fat' => round(
+                        (float) $entry['fat_per_100g'] * $factor,
+                        2
+                    ),
+                    'fibre' => round(
+                        (float) $entry['fibre_per_100g'] * $factor,
+                        2
+                    ),
+                    'position' => $position,
+                ]);
+            }
+        });
 
         return redirect()
             ->route('diary.show', [
                 'date' => $validated['date'],
                 'focus_meal' => $validated['meal'],
             ])
-            ->with('success', __('app.ai_entry_added'));
+            ->with('success', __('app.ai_entries_added', [
+                'count' => count($validated['entries']),
+            ]));
     }
 }

@@ -52,6 +52,11 @@ class Recipe extends Model
         return $this->hasMany(RecipeComment::class);
     }
 
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(RecipeReaction::class);
+    }
+
     public function isVisibleTo(User $user): bool
     {
         return $this->user_id === $user->id

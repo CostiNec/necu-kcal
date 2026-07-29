@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Friendship;
 use App\Models\Recipe;
+use App\Models\RecipeReaction;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -105,12 +106,26 @@ class UserController extends Controller
             ->pluck('food_id');
         $recipes = $canViewRecipes
             ? $user->recipes()
-                ->with('ingredients.food.translation')
+                ->with([
+                    'ingredients.food.translation',
+                    'comments' => fn ($query) => $query
+                        ->with('user:id,name,username')
+                        ->oldest(),
+                    'reactions' => fn ($query) => $query
+                        ->where('user_id', $currentUser->id),
+                ])
+                ->withCount([
+                    'reactions as likes_count' => fn ($query) => $query
+                        ->where('reaction', RecipeReaction::LIKE),
+                    'reactions as dislikes_count' => fn ($query) => $query
+                        ->where('reaction', RecipeReaction::DISLIKE),
+                ])
                 ->latest()
                 ->get()
                 ->map(fn (Recipe $recipe) => $this->recipePayload(
                     $recipe,
-                    $favouriteIds->contains($recipe->food_id)
+                    $favouriteIds->contains($recipe->food_id),
+                    $currentUser
                 ))
             : collect();
 
@@ -156,8 +171,11 @@ class UserController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function recipePayload(Recipe $recipe, bool $isFavourite): array
-    {
+    private function recipePayload(
+        Recipe $recipe,
+        bool $isFavourite,
+        User $currentUser
+    ): array {
         $weight = max($recipe->cooked_weight, 0.001);
 
         return [
@@ -176,12 +194,26 @@ class UserController extends Controller
             'fat' => round($recipe->total_fat / $weight * 100, 2),
             'fibre' => round($recipe->total_fibre / $weight * 100, 2),
             'is_favourite' => $isFavourite,
+            'can_react' => $recipe->user_id !== $currentUser->id,
+            'viewer_reaction' => $recipe->reactions->first()?->reaction,
+            'likes_count' => $recipe->likes_count,
+            'dislikes_count' => $recipe->dislikes_count,
             'ingredients' => $recipe->ingredients->map(fn ($ingredient) => [
                 'id' => $ingredient->id,
                 'name' => $ingredient->food?->localizedName()
                     ?? $ingredient->food_name,
                 'amount' => $ingredient->amount,
                 'unit' => $ingredient->unit,
+            ])->values(),
+            'comments' => $recipe->comments->map(fn ($comment) => [
+                'id' => $comment->id,
+                'body' => $comment->body,
+                'created_at' => $comment->created_at->toIso8601String(),
+                'user' => $comment->user->only([
+                    'id',
+                    'name',
+                    'username',
+                ]),
             ])->values(),
         ];
     }

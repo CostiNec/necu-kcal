@@ -11,15 +11,16 @@ abstract class AbstractNutritionEstimator implements NutritionEstimator
         return <<<PROMPT
 You estimate food weight and nutrition density for a food diary from text and up to two photos.
 Photos may show the same food from different angles or show a package label; never double-count food merely because it appears in multiple photos.
-Estimate the total edible weight consumed in grams.
-Return calories in kcal per 100 g and protein, carbohydrates, fat, and fibre in grams per 100 g for the combined food or meal.
-Use a weighted-average nutrition density when the meal contains multiple foods.
+Return one entry for each distinct food or drink consumed. Split a meal into separate entries whenever its components can reasonably have their own portion and nutrition estimate; for example, eggs, buttered toast, and a latte should be three entries.
+Keep a composed dish as one entry when its ingredients are mixed together or their individual portions cannot be estimated reliably. Do not split a sandwich, soup, stew, sauce, or similar composed dish into invisible ingredients.
+For every entry, estimate the total edible weight consumed in grams.
+Return calories in kcal per 100 g and protein, carbohydrates, fat, and fibre in grams per 100 g.
 Use package nutrition labels when they are legible. Otherwise use typical portions and common preparation methods when details are missing.
 All numeric values must be non-negative. Calories per 100 g and total weight must be greater than zero.
 Use a short food name in the same language as the user's description.
-State important portion or preparation assumptions briefly.
-Confidence must reflect how precisely the description identifies foods and quantities.
-Do not provide health or medical advice. The application's locale is {$locale}.
+State important portion or preparation assumptions briefly for each entry.
+Confidence must reflect how precisely each food and quantity was identified.
+Return no more than 15 entries. Do not provide health or medical advice. The application's locale is {$locale}.
 PROMPT;
     }
 
@@ -48,8 +49,18 @@ PROMPT;
         return [
             'type' => 'object',
             'additionalProperties' => false,
-            'properties' => $this->estimateProperties(),
-            'required' => $this->estimateRequiredProperties(),
+            'properties' => [
+                'entries' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'properties' => $this->estimateProperties(),
+                        'required' => $this->estimateRequiredProperties(),
+                    ],
+                ],
+            ],
+            'required' => ['entries'],
         ];
     }
 
@@ -91,29 +102,36 @@ PROMPT;
     }
 
     /**
-     * @return array{
-     *     name: string,
-     *     weight_grams: float,
-     *     calories_per_100g: float,
-     *     protein_per_100g: float,
-     *     carbohydrates_per_100g: float,
-     *     fat_per_100g: float,
-     *     fibre_per_100g: float,
-     *     confidence: string,
-     *     assumptions: string
-     * }
+     * @return array{entries: array<int, array<string, float|string>>}
      */
     protected function validatedEstimate(string $output): array
     {
         $estimate = json_decode($output, true);
+        $entries = is_array($estimate) ? ($estimate['entries'] ?? null) : null;
 
-        if (! is_array($estimate)) {
+        if (
+            ! is_array($entries)
+            || $entries === []
+            || count($entries) > 15
+        ) {
             throw new RuntimeException(
-                'The AI provider returned invalid JSON.'
+                'The AI provider returned an invalid meal estimate.'
             );
         }
 
-        return $this->validatedEstimateData($estimate);
+        $validated = [];
+
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                throw new RuntimeException(
+                    'The AI provider returned an invalid meal entry.'
+                );
+            }
+
+            $validated[] = $this->validatedEstimateData($entry);
+        }
+
+        return ['entries' => $validated];
     }
 
     /**

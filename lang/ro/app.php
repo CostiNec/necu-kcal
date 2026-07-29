@@ -17,6 +17,7 @@ return [
     'ai_estimate_unavailable' => 'Estimarea nutrițională nu este disponibilă momentan. Încearcă din nou peste câteva clipe.',
     'ai_input_required' => 'Descrie mâncarea sau adaugă cel puțin o imagine.',
     'ai_entry_added' => 'Înregistrarea asistată de AI a fost adăugată.',
+    'ai_entries_added' => 'Alimente asistate de AI adăugate la masă: :count.',
     'ai_day_images_too_large' => 'Imaginile sunt prea mari împreună. Șterge o fotografie sau încearcă din nou.',
     'ai_day_entries_added' => 'Alimente asistate de AI adăugate în jurnal: :count.',
     'recipe_created' => 'Rețeta a fost creată și adăugată în alimentele tale.',
