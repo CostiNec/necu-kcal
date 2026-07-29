@@ -30,7 +30,7 @@ class WeightTrackingTest extends TestCase
             ->from('/weight')
             ->post('/weight', [
                 'date' => $today,
-                'weight' => 80.9,
+                'weight' => '80.95',
                 'note' => 'After training',
             ])
             ->assertRedirect('/weight');
@@ -39,7 +39,7 @@ class WeightTrackingTest extends TestCase
         $this->assertDatabaseHas('weight_logs', [
             'user_id' => $user->id,
             'date' => $today,
-            'weight_kg' => 80.9,
+            'weight_kg' => 80.95,
             'note' => 'After training',
         ]);
     }
