@@ -30,10 +30,10 @@ import {
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/layouts/app-layout';
 import { optimizeImageForUpload } from '@/lib/ai-image-upload';
-import { formatDate, formatNumber } from '@/lib/utils';
+import { formatDate, formatNumber, parseNumberInput } from '@/lib/utils';
 
 type MealKey = 'breakfast' | 'lunch' | 'dinner' | 'snacks';
-type NumberValue = number | '';
+type NumberValue = number | string;
 type NutritionKey =
     | 'weight_grams'
     | 'calories_per_100g'
@@ -74,7 +74,7 @@ const asNumber = (value: NumberValue): number =>
     value === '' ? 0 : Number(value);
 
 const numberValue = (value: string): NumberValue =>
-    value === '' ? '' : Number(value);
+    parseNumberInput(value);
 
 export default function AiDayDiary({ date }: { date: string }) {
     const { t } = useTranslation();
@@ -875,7 +875,7 @@ function DayEntryEditor({
                             <TextField
                                 required
                                 fullWidth
-                                type="number"
+                                type="text"
                                 label={t('diary.ai_total_amount')}
                                 value={entry.weight_grams}
                                 slotProps={{
@@ -887,6 +887,7 @@ function DayEntryEditor({
                                         ),
                                     },
                                     htmlInput: {
+                                        inputMode: 'decimal',
                                         min: 0.01,
                                         max: 1000000,
                                         step: 0.01,
@@ -930,7 +931,7 @@ function DayEntryEditor({
                                     <TextField
                                         required
                                         fullWidth
-                                        type="number"
+                                        type="text"
                                         label={label}
                                         value={entry[key]}
                                         slotProps={{
@@ -942,6 +943,7 @@ function DayEntryEditor({
                                                 ),
                                             },
                                             htmlInput: {
+                                                inputMode: 'decimal',
                                                 min: minimum,
                                                 max: maximum,
                                                 step: 0.01,

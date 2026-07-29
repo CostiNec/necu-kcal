@@ -184,7 +184,7 @@ function TargetInput({
         <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
                 label={label}
-                type="number"
+                type="text"
                 value={value}
                 onChange={(event) =>
                     onChange(parseNumberInput(event.target.value))
@@ -192,7 +192,7 @@ function TargetInput({
                 error={Boolean(error)}
                 helperText={error}
                 slotProps={{
-                    htmlInput: { min: 0 },
+                    htmlInput: { inputMode: 'decimal', min: 0 },
                     input: {
                         endAdornment: (
                             <InputAdornment position="end">{suffix}</InputAdornment>

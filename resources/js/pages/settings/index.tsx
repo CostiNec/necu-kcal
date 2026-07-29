@@ -142,7 +142,7 @@ export default function SettingsIndex({
                                             <TextField
                                                 fullWidth
                                                 label={label}
-                                                type="number"
+                                                type="text"
                                                 value={targetForm.data[key]}
                                                 error={Boolean(
                                                     targetForm.errors[key],
@@ -151,7 +151,10 @@ export default function SettingsIndex({
                                                     targetForm.errors[key]
                                                 }
                                                 slotProps={{
-                                                    htmlInput: { min: 0 },
+                                                    htmlInput: {
+                                                        inputMode: 'decimal',
+                                                        min: 0,
+                                                    },
                                                 }}
                                                 onChange={(event) =>
                                                     targetForm.setData(

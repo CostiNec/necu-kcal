@@ -916,9 +916,15 @@ function FoodRow({
                     </TextField>
                     <TextField
                         label={t('common.amount')}
-                        type="number"
+                        type="text"
                         value={form.data.amount}
-                        slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }}
+                        slotProps={{
+                            htmlInput: {
+                                inputMode: 'decimal',
+                                min: 0.01,
+                                step: 0.01,
+                            },
+                        }}
                         onChange={(event) =>
                             form.setData(
                                 'amount',
@@ -928,9 +934,15 @@ function FoodRow({
                     />
                     <TextField
                         label={t('common.quantity')}
-                        type="number"
+                        type="text"
                         value={form.data.quantity}
-                        slotProps={{ htmlInput: { min: 0.25, step: 0.25 } }}
+                        slotProps={{
+                            htmlInput: {
+                                inputMode: 'decimal',
+                                min: 0.25,
+                                step: 0.25,
+                            },
+                        }}
                         onChange={(event) =>
                             form.setData(
                                 'quantity',
@@ -1070,7 +1082,7 @@ function CreateFoodForm({
                             <TextField
                                 fullWidth
                                 required
-                                type="number"
+                                type="text"
                                 label={t('food.nutrition_basis_amount')}
                                 value={form.data.nutrition_basis_amount}
                                 error={Boolean(
@@ -1080,7 +1092,11 @@ function CreateFoodForm({
                                     form.errors.nutrition_basis_amount
                                 }
                                 slotProps={{
-                                    htmlInput: { min: 0.01, step: 0.01 },
+                                    htmlInput: {
+                                        inputMode: 'decimal',
+                                        min: 0.01,
+                                        step: 0.01,
+                                    },
                                 }}
                                 onChange={(event) =>
                                     form.setData(
@@ -1122,12 +1138,16 @@ function CreateFoodForm({
                                 <TextField
                                     fullWidth
                                     label={label}
-                                    type="number"
+                                    type="text"
                                     value={form.data[key]}
                                     error={Boolean(form.errors[key])}
                                     helperText={form.errors[key]}
                                     slotProps={{
-                                        htmlInput: { min: 0, step: 0.01 },
+                                        htmlInput: {
+                                            inputMode: 'decimal',
+                                            min: 0,
+                                            step: 0.01,
+                                        },
                                     }}
                                     onChange={(event) =>
                                         form.setData(

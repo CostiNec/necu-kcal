@@ -30,10 +30,10 @@ import {
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/layouts/app-layout';
 import { optimizeImageForUpload } from '@/lib/ai-image-upload';
-import { formatDate, formatNumber } from '@/lib/utils';
+import { formatDate, formatNumber, parseNumberInput } from '@/lib/utils';
 
 type MealKey = 'breakfast' | 'lunch' | 'dinner' | 'snacks';
-type NumberValue = number | '';
+type NumberValue = number | string;
 
 type AiNutritionEstimate = {
     name: string;
@@ -134,7 +134,7 @@ export default function AiAddDiaryEntry({
     const asNumber = (value: NumberValue): number =>
         value === '' ? 0 : Number(value);
     const numberValue = (value: string): NumberValue =>
-        value === '' ? '' : Number(value);
+        parseNumberInput(value);
     const factor = asNumber(form.data.weight_grams) / 100;
     const totals = {
         calories: asNumber(form.data.calories_per_100g) * factor,
@@ -625,7 +625,7 @@ export default function AiAddDiaryEntry({
                                             required
                                             disabled={!estimate}
                                             fullWidth
-                                            type="number"
+                                            type="text"
                                             label={t(
                                                 'diary.ai_total_amount',
                                             )}
@@ -645,6 +645,7 @@ export default function AiAddDiaryEntry({
                                                     ),
                                                 },
                                                 htmlInput: {
+                                                    inputMode: 'decimal',
                                                     min: 0.01,
                                                     max: 1000000,
                                                     step: 0.01,
@@ -728,7 +729,7 @@ export default function AiAddDiaryEntry({
                                                     required
                                                     disabled={!estimate}
                                                     fullWidth
-                                                    type="number"
+                                                    type="text"
                                                     label={label}
                                                     value={form.data[key]}
                                                     error={Boolean(
@@ -746,6 +747,8 @@ export default function AiAddDiaryEntry({
                                                             ),
                                                         },
                                                         htmlInput: {
+                                                            inputMode:
+                                                                'decimal',
                                                             min: minimum,
                                                             max: maximum,
                                                             step: 0.01,

@@ -51,7 +51,7 @@ import {
     YAxis,
 } from 'recharts';
 import { AppLayout } from '@/layouts/app-layout';
-import { formatDate, formatNumber } from '@/lib/utils';
+import { formatDate, formatNumber, parseNumberInput } from '@/lib/utils';
 
 type WeightEntry = {
     id: number;
@@ -344,7 +344,9 @@ export default function WeightIndex({
                                         onChange={(event) =>
                                             form.setData(
                                                 'weight',
-                                                event.target.value,
+                                                parseNumberInput(
+                                                    event.target.value,
+                                                ),
                                             )
                                         }
                                     />

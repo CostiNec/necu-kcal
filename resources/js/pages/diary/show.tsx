@@ -514,11 +514,11 @@ function QuickEntryDialog({
         date: string;
         meal: MealKey;
         name: string;
-        calories: number | '';
-        protein: number | '';
-        carbohydrates: number | '';
-        fat: number | '';
-        fibre: number | '';
+        calories: NumberInputValue;
+        protein: NumberInputValue;
+        carbohydrates: NumberInputValue;
+        fat: NumberInputValue;
+        fibre: NumberInputValue;
     }>({
         date,
         meal,
@@ -529,8 +529,8 @@ function QuickEntryDialog({
         fat: '',
         fibre: '',
     });
-    const numberValue = (value: string): number | '' =>
-        value === '' ? '' : Number(value);
+    const numberValue = (value: string): NumberInputValue =>
+        parseNumberInput(value);
 
     return (
         <ResponsiveDialog open onClose={onClose} maxWidth="sm" fullWidth>
@@ -568,7 +568,7 @@ function QuickEntryDialog({
                         <TextField
                             required
                             autoFocus
-                            type="number"
+                            type="text"
                             label={t('common.calories')}
                             value={form.data.calories}
                             error={Boolean(form.errors.calories)}
@@ -582,6 +582,7 @@ function QuickEntryDialog({
                                     ),
                                 },
                                 htmlInput: {
+                                    inputMode: 'decimal',
                                     min: 0.01,
                                     max: 100000,
                                     step: 0.01,
@@ -619,7 +620,7 @@ function QuickEntryDialog({
                             ).map(([key, label]) => (
                                 <Grid key={key} size={{ xs: 12, sm: 6 }}>
                                     <TextField
-                                        type="number"
+                                        type="text"
                                         label={label}
                                         value={form.data[key]}
                                         error={Boolean(form.errors[key])}
@@ -633,6 +634,7 @@ function QuickEntryDialog({
                                                 ),
                                             },
                                             htmlInput: {
+                                                inputMode: 'decimal',
                                                 min: 0,
                                                 max: 10000,
                                                 step: 0.01,
@@ -803,13 +805,14 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                             <TextField
                                 required
                                 autoFocus
-                                type="number"
+                                type="text"
                                 label={t('common.amount')}
                                 value={form.data.amount}
                                 error={Boolean(form.errors.amount)}
                                 helperText={form.errors.amount}
                                 slotProps={{
                                     htmlInput: {
+                                        inputMode: 'decimal',
                                         min: 0.01,
                                         max: 1000000,
                                         step: 0.01,
@@ -824,7 +827,7 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                             />
                             <TextField
                                 required
-                                type="number"
+                                type="text"
                                 label={t('common.quantity')}
                                 value={form.data.quantity}
                                 error={Boolean(form.errors.quantity)}
@@ -834,6 +837,7 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                                 }
                                 slotProps={{
                                     htmlInput: {
+                                        inputMode: 'decimal',
                                         min: 0.01,
                                         max: 1000,
                                         step: 0.01,

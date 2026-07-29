@@ -470,7 +470,7 @@ export default function RecipeFormPage({
                                 <Grid size={{ xs: 12, md: 5 }}>
                                     <TextField
                                         required
-                                        type="number"
+                                        type="text"
                                         label={t('recipe.cooked_weight')}
                                         value={form.data.cooked_weight}
                                         error={Boolean(
@@ -494,6 +494,7 @@ export default function RecipeFormPage({
                                                 ),
                                             },
                                             htmlInput: {
+                                                inputMode: 'decimal',
                                                 min: 0.01,
                                                 step: 0.01,
                                             },
@@ -782,7 +783,7 @@ export default function RecipeFormPage({
                                                         }}
                                                     >
                                                         <TextField
-                                                            type="number"
+                                                            type="text"
                                                             label={t(
                                                                 'recipe.ingredient_amount',
                                                             )}
@@ -814,6 +815,8 @@ export default function RecipeFormPage({
                                                                         ),
                                                                 },
                                                                 htmlInput: {
+                                                                    inputMode:
+                                                                        'decimal',
                                                                     min: 0.01,
                                                                     step: 0.01,
                                                                 },
@@ -1239,7 +1242,7 @@ function CreateFoodDialog({
                             <Grid size={{ xs: 8, sm: 4 }}>
                                 <TextField
                                     required
-                                    type="number"
+                                    type="text"
                                     label={t(
                                         'food.nutrition_basis_amount',
                                     )}
@@ -1256,6 +1259,7 @@ function CreateFoodDialog({
                                     }
                                     slotProps={{
                                         htmlInput: {
+                                            inputMode: 'decimal',
                                             min: 0.01,
                                             step: 0.01,
                                         },
@@ -1306,13 +1310,14 @@ function CreateFoodDialog({
                                     size={{ xs: 6, sm: 4 }}
                                 >
                                     <TextField
-                                        type="number"
+                                        type="text"
                                         label={label}
                                         value={form.data[key]}
                                         error={Boolean(form.errors[key])}
                                         helperText={form.errors[key]}
                                         slotProps={{
                                             htmlInput: {
+                                                inputMode: 'decimal',
                                                 min: 0,
                                                 step: 0.01,
                                             },

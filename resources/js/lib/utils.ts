@@ -13,8 +13,13 @@ export function formatDate(date: string, options?: Intl.DateTimeFormatOptions) {
     }).format(new Date(`${date}T12:00:00`));
 }
 
-export type NumberInputValue = number | '';
+export type NumberInputValue = number | string;
 
-export function parseNumberInput(value: string): NumberInputValue {
-    return value === '' ? '' : Number(value);
+export function parseNumberInput(value: string): string {
+    const normalized = value.replace(/,/g, '.').replace(/[^\d.]/g, '');
+    const [whole, ...fractionParts] = normalized.split('.');
+
+    return fractionParts.length === 0
+        ? whole
+        : `${whole}.${fractionParts.join('')}`;
 }

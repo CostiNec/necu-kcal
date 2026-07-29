@@ -3,7 +3,10 @@ import { useEffect } from 'react';
 function isNumberInput(
     target: EventTarget | Node | null,
 ): target is HTMLInputElement {
-    return target instanceof HTMLInputElement && target.type === 'number';
+    return (
+        target instanceof HTMLInputElement &&
+        target.inputMode === 'decimal'
+    );
 }
 
 function setNativeValue(input: HTMLInputElement, value: string) {
@@ -17,8 +20,6 @@ function setNativeValue(input: HTMLInputElement, value: string) {
 }
 
 function prepareNumberInput(input: HTMLInputElement) {
-    input.inputMode = 'decimal';
-
     if (document.activeElement !== input && input.value === '') {
         setNativeValue(input, '0');
     }
@@ -34,8 +35,9 @@ export function NumberInputBehavior() {
 
             if (!(node instanceof Element)) return;
 
-            node.querySelectorAll<HTMLInputElement>('input[type="number"]')
-                .forEach(prepareNumberInput);
+            node.querySelectorAll<HTMLInputElement>(
+                'input[inputmode="decimal"]',
+            ).forEach(prepareNumberInput);
         };
         const handleFocus = (event: FocusEvent) => {
             if (isNumberInput(event.target) && event.target.value === '0') {
