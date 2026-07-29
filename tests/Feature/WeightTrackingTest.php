@@ -21,7 +21,7 @@ class WeightTrackingTest extends TestCase
             ->from('/weight')
             ->post('/weight', [
                 'date' => $today,
-                'weight' => 81.4,
+                'weight' => '81.45',
                 'note' => 'Morning',
             ])
             ->assertRedirect('/weight');

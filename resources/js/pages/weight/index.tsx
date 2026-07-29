@@ -51,12 +51,7 @@ import {
     YAxis,
 } from 'recharts';
 import { AppLayout } from '@/layouts/app-layout';
-import {
-    formatDate,
-    formatNumber,
-    parseNumberInput,
-    type NumberInputValue,
-} from '@/lib/utils';
+import { formatDate, formatNumber } from '@/lib/utils';
 
 type WeightEntry = {
     id: number;
@@ -109,7 +104,7 @@ export default function WeightIndex({
     const [historyLoading, setHistoryLoading] = useState(false);
     const form = useForm<{
         date: string;
-        weight: NumberInputValue;
+        weight: string;
         note: string;
     }>({
         date: today,
@@ -141,6 +136,11 @@ export default function WeightIndex({
     const submit = (event: FormEvent) => {
         event.preventDefault();
 
+        form.transform((data) => ({
+            ...data,
+            weight: data.weight.trim().replace(',', '.'),
+        }));
+
         if (editingId) {
             form.put(`/weight/${editingId}`, {
                 preserveScroll: true,
@@ -160,7 +160,7 @@ export default function WeightIndex({
         form.clearErrors();
         form.setData({
             date: entry.date,
-            weight: entry.weight,
+            weight: String(entry.weight),
             note: entry.note ?? '',
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -340,15 +340,13 @@ export default function WeightIndex({
                                             htmlInput: {
                                                 min: 20,
                                                 max: 500,
-                                                step: 0.1,
+                                                step: 0.01,
                                             },
                                         }}
                                         onChange={(event) =>
                                             form.setData(
                                                 'weight',
-                                                parseNumberInput(
-                                                    event.target.value,
-                                                ),
+                                                event.target.value,
                                             )
                                         }
                                     />
