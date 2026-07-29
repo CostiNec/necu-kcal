@@ -331,16 +331,14 @@ export default function WeightIndex({
                                         fullWidth
                                         required
                                         autoFocus
-                                        type="number"
+                                        type="text"
                                         label={t('weight.weight_kg')}
                                         value={form.data.weight}
                                         error={Boolean(form.errors.weight)}
                                         helperText={form.errors.weight}
                                         slotProps={{
                                             htmlInput: {
-                                                min: 20,
-                                                max: 500,
-                                                step: 0.01,
+                                                inputMode: 'decimal',
                                             },
                                         }}
                                         onChange={(event) =>
