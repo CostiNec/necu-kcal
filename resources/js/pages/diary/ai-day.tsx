@@ -102,6 +102,7 @@ export default function AiDayDiary({ date }: { date: string }) {
             })),
         [images],
     );
+    const hasEntries = entries !== null;
 
     useEffect(
         () => () => {
@@ -115,7 +116,7 @@ export default function AiDayDiary({ date }: { date: string }) {
     }, [date]);
 
     useEffect(() => {
-        if (!entries) {
+        if (!hasEntries) {
             return;
         }
 
@@ -131,7 +132,7 @@ export default function AiDayDiary({ date }: { date: string }) {
         });
 
         return () => window.cancelAnimationFrame(frame);
-    }, [entries]);
+    }, [hasEntries]);
 
     const canEstimate = description.trim() !== '' || images.length > 0;
     const resetEstimate = () => {
