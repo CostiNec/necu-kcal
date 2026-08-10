@@ -1153,9 +1153,90 @@ class NutritionTrackingTest extends TestCase
         $this->assertDatabaseHas('foods', ['id' => $ingredient->id]);
     }
 
-    public function test_weekly_report_contains_aggregated_values(): void
+    public function test_report_defaults_to_the_last_seven_days(): void
+    {
+        CarbonImmutable::setTestNow(
+            CarbonImmutable::create(
+                2026,
+                7,
+                22,
+                12,
+                timezone: 'Europe/Bucharest'
+            )
+        );
+
+        try {
+            $user = $this->onboardedUser();
+
+            $this->actingAs($user)
+                ->get('/reports')
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page
+                    ->component('reports/index')
+                    ->where('period.range', '7')
+                    ->where('period.start', '2026-07-16')
+                    ->where('period.end', '2026-07-22')
+                    ->where('period.today', '2026-07-22')
+                    ->where('period.days', 7)
+                    ->has('chart', 7)
+                    ->where('chart.0.date', '2026-07-16')
+                    ->where('chart.6.date', '2026-07-22')
+                );
+
+            $this->actingAs($user)
+                ->get('/reports?range=30')
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page
+                    ->where('period.range', '30')
+                    ->where('period.start', '2026-06-23')
+                    ->where('period.end', '2026-07-22')
+                    ->where('period.days', 30)
+                    ->has('chart', 30)
+                );
+
+            $this->actingAs($user)
+                ->get('/reports?range=365')
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page
+                    ->where('period.range', '365')
+                    ->where('period.start', '2025-07-23')
+                    ->where('period.end', '2026-07-22')
+                    ->where('period.days', 365)
+                    ->has('chart', 13)
+                );
+
+            $this->actingAs($user)
+                ->get('/reports?range=custom&start=2026-05-01&end=2026-05-15')
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page
+                    ->where('period.range', 'custom')
+                    ->where('period.start', '2026-05-01')
+                    ->where('period.end', '2026-05-15')
+                    ->where('period.days', 15)
+                    ->has('chart', 15)
+                );
+        } finally {
+            CarbonImmutable::setTestNow();
+        }
+    }
+
+    public function test_report_contains_aggregated_values_from_the_selected_seven_days(): void
     {
         $user = $this->onboardedUser();
+        $excludedDay = $user->diaryDays()->create(['date' => '2026-07-15']);
+        $excludedDay->entries()->create([
+            'meal' => 'breakfast',
+            'food_name' => 'Old oats',
+            'unit' => 'g',
+            'quantity' => 1,
+            'amount' => 50,
+            'total_grams' => 50,
+            'calories' => 500,
+            'protein' => 10,
+            'carbohydrates' => 50,
+            'fat' => 10,
+            'fibre' => 10,
+        ]);
         $day = $user->diaryDays()->create(['date' => '2026-07-22']);
         $day->entries()->create([
             'meal' => 'breakfast',
@@ -1172,10 +1253,17 @@ class NutritionTrackingTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->get('/reports?week=2026-07-22')
+            ->get('/reports?end=2026-07-22')
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('reports/index')
+                ->where('period.range', '7')
+                ->where('period.start', '2026-07-16')
+                ->where('period.end', '2026-07-22')
+                ->where('period.days', 7)
+                ->has('chart', 7)
+                ->where('chart.0.date', '2026-07-16')
+                ->where('chart.6.date', '2026-07-22')
                 ->where('loggedDays', 1)
                 ->where('averages.calories', 190)
                 ->where('averages.fibre', 5)

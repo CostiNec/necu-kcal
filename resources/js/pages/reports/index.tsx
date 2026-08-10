@@ -1,17 +1,29 @@
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
+import CalendarMonthRounded from '@mui/icons-material/CalendarMonthRounded';
 import LocalFireDepartmentOutlined from '@mui/icons-material/LocalFireDepartmentOutlined';
 import MonitorWeightOutlined from '@mui/icons-material/MonitorWeightOutlined';
 import TrackChangesRounded from '@mui/icons-material/TrackChangesRounded';
 import {
     Box,
+    Button,
     Card,
     CardContent,
     CardHeader,
+    Collapse,
+    FormControl,
     Grid,
+    InputLabel,
+    MenuItem,
     Paper,
+    Select,
     Stack,
+    ToggleButton,
+    ToggleButtonGroup,
     Typography,
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import dayjs, { type Dayjs } from 'dayjs';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Area,
@@ -28,7 +40,6 @@ import {
     YAxis,
 } from 'recharts';
 import { AppLayout } from '@/layouts/app-layout';
-import { PeriodNavigator } from '@/components/period-navigator';
 import { formatDate, formatNumber } from '@/lib/utils';
 import type { NutritionTargets } from '@/types';
 
@@ -58,8 +69,18 @@ type WeightPoint = {
     weight: number;
 };
 
+type ReportRange = '7' | '30' | '365' | 'custom';
+
+type ReportPeriod = {
+    range: ReportRange;
+    start: string;
+    end: string;
+    today: string;
+    days: number;
+};
+
 export default function ReportsIndex({
-    week,
+    period,
     chart,
     averages,
     loggedDays,
@@ -68,7 +89,7 @@ export default function ReportsIndex({
     weightChart,
     weightSummary,
 }: {
-    week: { start: string; end: string; previous: string; next: string };
+    period: ReportPeriod;
     chart: ChartPoint[];
     averages: NutritionTargets;
     loggedDays: number;
@@ -84,12 +105,19 @@ export default function ReportsIndex({
     const { t } = useTranslation();
     const localizedChart = chart.map((point) => ({
         ...point,
-        day: formatDate(point.date, {
-            weekday: 'short',
-            month: undefined,
-            day: undefined,
-            year: undefined,
-        }),
+        day:
+            period.days <= 14
+                ? formatDate(point.date, {
+                      weekday: 'short',
+                      month: undefined,
+                      day: undefined,
+                      year: undefined,
+                  })
+                : formatDate(point.date, {
+                      month: 'short',
+                      day: period.days <= 90 ? 'numeric' : undefined,
+                      year: undefined,
+                  }),
     }));
     const localizedWeightChart = weightChart.map((point) => ({
         ...point,
@@ -101,21 +129,17 @@ export default function ReportsIndex({
             <Head title={t('common.reports')} />
 
             <Stack spacing={2}>
-                <PeriodNavigator
-                    title={t('reports.week_overview')}
-                    subtitle={`${formatDate(week.start, { year: undefined })} – ${formatDate(week.end, { year: undefined })}`}
-                    previousHref={`/reports?week=${week.previous}`}
-                    nextHref={`/reports?week=${week.next}`}
-                    previousLabel={t('common.previous_week')}
-                    nextLabel={t('common.next_week')}
-                />
+                <ReportRangeSelector period={period} />
 
                 <Grid container spacing={2}>
                     <Grid size={{ xs: 12, sm: 6, lg: 2 }}>
                         <StatCard
                             label={t('reports.daily_average')}
                             value={`${formatNumber(averages.calories)} kcal`}
-                            context={t('reports.days_logged', { count: loggedDays })}
+                            context={t('reports.days_logged', {
+                                count: loggedDays,
+                                total: period.days,
+                            })}
                             color={chartColors.calories}
                         />
                     </Grid>
@@ -590,6 +614,204 @@ export default function ReportsIndex({
                 </Card>
             </Stack>
         </AppLayout>
+    );
+}
+
+function ReportRangeSelector({ period }: { period: ReportPeriod }) {
+    const { t } = useTranslation();
+    const [selectedRange, setSelectedRange] =
+        useState<ReportRange>(period.range);
+    const [startDate, setStartDate] = useState<Dayjs | null>(
+        dayjs(period.start),
+    );
+    const [endDate, setEndDate] = useState<Dayjs | null>(dayjs(period.end));
+    const today = dayjs(period.today);
+    const rangeOptions: { value: ReportRange; label: string }[] = [
+        { value: '7', label: t('reports.last_7_days') },
+        { value: '30', label: t('reports.last_30_days') },
+        { value: '365', label: t('reports.last_365_days') },
+        { value: 'custom', label: t('reports.custom') },
+    ];
+
+    useEffect(() => {
+        setSelectedRange(period.range);
+        setStartDate(dayjs(period.start));
+        setEndDate(dayjs(period.end));
+    }, [period.end, period.range, period.start]);
+
+    const changeRange = (range: ReportRange) => {
+        setSelectedRange(range);
+
+        if (range !== 'custom') {
+            router.get('/reports', { range }, { preserveScroll: true });
+        }
+    };
+    const customRangeIsValid = Boolean(
+        startDate?.isValid() &&
+            endDate?.isValid() &&
+            !startDate.isAfter(endDate, 'day') &&
+            !endDate.isAfter(today, 'day') &&
+            endDate.diff(startDate, 'day') <= 364,
+    );
+    const applyCustomRange = () => {
+        if (!customRangeIsValid || !startDate || !endDate) return;
+
+        router.get(
+            '/reports',
+            {
+                range: 'custom',
+                start: startDate.format('YYYY-MM-DD'),
+                end: endDate.format('YYYY-MM-DD'),
+            },
+            { preserveScroll: true },
+        );
+    };
+
+    return (
+        <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+            <Stack spacing={2} sx={{ p: { xs: 1.5, sm: 2 } }}>
+                <Stack
+                    direction={{ xs: 'column', md: 'row' }}
+                    alignItems={{ xs: 'stretch', md: 'center' }}
+                    justifyContent="space-between"
+                    gap={2}
+                >
+                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                placeItems: 'center',
+                                width: 40,
+                                height: 40,
+                                flexShrink: 0,
+                                borderRadius: 1.5,
+                                color: 'primary.main',
+                                bgcolor: 'primary.lighter',
+                            }}
+                        >
+                            <CalendarMonthRounded />
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="subtitle2">
+                                {t(`reports.range_${period.range}`)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                {formatDate(period.start)} –{' '}
+                                {formatDate(period.end)}
+                            </Typography>
+                        </Box>
+                    </Stack>
+
+                    <FormControl
+                        fullWidth
+                        size="small"
+                        sx={{ display: { xs: 'flex', sm: 'none' } }}
+                    >
+                        <InputLabel id="report-range-label">
+                            {t('reports.range')}
+                        </InputLabel>
+                        <Select
+                            labelId="report-range-label"
+                            value={selectedRange}
+                            label={t('reports.range')}
+                            onChange={(event) =>
+                                changeRange(event.target.value as ReportRange)
+                            }
+                        >
+                            {rangeOptions.map((option) => (
+                                <MenuItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+
+                    <ToggleButtonGroup
+                        exclusive
+                        size="small"
+                        color="primary"
+                        value={selectedRange}
+                        aria-label={t('reports.range')}
+                        sx={{
+                            display: { xs: 'none', sm: 'flex' },
+                            alignSelf: { sm: 'stretch', md: 'center' },
+                            '& .MuiToggleButton-root': {
+                                flex: { sm: 1, md: 'initial' },
+                                px: { sm: 1.5, lg: 2 },
+                                whiteSpace: 'nowrap',
+                            },
+                        }}
+                        onChange={(_, value: ReportRange | null) => {
+                            if (value) changeRange(value);
+                        }}
+                    >
+                        {rangeOptions.map((option) => (
+                            <ToggleButton key={option.value} value={option.value}>
+                                {option.label}
+                            </ToggleButton>
+                        ))}
+                    </ToggleButtonGroup>
+                </Stack>
+            </Stack>
+
+            <Collapse in={selectedRange === 'custom'} unmountOnExit>
+                <Stack
+                    spacing={1.5}
+                    sx={{
+                        p: { xs: 1.5, sm: 2 },
+                        pt: { xs: 1.5, sm: 2 },
+                        borderTop: 1,
+                        borderColor: 'divider',
+                        bgcolor: 'background.default',
+                    }}
+                >
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                        <DatePicker
+                            label={t('reports.start_date')}
+                            format="DD.MM.YYYY"
+                            value={startDate}
+                            maxDate={endDate ?? today}
+                            slotProps={{
+                                textField: { fullWidth: true, size: 'small' },
+                                actionBar: {
+                                    actions: ['today', 'cancel', 'accept'],
+                                },
+                            }}
+                            onChange={setStartDate}
+                        />
+                        <DatePicker
+                            label={t('reports.end_date')}
+                            format="DD.MM.YYYY"
+                            value={endDate}
+                            minDate={startDate ?? undefined}
+                            maxDate={today}
+                            slotProps={{
+                                textField: { fullWidth: true, size: 'small' },
+                                actionBar: {
+                                    actions: ['today', 'cancel', 'accept'],
+                                },
+                            }}
+                            onChange={setEndDate}
+                        />
+                        <Button
+                            variant="contained"
+                            disabled={!customRangeIsValid}
+                            sx={{
+                                minHeight: 40,
+                                flexShrink: 0,
+                                px: 3,
+                            }}
+                            onClick={applyCustomRange}
+                        >
+                            {t('reports.apply_range')}
+                        </Button>
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary">
+                        {t('reports.custom_range_help')}
+                    </Typography>
+                </Stack>
+            </Collapse>
+        </Paper>
     );
 }
 

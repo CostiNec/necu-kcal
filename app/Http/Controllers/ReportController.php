@@ -6,6 +6,8 @@ use App\Models\DiaryDay;
 use App\Models\WeightLog;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -14,20 +16,52 @@ class ReportController extends Controller
     public function index(Request $request): Response
     {
         $timezone = $request->user()->profile?->timezone ?? config('app.timezone');
-        $anchor = CarbonImmutable::parse(
-            $request->query('week', CarbonImmutable::now($timezone)->toDateString()),
-            $timezone
-        );
-        $start = $anchor->startOfWeek();
-        $end = $start->addDays(6);
+        $today = CarbonImmutable::now($timezone)->startOfDay();
+        $request->validate([
+            'range' => ['nullable', Rule::in(['7', '30', '365', 'custom'])],
+        ]);
+
+        $range = (string) $request->query('range', '7');
+
+        if ($range === 'custom') {
+            $validated = $request->validate([
+                'start' => ['required', 'date_format:Y-m-d'],
+                'end' => [
+                    'required',
+                    'date_format:Y-m-d',
+                    'after_or_equal:start',
+                    'before_or_equal:'.$today->toDateString(),
+                ],
+            ]);
+            $start = CarbonImmutable::parse($validated['start'], $timezone);
+            $end = CarbonImmutable::parse($validated['end'], $timezone);
+
+            abort_if(
+                $start->diffInDays($end) > 364,
+                422,
+                'Custom report ranges cannot exceed 365 days.'
+            );
+        } else {
+            $periodDays = (int) $range;
+            $legacyEnd = ! $request->has('range')
+                ? $request->query('end', $request->query('week'))
+                : null;
+            $end = $legacyEnd
+                ? CarbonImmutable::parse($legacyEnd, $timezone)
+                : $today;
+            $start = $end->subDays($periodDays - 1);
+        }
+
+        $periodDays = (int) $start->diffInDays($end) + 1;
         $days = DiaryDay::query()
             ->where('user_id', $request->user()->id)
-            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->whereDate('date', '>=', $start->toDateString())
+            ->whereDate('date', '<=', $end->toDateString())
             ->with('entries.food.translation')
             ->get()
             ->keyBy(fn (DiaryDay $day) => $day->date->toDateString());
 
-        $chart = collect(range(0, 6))->map(function (int $offset) use ($days, $start) {
+        $dailyChart = collect(range(0, $periodDays - 1))->map(function (int $offset) use ($days, $start) {
             $date = $start->addDays($offset);
             $entries = $days->get($date->toDateString())?->entries ?? collect();
 
@@ -42,10 +76,36 @@ class ReportController extends Controller
             ];
         });
 
-        $loggedDays = $chart->where('calories', '>', 0);
+        $loggedDays = $dailyChart->where('calories', '>', 0);
         $average = fn (string $key) => $loggedDays->isEmpty()
             ? 0
             : round((float) $loggedDays->avg($key), $key === 'calories' ? 0 : 1);
+
+        $summarize = function (Collection $points): array {
+            $loggedPoints = $points->where('calories', '>', 0);
+            $average = fn (string $key, int $precision = 1) => $loggedPoints->isEmpty()
+                ? 0
+                : round((float) $loggedPoints->avg($key), $precision);
+
+            return [
+                'date' => $points->first()['date'],
+                'day' => $points->first()['day'],
+                'calories' => $average('calories', 0),
+                'protein' => $average('protein'),
+                'carbohydrates' => $average('carbohydrates'),
+                'fat' => $average('fat'),
+                'fibre' => $average('fibre'),
+            ];
+        };
+
+        $chart = match (true) {
+            $periodDays > 90 => $dailyChart
+                ->groupBy(fn (array $point) => substr($point['date'], 0, 7))
+                ->map($summarize)
+                ->values(),
+            $periodDays > 31 => $dailyChart->chunk(7)->map($summarize)->values(),
+            default => $dailyChart,
+        };
 
         $topFoods = $days
             ->flatMap->entries
@@ -61,13 +121,10 @@ class ReportController extends Controller
             ->sortByDesc('times')
             ->take(5)
             ->values();
-        $weightTrendStart = $start->subWeeks(11);
         $weightChart = $request->user()
             ->weightLogs()
-            ->whereBetween('date', [
-                $weightTrendStart->toDateString(),
-                $end->toDateString(),
-            ])
+            ->whereDate('date', '>=', $start->toDateString())
+            ->whereDate('date', '<=', $end->toDateString())
             ->oldest('date')
             ->get()
             ->map(fn (WeightLog $log) => [
@@ -82,11 +139,12 @@ class ReportController extends Controller
         $firstWeight = $weightChart->first();
 
         return Inertia::render('reports/index', [
-            'week' => [
+            'period' => [
+                'range' => $range,
                 'start' => $start->toDateString(),
                 'end' => $end->toDateString(),
-                'previous' => $start->subWeek()->toDateString(),
-                'next' => $start->addWeek()->toDateString(),
+                'today' => $today->toDateString(),
+                'days' => $periodDays,
             ],
             'chart' => $chart,
             'averages' => [

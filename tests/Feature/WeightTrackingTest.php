@@ -71,7 +71,7 @@ class WeightTrackingTest extends TestCase
             );
 
         $this->actingAs($user)
-            ->get('/reports?week=2026-07-22')
+            ->get('/reports?range=custom&start=2026-05-10&end=2026-07-22')
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('reports/index')
