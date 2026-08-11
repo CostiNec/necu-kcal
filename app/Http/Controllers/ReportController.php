@@ -98,6 +98,19 @@ class ReportController extends Controller
                 'fibre' => $average('fibre'),
             ];
         };
+        $summarizeCalories = function (Collection $points) use ($today): array {
+            $loggedPoints = $points
+                ->where('date', '!=', $today->toDateString())
+                ->where('calories', '>', 0);
+
+            return [
+                'date' => $points->first()['date'],
+                'day' => $points->first()['day'],
+                'calories' => $loggedPoints->isEmpty()
+                    ? 0
+                    : round((float) $loggedPoints->avg('calories')),
+            ];
+        };
 
         $chart = match (true) {
             $periodDays > 90 => $dailyChart
@@ -106,6 +119,19 @@ class ReportController extends Controller
                 ->values(),
             $periodDays > 31 => $dailyChart->chunk(7)->map($summarize)->values(),
             default => $dailyChart,
+        };
+        $calorieChart = match (true) {
+            $periodDays > 90 => $dailyChart
+                ->groupBy(fn (array $point) => substr($point['date'], 0, 7))
+                ->map($summarizeCalories)
+                ->values(),
+            $periodDays > 31 => $dailyChart
+                ->chunk(7)
+                ->map($summarizeCalories)
+                ->values(),
+            default => $dailyChart
+                ->where('date', '!=', $today->toDateString())
+                ->values(),
         };
 
         $topFoods = $days
@@ -148,6 +174,7 @@ class ReportController extends Controller
                 'days' => $periodDays,
             ],
             'chart' => $chart,
+            'calorieChart' => $calorieChart,
             'averages' => [
                 'calories' => $average($completedLoggedDays, 'calories'),
                 'protein' => $average($loggedDays, 'protein'),

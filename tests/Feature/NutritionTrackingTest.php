@@ -1313,6 +1313,9 @@ class NutritionTrackingTest extends TestCase
                     ->where('averages.calories', 1800)
                     ->where('chart.6.date', '2026-07-22')
                     ->where('chart.6.calories', 600)
+                    ->has('calorieChart', 6)
+                    ->where('calorieChart.5.date', '2026-07-21')
+                    ->where('calorieChart.5.calories', 1800)
                 );
         } finally {
             CarbonImmutable::setTestNow();

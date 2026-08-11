@@ -64,6 +64,8 @@ type ChartPoint = {
     fibre: number;
 };
 
+type CalorieChartPoint = Pick<ChartPoint, 'date' | 'day' | 'calories'>;
+
 type WeightPoint = {
     date: string;
     weight: number;
@@ -82,6 +84,7 @@ type ReportPeriod = {
 export default function ReportsIndex({
     period,
     chart,
+    calorieChart,
     averages,
     loggedDays,
     topFoods,
@@ -91,6 +94,7 @@ export default function ReportsIndex({
 }: {
     period: ReportPeriod;
     chart: ChartPoint[];
+    calorieChart: CalorieChartPoint[];
     averages: NutritionTargets;
     loggedDays: number;
     topFoods: { name: string; times: number; calories: number }[];
@@ -104,6 +108,22 @@ export default function ReportsIndex({
 }) {
     const { t } = useTranslation();
     const localizedChart = chart.map((point) => ({
+        ...point,
+        day:
+            period.days <= 14
+                ? formatDate(point.date, {
+                      weekday: 'short',
+                      month: undefined,
+                      day: undefined,
+                      year: undefined,
+                  })
+                : formatDate(point.date, {
+                      month: 'short',
+                      day: period.days <= 90 ? 'numeric' : undefined,
+                      year: undefined,
+                  }),
+    }));
+    const localizedCalorieChart = calorieChart.map((point) => ({
         ...point,
         day:
             period.days <= 14
@@ -235,7 +255,7 @@ export default function ReportsIndex({
                                 >
                                     <ResponsiveContainer width="100%" height="100%">
                                         <AreaChart
-                                            data={localizedChart}
+                                            data={localizedCalorieChart}
                                             margin={{
                                                 top: 10,
                                                 right: 6,
@@ -282,7 +302,7 @@ export default function ReportsIndex({
                                                     0,
                                                     Math.max(
                                                         targets.calories,
-                                                        ...chart.map(
+                                                        ...calorieChart.map(
                                                             (point) =>
                                                                 point.calories,
                                                         ),
