@@ -77,9 +77,10 @@ class ReportController extends Controller
         });
 
         $loggedDays = $dailyChart->where('calories', '>', 0);
-        $average = fn (string $key) => $loggedDays->isEmpty()
+        $completedLoggedDays = $loggedDays->where('date', '!=', $today->toDateString());
+        $average = fn (Collection $points, string $key) => $points->isEmpty()
             ? 0
-            : round((float) $loggedDays->avg($key), $key === 'calories' ? 0 : 1);
+            : round((float) $points->avg($key), $key === 'calories' ? 0 : 1);
 
         $summarize = function (Collection $points): array {
             $loggedPoints = $points->where('calories', '>', 0);
@@ -148,11 +149,11 @@ class ReportController extends Controller
             ],
             'chart' => $chart,
             'averages' => [
-                'calories' => $average('calories'),
-                'protein' => $average('protein'),
-                'carbohydrates' => $average('carbohydrates'),
-                'fat' => $average('fat'),
-                'fibre' => $average('fibre'),
+                'calories' => $average($completedLoggedDays, 'calories'),
+                'protein' => $average($loggedDays, 'protein'),
+                'carbohydrates' => $average($loggedDays, 'carbohydrates'),
+                'fat' => $average($loggedDays, 'fat'),
+                'fibre' => $average($loggedDays, 'fibre'),
             ],
             'loggedDays' => $loggedDays->count(),
             'topFoods' => $topFoods,

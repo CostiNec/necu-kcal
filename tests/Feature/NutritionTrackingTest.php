@@ -1270,6 +1270,55 @@ class NutritionTrackingTest extends TestCase
             );
     }
 
+    public function test_report_daily_kcal_average_excludes_today(): void
+    {
+        CarbonImmutable::setTestNow(
+            CarbonImmutable::create(
+                2026,
+                7,
+                22,
+                12,
+                timezone: 'Europe/Bucharest'
+            )
+        );
+
+        try {
+            $user = $this->onboardedUser();
+
+            foreach ([
+                '2026-07-21' => 1800,
+                '2026-07-22' => 600,
+            ] as $date => $calories) {
+                $day = $user->diaryDays()->create(['date' => $date]);
+                $day->entries()->create([
+                    'meal' => 'breakfast',
+                    'food_name' => 'Daily food',
+                    'unit' => 'g',
+                    'quantity' => 1,
+                    'amount' => 100,
+                    'total_grams' => 100,
+                    'calories' => $calories,
+                    'protein' => 10,
+                    'carbohydrates' => 20,
+                    'fat' => 5,
+                    'fibre' => 3,
+                ]);
+            }
+
+            $this->actingAs($user)
+                ->get('/reports')
+                ->assertOk()
+                ->assertInertia(fn ($page) => $page
+                    ->where('loggedDays', 2)
+                    ->where('averages.calories', 1800)
+                    ->where('chart.6.date', '2026-07-22')
+                    ->where('chart.6.calories', 600)
+                );
+        } finally {
+            CarbonImmutable::setTestNow();
+        }
+    }
+
     public function test_user_can_delete_their_account_and_private_nutrition_data(): void
     {
         $user = $this->onboardedUser();
