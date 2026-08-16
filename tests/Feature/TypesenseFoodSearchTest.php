@@ -7,6 +7,7 @@ use App\Models\Food;
 use App\Models\Friendship;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Mockery;
 use RuntimeException;
 use Tests\TestCase;
@@ -132,10 +133,9 @@ class TypesenseFoodSearchTest extends TestCase
             ->assertJsonPath('next_cursor', null);
     }
 
-    public function test_first_page_falls_back_to_database_when_typesense_is_down(): void
+    public function test_search_returns_service_unavailable_when_typesense_is_down(): void
     {
         $viewer = $this->onboardedUser();
-        $food = $this->food(['name' => 'Ounce fallback']);
         $this->enableTypesense();
 
         $index = Mockery::mock(FoodSearchIndex::class);
@@ -146,11 +146,10 @@ class TypesenseFoodSearchTest extends TestCase
 
         $this->actingAs($viewer)
             ->getJson('/foods/search?search=Ounce')
-            ->assertOk()
-            ->assertJsonPath('foods.0.id', $food->id);
+            ->assertServiceUnavailable();
     }
 
-    public function test_barcode_search_stays_in_mysql(): void
+    public function test_barcode_search_uses_typesense_without_typos_or_prefixes(): void
     {
         $viewer = $this->onboardedUser();
         $food = $this->food([
@@ -160,13 +159,85 @@ class TypesenseFoodSearchTest extends TestCase
         $this->enableTypesense();
 
         $index = Mockery::mock(FoodSearchIndex::class);
-        $index->shouldNotReceive('search');
+        $index->shouldReceive('search')
+            ->once()
+            ->with('foods', Mockery::on(
+                fn (array $parameters) => $parameters['q']
+                        === '5941234567890'
+                    && $parameters['query_by'] === 'barcode'
+                    && $parameters['num_typos'] === '0'
+                    && $parameters['prefix'] === false
+            ))
+            ->andReturn([
+                'found' => 1,
+                'hits' => [
+                    ['document' => ['id' => (string) $food->id]],
+                ],
+            ]);
         $this->app->instance(FoodSearchIndex::class, $index);
 
         $this->actingAs($viewer)
             ->getJson('/foods/search?search=5941234567890')
             ->assertOk()
             ->assertJsonPath('foods.0.id', $food->id);
+    }
+
+    public function test_favourites_only_search_is_filtered_in_typesense(): void
+    {
+        $viewer = $this->onboardedUser();
+        $favourite = $this->food(['name' => 'Favourite oats']);
+        DB::table('food_favourites')->insert([
+            'user_id' => $viewer->id,
+            'food_id' => $favourite->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->enableTypesense();
+
+        $index = Mockery::mock(FoodSearchIndex::class);
+        $index->shouldReceive('search')
+            ->once()
+            ->with('foods', Mockery::on(
+                fn (array $parameters) => str_contains(
+                    $parameters['filter_by'],
+                    "id:=[{$favourite->id}]"
+                )
+            ))
+            ->andReturn([
+                'found' => 1,
+                'hits' => [
+                    ['document' => ['id' => (string) $favourite->id]],
+                ],
+            ]);
+        $this->app->instance(FoodSearchIndex::class, $index);
+
+        $this->actingAs($viewer)
+            ->getJson('/foods/search?'.http_build_query([
+                'search' => 'oats',
+                'favourites_only' => true,
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'foods')
+            ->assertJsonPath('foods.0.id', $favourite->id);
+    }
+
+    public function test_favourites_only_search_skips_typesense_when_none_exist(): void
+    {
+        $viewer = $this->onboardedUser();
+        $this->enableTypesense();
+
+        $index = Mockery::mock(FoodSearchIndex::class);
+        $index->shouldNotReceive('search');
+        $this->app->instance(FoodSearchIndex::class, $index);
+
+        $this->actingAs($viewer)
+            ->getJson('/foods/search?'.http_build_query([
+                'search' => 'oats',
+                'favourites_only' => true,
+            ]))
+            ->assertOk()
+            ->assertJsonCount(0, 'foods')
+            ->assertJsonPath('next_cursor', null);
     }
 
     public function test_food_search_document_is_small_and_ram_conscious(): void
@@ -193,7 +264,7 @@ class TypesenseFoodSearchTest extends TestCase
         $this->assertSame((string) $food->id, $document['id']);
         $this->assertSame(['Ou întreg'], $document['translation_names']);
         $this->assertSame(['Ou'], $document['alias_names']);
-        $this->assertArrayNotHasKey('barcode', $document);
+        $this->assertSame('5941234567890', $document['barcode']);
         $this->assertGreaterThan(2_000_000_000_000, $document['ranking_score']);
     }
 
@@ -201,7 +272,7 @@ class TypesenseFoodSearchTest extends TestCase
     {
         config([
             'food-search.driver' => 'typesense',
-            'food-search.fallback_to_database' => true,
+            'food-search.fallback_to_database' => false,
             'scout.driver' => 'null',
         ]);
     }

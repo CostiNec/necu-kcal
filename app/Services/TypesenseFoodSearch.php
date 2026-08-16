@@ -8,6 +8,7 @@ use App\Models\Friendship;
 use App\Models\User;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class TypesenseFoodSearch
 {
@@ -20,12 +21,10 @@ class TypesenseFoodSearch
         return config('food-search.driver') === 'typesense';
     }
 
-    public function supports(string $search, bool $favouritesOnly): bool
+    public function supports(string $search): bool
     {
         return $this->enabled()
-            && trim($search) !== ''
-            && ! $favouritesOnly
-            && preg_match('/^\d{6,18}$/', $search) !== 1;
+            && trim($search) !== '';
     }
 
     public function isCursor(?string $cursor): bool
@@ -38,22 +37,39 @@ class TypesenseFoodSearch
         User $user,
         string $search,
         ?string $cursor = null,
+        bool $favouritesOnly = false,
     ): FoodSearchPage {
         $perPage = (int) config('food-search.per_page', 20);
-        $page = $this->pageFromCursor($cursor, $search, $perPage);
+        $page = $this->pageFromCursor(
+            $cursor,
+            $search,
+            $favouritesOnly,
+            $perPage
+        );
+        $filter = $this->searchFilter($user, $favouritesOnly);
+
+        if ($filter === null) {
+            return new FoodSearchPage(collect(), null);
+        }
+
+        $isBarcode = preg_match('/^\d{6,18}$/', $search) === 1;
         $result = $this->container->make(FoodSearchIndex::class)->search(
             (string) config('scout.prefix')
                 .config('food-search.typesense.collection', 'foods'),
             [
                 'q' => $search,
-                'query_by' => 'name,translation_names,alias_names,brand',
-                'query_by_weights' => '10,10,7,3',
-                'num_typos' => (string) config(
-                    'food-search.typesense.num_typos',
-                    '2,2,1,1'
-                ),
-                'prefix' => true,
-                'filter_by' => $this->visibilityFilter($user),
+                'query_by' => $isBarcode
+                    ? 'barcode'
+                    : 'name,translation_names,alias_names,brand',
+                'query_by_weights' => $isBarcode ? '1' : '10,10,7,3',
+                'num_typos' => $isBarcode
+                    ? '0'
+                    : (string) config(
+                        'food-search.typesense.num_typos',
+                        '2,2,1,1'
+                    ),
+                'prefix' => ! $isBarcode,
+                'filter_by' => $filter,
                 'sort_by' => implode(',', [
                     'search_priority:asc',
                     '_text_match:desc',
@@ -82,10 +98,43 @@ class TypesenseFoodSearch
             $found,
             (int) config('food-search.typesense.max_results', 1000)
         )
-            ? $this->cursorForPage($page + 1, $search)
+            ? $this->cursorForPage(
+                $page + 1,
+                $search,
+                $favouritesOnly
+            )
             : null;
 
         return new FoodSearchPage($foods, $nextCursor);
+    }
+
+    private function searchFilter(
+        User $user,
+        bool $favouritesOnly
+    ): ?string {
+        $visibility = $this->visibilityFilter($user);
+
+        if (! $favouritesOnly) {
+            return $visibility;
+        }
+
+        $favouriteIds = DB::table('food_favourites')
+            ->where('user_id', $user->id)
+            ->pluck('food_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($favouriteIds->isEmpty()) {
+            return null;
+        }
+
+        return sprintf(
+            '%s && id:=[%s]',
+            $visibility,
+            $favouriteIds->implode(',')
+        );
     }
 
     private function visibilityFilter(User $user): string
@@ -162,6 +211,7 @@ class TypesenseFoodSearch
     private function pageFromCursor(
         ?string $cursor,
         string $search,
+        bool $favouritesOnly,
         int $perPage,
     ): int {
         if (! $this->isCursor($cursor)) {
@@ -187,7 +237,7 @@ class TypesenseFoodSearch
             ! is_array($payload)
             || ! hash_equals(
                 (string) ($payload['query'] ?? ''),
-                hash('sha256', $search)
+                $this->cursorQuery($search, $favouritesOnly)
             )
             || $page < 1
             || $page > $maxPage
@@ -198,16 +248,26 @@ class TypesenseFoodSearch
         return $page;
     }
 
-    private function cursorForPage(int $page, string $search): string
-    {
+    private function cursorForPage(
+        int $page,
+        string $search,
+        bool $favouritesOnly
+    ): string {
         $payload = base64_encode((string) json_encode([
             'page' => $page,
-            'query' => hash('sha256', $search),
+            'query' => $this->cursorQuery($search, $favouritesOnly),
         ], JSON_THROW_ON_ERROR));
 
         return self::CURSOR_PREFIX.rtrim(
             strtr($payload, '+/', '-_'),
             '='
         );
+    }
+
+    private function cursorQuery(
+        string $search,
+        bool $favouritesOnly
+    ): string {
+        return hash('sha256', $search.'|'.(int) $favouritesOnly);
     }
 }

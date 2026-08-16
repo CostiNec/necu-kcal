@@ -99,10 +99,11 @@ npm run build
 
 ## Typesense food search
 
-MySQL remains the source of truth for food and nutrition data. Typesense only
-stores the fields needed for autocomplete, visibility filtering, and ranking.
-Exact barcode searches continue to use MySQL so millions of unique barcodes do
-not consume Typesense RAM.
+MySQL remains the source of truth for food and nutrition data. Typesense stores
+the fields needed for food-name autocomplete, barcode lookup, visibility
+filtering, and ranking. Every user-facing food search, including exact barcode
+and favourites-only searches, is executed by Typesense; MySQL hydrates the food
+IDs returned by the index with current nutrition data.
 
 The included Compose service defaults to a 2 GB memory ceiling, intended for a
 4 GB host while leaving room for MySQL, PHP, and the operating system. Override
@@ -143,9 +144,9 @@ bulk catalogue import or deduplication because those maintenance operations use
 database upserts and intentionally bypass Eloquent model observers. Ordinary
 food, translation, and alias edits are synchronized automatically by Scout.
 
-If Typesense fails on the first results page, food search falls back to MySQL.
-Set `FOOD_SEARCH_DRIVER=database` to disable Typesense without rebuilding or
-deploying application code.
+If Typesense is unavailable, food search returns HTTP 503 rather than querying
+the MySQL food table. Keep the Typesense service and its collection healthy
+before switching traffic to a deployment.
 
 ## Production checklist
 

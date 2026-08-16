@@ -227,14 +227,15 @@ class FoodController extends Controller
         $cursor = is_string($cursor) ? $cursor : null;
 
         if (
-            $this->typesenseFoodSearch->supports($search, $favouritesOnly)
+            $this->typesenseFoodSearch->supports($search)
             && ($cursor === null || $this->typesenseFoodSearch->isCursor($cursor))
         ) {
             try {
                 return $this->typesenseFoodSearch->search(
                     $user,
                     $search,
-                    $cursor
+                    $cursor,
+                    $favouritesOnly
                 );
             } catch (Throwable $exception) {
                 report($exception);

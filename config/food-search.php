@@ -1,11 +1,11 @@
 <?php
 
 return [
-    'driver' => env('FOOD_SEARCH_DRIVER', 'database'),
+    'driver' => env('FOOD_SEARCH_DRIVER', 'typesense'),
 
     'fallback_to_database' => env(
         'FOOD_SEARCH_FALLBACK_TO_DATABASE',
-        true
+        false
     ),
 
     'per_page' => 20,

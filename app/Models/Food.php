@@ -288,6 +288,7 @@ class Food extends Model
             'id' => (string) $this->id,
             'name' => $this->name,
             'brand' => $this->brand,
+            'barcode' => $this->barcode,
             'translation_names' => $this->translations
                 ->pluck('name')
                 ->filter()

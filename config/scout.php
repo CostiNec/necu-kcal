@@ -204,6 +204,11 @@ return [
                             'optional' => true,
                         ],
                         [
+                            'name' => 'barcode',
+                            'type' => 'string',
+                            'optional' => true,
+                        ],
+                        [
                             'name' => 'user_id',
                             'type' => 'int64',
                             'facet' => true,
@@ -236,6 +241,7 @@ return [
                         'translation_names',
                         'alias_names',
                         'brand',
+                        'barcode',
                     ]),
                     'prefix' => true,
                 ],
