@@ -5,20 +5,28 @@ namespace App\Http\Controllers;
 use App\Models\Food;
 use App\Models\User;
 use App\Services\FoodSearch;
+use App\Services\FoodSearchPage;
+use App\Services\TypesenseFoodSearch;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\Cursor;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
+use Throwable;
 
 class FoodController extends Controller
 {
-    public function __construct(private FoodSearch $foodSearch) {}
+    public function __construct(
+        private FoodSearch $foodSearch,
+        private TypesenseFoodSearch $typesenseFoodSearch,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -75,16 +83,15 @@ class FoodController extends Controller
             ->orderBy('foods.id')
             ->get();
 
-        $paginator = $search === ''
+        $searchPage = $search === ''
             ? null
-            : $this->paginatedQuery($user, $search, false)
-                ->cursorPaginate(20);
+            : $this->searchPage($request, $user, $search, false);
 
         return Inertia::render('foods/index', [
             'foods' => $search === ''
                 ? $this->foodPayloads($favouriteFoods)
                 : $this->foodPayloads(
-                    collect($paginator?->items()),
+                    $searchPage?->foods ?? collect(),
                     $search
                 ),
             'lists' => [
@@ -94,7 +101,7 @@ class FoodController extends Controller
             ],
             'filters' => ['search' => $search],
             'pagination' => [
-                'next_cursor' => $paginator?->nextCursor()?->encode(),
+                'next_cursor' => $searchPage?->nextCursor,
             ],
             'context' => [
                 'date' => $request->query('date'),
@@ -113,16 +120,17 @@ class FoodController extends Controller
         $search = trim((string) ($validated['search'] ?? ''));
         $favouritesOnly = (bool) ($validated['favourites_only'] ?? false);
 
-        $paginator = $this->paginatedQuery(
+        $searchPage = $this->searchPage(
+            $request,
             $request->user(),
             $search,
             $favouritesOnly
-        )->cursorPaginate(20);
+        );
 
         return response()->json([
-            'foods' => collect($paginator->items())
+            'foods' => $searchPage->foods
                 ->map(fn (Food $food) => $this->foodPayload($food, $search)),
-            'next_cursor' => $paginator->nextCursor()?->encode(),
+            'next_cursor' => $searchPage->nextCursor,
         ]);
     }
 
@@ -207,6 +215,58 @@ class FoodController extends Controller
         }
 
         return $this->foodSearch->order($query, $search);
+    }
+
+    private function searchPage(
+        Request $request,
+        User $user,
+        string $search,
+        bool $favouritesOnly,
+    ): FoodSearchPage {
+        $cursor = $request->query('cursor');
+        $cursor = is_string($cursor) ? $cursor : null;
+
+        if (
+            $this->typesenseFoodSearch->supports($search, $favouritesOnly)
+            && ($cursor === null || $this->typesenseFoodSearch->isCursor($cursor))
+        ) {
+            try {
+                return $this->typesenseFoodSearch->search(
+                    $user,
+                    $search,
+                    $cursor
+                );
+            } catch (Throwable $exception) {
+                report($exception);
+
+                if (
+                    ! config('food-search.fallback_to_database')
+                    || $this->typesenseFoodSearch->isCursor($cursor)
+                ) {
+                    throw new ServiceUnavailableHttpException(
+                        null,
+                        'Food search is temporarily unavailable.',
+                        $exception
+                    );
+                }
+            }
+        }
+
+        $paginator = $this->paginatedQuery(
+            $user,
+            $search,
+            $favouritesOnly
+        )->cursorPaginate(
+            (int) config('food-search.per_page', 20),
+            ['*'],
+            'cursor',
+            Cursor::fromEncoded($cursor)
+        );
+
+        return new FoodSearchPage(
+            collect($paginator->items()),
+            $paginator->nextCursor()?->encode()
+        );
     }
 
     private function libraryQuery(

@@ -97,6 +97,56 @@ npm run typecheck
 npm run build
 ```
 
+## Typesense food search
+
+MySQL remains the source of truth for food and nutrition data. Typesense only
+stores the fields needed for autocomplete, visibility filtering, and ranking.
+Exact barcode searches continue to use MySQL so millions of unique barcodes do
+not consume Typesense RAM.
+
+The included Compose service defaults to a 2 GB memory ceiling, intended for a
+4 GB host while leaving room for MySQL, PHP, and the operating system. Override
+`TYPESENSE_MEMORY_LIMIT` after measuring the completed index if needed.
+
+For local development, set a strong API key and start the dedicated service:
+
+```bash
+TYPESENSE_API_KEY=replace-with-a-long-random-secret \
+    docker compose -f compose.typesense.yaml up -d
+```
+
+Configure Laravel before building the first index:
+
+```dotenv
+FOOD_SEARCH_DRIVER=database
+SCOUT_DRIVER=typesense
+SCOUT_QUEUE=true
+TYPESENSE_API_KEY=replace-with-a-long-random-secret
+TYPESENSE_HOST=127.0.0.1
+TYPESENSE_PORT=8108
+TYPESENSE_PROTOCOL=http
+```
+
+Build the collection using queued ID ranges and keep the queue worker running:
+
+```bash
+php artisan foods:rebuild-search-index --chunk=500
+php artisan queue:work --queue=default --timeout=300
+```
+
+After the import jobs finish, switch `FOOD_SEARCH_DRIVER=typesense`. Keeping it
+on `database` during the first import makes the rollout atomic: users continue
+to use MySQL until the new collection is ready.
+
+Use `--sync` only for small development datasets. Re-run the rebuild after a
+bulk catalogue import or deduplication because those maintenance operations use
+database upserts and intentionally bypass Eloquent model observers. Ordinary
+food, translation, and alias edits are synchronized automatically by Scout.
+
+If Typesense fails on the first results page, food search falls back to MySQL.
+Set `FOOD_SEARCH_DRIVER=database` to disable Typesense without rebuilding or
+deploying application code.
+
 ## Production checklist
 
 1. Set `APP_ENV=production`, `APP_DEBUG=false`, the public `APP_URL`, and a

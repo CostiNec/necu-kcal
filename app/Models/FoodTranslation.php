@@ -36,4 +36,22 @@ class FoodTranslation extends Model
     {
         return $this->belongsTo(Food::class);
     }
+
+    protected static function booted(): void
+    {
+        $syncFood = function (FoodTranslation $translation): void {
+            if (config('scout.driver') === 'typesense') {
+                $food = $translation->food;
+
+                if ($food?->shouldBeSearchable()) {
+                    $food->searchable();
+                } else {
+                    $food?->unsearchable();
+                }
+            }
+        };
+
+        static::saved($syncFood);
+        static::deleted($syncFood);
+    }
 }

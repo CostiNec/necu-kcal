@@ -37,4 +37,22 @@ class FoodAlias extends Model
     {
         return $this->belongsTo(Food::class);
     }
+
+    protected static function booted(): void
+    {
+        $syncFood = function (FoodAlias $alias): void {
+            if (config('scout.driver') === 'typesense') {
+                $food = $alias->food;
+
+                if ($food?->shouldBeSearchable()) {
+                    $food->searchable();
+                } else {
+                    $food?->unsearchable();
+                }
+            }
+        };
+
+        static::saved($syncFood);
+        static::deleted($syncFood);
+    }
 }

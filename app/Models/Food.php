@@ -5,18 +5,23 @@ namespace App\Models;
 use App\Support\HtmlText;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
+use Laravel\Scout\Searchable;
 
 class Food extends Model
 {
+    use Searchable;
+
     protected $table = 'foods';
 
     protected $attributes = [
         'food_type' => 'generic',
+        'is_active' => true,
     ];
 
     protected $fillable = [
@@ -54,9 +59,12 @@ class Food extends Model
             'sugar' => 'float',
             'sodium' => 'float',
             'is_public' => 'boolean',
+            'is_active' => 'boolean',
             'search_priority' => 'integer',
             'is_common' => 'boolean',
             'common_priority' => 'integer',
+            'popularity_score' => 'integer',
+            'canonical_food_id' => 'integer',
         ];
     }
 
@@ -236,34 +244,90 @@ class Food extends Model
             );
     }
 
+    public function searchableAs(): string
+    {
+        return config('scout.prefix')
+            .config('food-search.typesense.collection', 'foods');
+    }
+
+    public function shouldBeSearchable(): bool
+    {
+        return $this->is_active && $this->canonical_food_id === null;
+    }
+
+    public function searchIndexShouldBeUpdated(): bool
+    {
+        return config('scout.driver') === 'typesense';
+    }
+
     /**
-     * Shape shared with a future Laravel Scout/Typesense index.
-     *
+     * @param  EloquentCollection<int, Food>  $models
+     * @return EloquentCollection<int, Food>
+     */
+    public function makeSearchableUsing(
+        EloquentCollection $models
+    ): EloquentCollection {
+        return $models->loadMissing(['translations', 'aliases']);
+    }
+
+    protected function makeAllSearchableUsing(Builder $query): Builder
+    {
+        return $query
+            ->where('is_active', true)
+            ->whereNull('canonical_food_id');
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toSearchableArray(): array
     {
         $this->loadMissing(['translations', 'aliases']);
 
-        return [
-            'id' => $this->id,
+        return array_filter([
+            'id' => (string) $this->id,
             'name' => $this->name,
             'brand' => $this->brand,
-            'barcode' => $this->barcode,
+            'translation_names' => $this->translations
+                ->pluck('name')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+            'alias_names' => $this->aliases
+                ->pluck('name')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+            'user_id' => $this->user_id === null
+                ? null
+                : (int) $this->user_id,
+            'is_public' => (bool) $this->is_public,
             'food_type' => $this->food_type,
-            'is_common' => $this->is_common,
-            'common_priority' => $this->common_priority ?? 65535,
-            'search_priority' => $this->search_priority,
-            'popularity_score' => $this->popularity_score,
-            'translations' => $this->translations
-                ->mapWithKeys(fn (FoodTranslation $translation) => [
-                    $translation->locale => $translation->name,
-                ])
-                ->all(),
-            'aliases' => $this->aliases
-                ->groupBy('locale')
-                ->map->pluck('name')
-                ->all(),
-        ];
+            'search_priority' => (int) $this->search_priority,
+            'ranking_score' => $this->typesenseRankingScore(),
+        ], fn ($value) => $value !== null);
+    }
+
+    private function typesenseRankingScore(): int
+    {
+        $popularity = min(
+            max((int) $this->popularity_score, 0),
+            999_999
+        );
+
+        if (! $this->is_common) {
+            return $popularity;
+        }
+
+        $commonPriority = min(
+            max((int) ($this->common_priority ?? 65535), 0),
+            65535
+        );
+
+        return 2_000_000_000_000
+            + ((65535 - $commonPriority) * 1_000_000)
+            + $popularity;
     }
 }
