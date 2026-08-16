@@ -150,7 +150,7 @@ class AiFullDayImportTest extends TestCase
             'position' => 2,
         ]);
 
-        $this->actingAs($user)
+        $response = $this->actingAs($user)
             ->post('/diary-entries/ai/day', [
                 'date' => '2026-07-29',
                 'entries' => [
@@ -167,12 +167,15 @@ class AiFullDayImportTest extends TestCase
                         165
                     ),
                 ],
-            ])
-            ->assertRedirect('/diary/2026-07-29');
+            ]);
 
         $entries = $day->fresh()->entries()
             ->orderBy('id')
             ->get();
+        $response->assertRedirect(route('diary.show', [
+            'date' => '2026-07-29',
+            'added_entries' => $entries->slice(1)->pluck('id')->implode(','),
+        ], false));
 
         $this->assertCount(3, $entries);
         $this->assertSame('Oatmeal with berries', $entries[1]->food_name);

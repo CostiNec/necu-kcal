@@ -360,6 +360,7 @@ export function AppLayout({
                 open={mobileDrawerOpen}
                 onOpen={() => setMobileDrawerOpen(true)}
                 onClose={() => setMobileDrawerOpen(false)}
+                disableSwipeToOpen
                 swipeAreaWidth={24}
                 hysteresis={0.35}
                 ModalProps={{ keepMounted: true }}

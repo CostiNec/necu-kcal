@@ -450,10 +450,12 @@ export default function ReportsIndex({
                                 alignItems="center"
                                 spacing={2}
                                 sx={{
+                                    px: { xs: 2, sm: 3 },
                                     py: 6,
                                     borderRadius: 2,
                                     bgcolor: 'background.default',
                                     color: 'text.secondary',
+                                    textAlign: 'center',
                                 }}
                             >
                                 <MonitorWeightOutlined color="primary" />

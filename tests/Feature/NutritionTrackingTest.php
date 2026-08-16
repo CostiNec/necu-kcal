@@ -69,16 +69,19 @@ class NutritionTrackingTest extends TestCase
             'is_public' => false,
         ]);
 
-        $this->actingAs($user)->post('/diary-entries', [
+        $response = $this->actingAs($user)->post('/diary-entries', [
             'food_id' => $food->id,
             'date' => '2026-07-26',
             'meal' => 'lunch',
             'unit' => 'g',
             'amount' => 50,
             'quantity' => 2,
-        ])->assertRedirect('/foods?date=2026-07-26&meal=lunch');
+        ]);
 
         $entry = DiaryDay::firstOrFail()->entries()->firstOrFail();
+        $response->assertRedirect(
+            "/diary/2026-07-26?focus_meal=lunch&added_entries={$entry->id}"
+        );
         $this->assertSame('g', $entry->unit);
         $this->assertSame(50.0, $entry->amount);
         $this->assertSame(100.0, $entry->total_grams);
@@ -108,16 +111,19 @@ class NutritionTrackingTest extends TestCase
             'is_public' => false,
         ]);
 
-        $this->actingAs($user)->post('/diary-entries', [
+        $response = $this->actingAs($user)->post('/diary-entries', [
             'food_id' => $food->id,
             'date' => '2026-07-26',
             'meal' => 'lunch',
             'unit' => 'kg',
             'amount' => 0.25,
             'quantity' => 2,
-        ])->assertRedirect('/foods?date=2026-07-26&meal=lunch');
+        ]);
 
         $entry = DiaryDay::firstOrFail()->entries()->firstOrFail();
+        $response->assertRedirect(
+            "/diary/2026-07-26?focus_meal=lunch&added_entries={$entry->id}"
+        );
 
         $this->assertSame('kg', $entry->unit);
         $this->assertSame(0.25, $entry->amount);
@@ -152,15 +158,17 @@ class NutritionTrackingTest extends TestCase
     {
         $user = $this->onboardedUser();
 
-        $this->actingAs($user)
+        $response = $this->actingAs($user)
             ->post('/diary-entries/quick', [
                 'date' => '2026-07-26',
                 'meal' => 'dinner',
                 'calories' => 720,
-            ])
-            ->assertRedirect('/diary/2026-07-26');
+            ]);
 
         $entry = DiaryDay::firstOrFail()->entries()->firstOrFail();
+        $response->assertRedirect(
+            "/diary/2026-07-26?focus_meal=dinner&added_entries={$entry->id}"
+        );
 
         $this->assertNull($entry->food_id);
         $this->assertSame('Quick calorie entry', $entry->food_name);
@@ -187,16 +195,19 @@ class NutritionTrackingTest extends TestCase
             'is_public' => false,
         ]);
 
-        $this->actingAs($user)->post('/diary-entries', [
+        $response = $this->actingAs($user)->post('/diary-entries', [
             'food_id' => $milk->id,
             'date' => '2026-07-26',
             'meal' => 'breakfast',
             'unit' => 'l',
             'amount' => 0.25,
             'quantity' => 2,
-        ])->assertRedirect('/foods?date=2026-07-26&meal=breakfast');
+        ]);
 
         $entry = DiaryDay::firstOrFail()->entries()->firstOrFail();
+        $response->assertRedirect(
+            "/diary/2026-07-26?focus_meal=breakfast&added_entries={$entry->id}"
+        );
         $this->assertNull($entry->total_grams);
         $this->assertSame(500.0, $entry->total_milliliters);
         $this->assertSame(300.0, $entry->calories);
@@ -225,7 +236,7 @@ class NutritionTrackingTest extends TestCase
     {
         $user = $this->onboardedUser();
 
-        $this->actingAs($user)
+        $response = $this->actingAs($user)
             ->post('/diary-entries/quick', [
                 'date' => '2026-07-26',
                 'meal' => 'lunch',
@@ -235,10 +246,12 @@ class NutritionTrackingTest extends TestCase
                 'carbohydrates' => 80,
                 'fat' => 28,
                 'fibre' => 12,
-            ])
-            ->assertRedirect('/diary/2026-07-26');
+            ]);
 
         $entry = DiaryDay::firstOrFail()->entries()->firstOrFail();
+        $response->assertRedirect(
+            "/diary/2026-07-26?focus_meal=lunch&added_entries={$entry->id}"
+        );
 
         $this->assertSame('Restaurant meal', $entry->food_name);
         $this->assertSame(720.0, $entry->calories);

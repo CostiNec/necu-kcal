@@ -256,7 +256,7 @@ class AiNutritionEstimateTest extends TestCase
 
     public function test_user_can_store_multiple_reviewed_foods_for_a_meal(): void
     {
-        $this->actingAs($this->onboardedUser())
+        $response = $this->actingAs($this->onboardedUser())
             ->post('/diary-entries/ai', [
                 'date' => '2026-07-28',
                 'meal' => 'dinner',
@@ -280,12 +280,16 @@ class AiNutritionEstimateTest extends TestCase
                         'fibre_per_100g' => 0.4,
                     ],
                 ],
-            ])
-            ->assertRedirect('/diary/2026-07-28?focus_meal=dinner');
+            ]);
 
         $entries = DiaryDay::firstOrFail()->entries()
             ->orderBy('position')
             ->get();
+        $response->assertRedirect(route('diary.show', [
+            'date' => '2026-07-28',
+            'focus_meal' => 'dinner',
+            'added_entries' => $entries->pluck('id')->implode(','),
+        ], false));
 
         $this->assertCount(2, $entries);
         $this->assertSame(['Chicken', 'Rice'], $entries

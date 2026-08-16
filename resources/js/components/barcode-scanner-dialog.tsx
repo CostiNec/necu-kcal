@@ -55,6 +55,68 @@ const nativeBarcodeFormats = [
     'code_128',
 ];
 
+let retainedCameraStream: MediaStream | null = null;
+let cameraStreamRequest: Promise<MediaStream> | null = null;
+
+const liveCameraStream = () => {
+    if (
+        retainedCameraStream?.getVideoTracks().some(
+            (track) => track.readyState === 'live',
+        )
+    ) {
+        return retainedCameraStream;
+    }
+
+    retainedCameraStream?.getTracks().forEach((track) => track.stop());
+    retainedCameraStream = null;
+
+    return null;
+};
+
+const acquireCameraStream = async (constraints: MediaTrackConstraints) => {
+    const existingStream = liveCameraStream();
+
+    if (existingStream) {
+        existingStream.getVideoTracks().forEach((track) => {
+            track.enabled = true;
+        });
+
+        return existingStream;
+    }
+
+    cameraStreamRequest ??= navigator.mediaDevices
+        .getUserMedia({
+            audio: false,
+            video: constraints,
+        })
+        .then((stream) => {
+            retainedCameraStream = stream;
+            return stream;
+        })
+        .finally(() => {
+            cameraStreamRequest = null;
+        });
+
+    return cameraStreamRequest;
+};
+
+const pauseCameraStream = (stream: MediaStream | null) => {
+    if (!stream || stream !== retainedCameraStream) return;
+
+    stream.getVideoTracks().forEach((track) => {
+        track.enabled = false;
+    });
+};
+
+const releaseCameraStream = () => {
+    retainedCameraStream?.getTracks().forEach((track) => track.stop());
+    retainedCameraStream = null;
+};
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', releaseCameraStream);
+}
+
 export function BarcodeScannerDialog({
     open,
     onClose,
@@ -161,67 +223,52 @@ export function BarcodeScannerDialog({
             }
 
             const detector = new Detector({ formats });
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: false,
-                video: videoConstraints,
-            });
+            const stream = await acquireCameraStream(videoConstraints);
+            const video = videoRef.current;
 
-            try {
-                const video = videoRef.current;
+            if (!video || cancelled) {
+                pauseCameraStream(stream);
+                return;
+            }
 
-                if (!video || cancelled) {
-                    stream.getTracks().forEach((track) => track.stop());
-                    return;
+            video.srcObject = stream;
+            await video.play();
+            await configureCamera(stream);
+
+            const stop = () => {
+                if (nativeScanTimer !== null) {
+                    window.clearTimeout(nativeScanTimer);
+                    nativeScanTimer = null;
+                }
+            };
+            scannerControls = { stop };
+            setStarting(false);
+
+            const scanFrame = async () => {
+                if (cancelled || handledRef.current) return;
+
+                try {
+                    const barcodes = await detector.detect(video);
+                    const detected = barcodes.find((barcode) =>
+                        foodBarcodePattern.test(barcode.rawValue.trim()),
+                    );
+
+                    if (
+                        detected &&
+                        finishDetection(detected.rawValue, stop)
+                    ) {
+                        return;
+                    }
+                } catch {
+                    // A transient frame error should not stop the camera.
                 }
 
-                video.srcObject = stream;
-                await video.play();
-                await configureCamera(stream);
+                if (!cancelled && !handledRef.current) {
+                    nativeScanTimer = window.setTimeout(scanFrame, 40);
+                }
+            };
 
-                const stop = () => {
-                    if (nativeScanTimer !== null) {
-                        window.clearTimeout(nativeScanTimer);
-                        nativeScanTimer = null;
-                    }
-                    stream.getTracks().forEach((track) => track.stop());
-                };
-                scannerControls = { stop };
-                setStarting(false);
-
-                const scanFrame = async () => {
-                    if (cancelled || handledRef.current) return;
-
-                    try {
-                        const barcodes = await detector.detect(video);
-                        const detected = barcodes.find((barcode) =>
-                            foodBarcodePattern.test(
-                                barcode.rawValue.trim(),
-                            ),
-                        );
-
-                        if (
-                            detected &&
-                            finishDetection(detected.rawValue, stop)
-                        ) {
-                            return;
-                        }
-                    } catch {
-                        // A transient frame error should not stop the camera.
-                    }
-
-                    if (!cancelled && !handledRef.current) {
-                        nativeScanTimer = window.setTimeout(
-                            scanFrame,
-                            40,
-                        );
-                    }
-                };
-
-                void scanFrame();
-            } catch (nativeError) {
-                stream.getTracks().forEach((track) => track.stop());
-                throw nativeError;
-            }
+            void scanFrame();
         };
 
         const startZxingScanner = async () => {
@@ -247,14 +294,20 @@ export function BarcodeScannerDialog({
                 hints.set(zxing.DecodeHintType.TRY_HARDER, true);
             }, 1500);
 
-            if (!videoRef.current || cancelled) return;
+            const stream = await acquireCameraStream(videoConstraints);
+            const video = videoRef.current;
 
-            const controls = await reader.decodeFromConstraints(
-                {
-                    audio: false,
-                    video: videoConstraints,
-                },
-                videoRef.current,
+            if (!video || cancelled) {
+                pauseCameraStream(stream);
+                return;
+            }
+
+            video.srcObject = stream;
+            await video.play();
+            await configureCamera(stream);
+
+            const controls = await reader.decodeFromVideoElement(
+                video,
                 (result, _scanError, activeControls) => {
                     if (!result) return;
 
@@ -270,10 +323,6 @@ export function BarcodeScannerDialog({
             }
 
             scannerControls = controls;
-            const stream = videoRef.current.srcObject;
-            if (stream instanceof MediaStream) {
-                await configureCamera(stream);
-            }
             setStarting(false);
         };
 
@@ -313,6 +362,8 @@ export function BarcodeScannerDialog({
             } catch (scannerError) {
                 if (cancelled) return;
 
+                pauseCameraStream(retainedCameraStream);
+
                 const name =
                     scannerError instanceof DOMException
                         ? scannerError.name
@@ -343,9 +394,14 @@ export function BarcodeScannerDialog({
             scannerControls?.stop();
             videoTrackRef.current = null;
 
-            const stream = videoRef.current?.srcObject;
+            const video = videoRef.current;
+            const stream = video?.srcObject;
             if (stream instanceof MediaStream) {
-                stream.getTracks().forEach((track) => track.stop());
+                pauseCameraStream(stream);
+            }
+            if (video) {
+                video.pause();
+                video.srcObject = null;
             }
         };
     }, [attempt, open]);

@@ -39,7 +39,7 @@ class DiaryEntryController extends Controller
             'date' => $validated['date'],
         ]);
 
-        $day->entries()->create([
+        $entry = $day->entries()->create([
             'food_id' => $food->id,
             'meal' => $validated['meal'],
             'food_name' => $food->name,
@@ -62,9 +62,10 @@ class DiaryEntryController extends Controller
         ]);
 
         return redirect()
-            ->route('foods.index', [
+            ->route('diary.show', [
                 'date' => $validated['date'],
-                'meal' => $validated['meal'],
+                'focus_meal' => $validated['meal'],
+                'added_entries' => (string) $entry->id,
             ])
             ->with('success', __('app.food_added', [
                 'food' => $food->localizedName(),
@@ -133,7 +134,7 @@ class DiaryEntryController extends Controller
         ]);
         $name = trim((string) ($validated['name'] ?? ''));
 
-        $day->entries()->create([
+        $entry = $day->entries()->create([
             'food_id' => null,
             'meal' => $validated['meal'],
             'food_name' => $name !== ''
@@ -159,7 +160,11 @@ class DiaryEntryController extends Controller
         ]);
 
         return redirect()
-            ->route('diary.show', ['date' => $validated['date']])
+            ->route('diary.show', [
+                'date' => $validated['date'],
+                'focus_meal' => $validated['meal'],
+                'added_entries' => (string) $entry->id,
+            ])
             ->with('success', __('app.quick_entry_added'));
     }
 

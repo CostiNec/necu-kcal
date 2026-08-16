@@ -78,7 +78,7 @@ class AiDiaryEntryController extends Controller
             ],
         ]);
 
-        DB::transaction(function () use ($request, $validated): void {
+        $entryIds = DB::transaction(function () use ($request, $validated): array {
             $date = CarbonImmutable::createFromFormat(
                 'Y-m-d',
                 $validated['date']
@@ -90,13 +90,14 @@ class AiDiaryEntryController extends Controller
             $position = (int) $day->entries()
                 ->where('meal', $validated['meal'])
                 ->max('position');
+            $entryIds = [];
 
             foreach ($validated['entries'] as $entry) {
                 $weight = (float) $entry['weight_grams'];
                 $factor = $weight / 100;
                 $position++;
 
-                $day->entries()->create([
+                $createdEntry = $day->entries()->create([
                     'food_id' => null,
                     'meal' => $validated['meal'],
                     'food_name' => trim($entry['name']),
@@ -128,13 +129,17 @@ class AiDiaryEntryController extends Controller
                     ),
                     'position' => $position,
                 ]);
+                $entryIds[] = $createdEntry->id;
             }
+
+            return $entryIds;
         });
 
         return redirect()
             ->route('diary.show', [
                 'date' => $validated['date'],
                 'focus_meal' => $validated['meal'],
+                'added_entries' => implode(',', $entryIds),
             ])
             ->with('success', __('app.ai_entries_added', [
                 'count' => count($validated['entries']),

@@ -114,6 +114,7 @@ export default function Welcome() {
                 open={mobileMenuOpen}
                 onOpen={() => setMobileMenuOpen(true)}
                 onClose={() => setMobileMenuOpen(false)}
+                disableSwipeToOpen
                 swipeAreaWidth={28}
                 hysteresis={0.3}
                 ModalProps={{ keepMounted: true }}

@@ -1,4 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import AddRounded from '@mui/icons-material/AddRounded';
 import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded';
 import CookieRounded from '@mui/icons-material/CookieRounded';
@@ -29,6 +29,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import { keyframes } from '@mui/material/styles';
 import {
     useEffect,
     useRef,
@@ -72,6 +73,15 @@ type Totals = {
 
 type MealKey = (typeof meals)[number]['key'];
 
+const addedEntryPulse = keyframes`
+    0%, 100% {
+        background-color: transparent;
+    }
+    40% {
+        background-color: rgba(0, 167, 111, 0.12);
+    }
+`;
+
 export default function DiaryShow({
     date,
     isToday,
@@ -92,6 +102,14 @@ export default function DiaryShow({
     notes: string | null;
 }) {
     const { t } = useTranslation();
+    const { url } = usePage();
+    const query = new URLSearchParams(url.split('?')[1] ?? '');
+    const addedEntryIds = new Set(
+        (query.get('added_entries') ?? '')
+            .split(',')
+            .map(Number)
+            .filter((id) => Number.isInteger(id) && id > 0),
+    );
     const remaining = targets.calories - totals.calories;
     const calorieProgress =
         targets.calories > 0
@@ -102,9 +120,7 @@ export default function DiaryShow({
     const swipeNavigationPending = useRef(false);
 
     useEffect(() => {
-        const focusMeal = new URLSearchParams(window.location.search).get(
-            'focus_meal',
-        );
+        const focusMeal = query.get('focus_meal');
 
         if (!meals.some(({ key }) => key === focusMeal)) return;
 
@@ -115,7 +131,7 @@ export default function DiaryShow({
         });
 
         return () => window.cancelAnimationFrame(frame);
-    }, [date]);
+    }, [date, url]);
 
     const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
         if (event.touches.length !== 1) {
@@ -291,6 +307,7 @@ export default function DiaryShow({
                                     entries={entries.filter(
                                         (entry) => entry.meal === meal.key,
                                     )}
+                                    addedEntryIds={addedEntryIds}
                                     onQuickAdd={() =>
                                         setQuickEntryMeal(meal.key)
                                     }
@@ -384,11 +401,13 @@ function MealCard({
     date,
     meal,
     entries,
+    addedEntryIds,
     onQuickAdd,
 }: {
     date: string;
     meal: (typeof meals)[number];
     entries: DiaryEntry[];
+    addedEntryIds: Set<number>;
     onQuickAdd: () => void;
 }) {
     const { t } = useTranslation();
@@ -490,7 +509,11 @@ function MealCard({
             ) : (
                 <Stack divider={<Divider flexItem />}>
                     {entries.map((entry) => (
-                        <DiaryEntryRow key={entry.id} entry={entry} />
+                        <DiaryEntryRow
+                            key={entry.id}
+                            entry={entry}
+                            isNewlyAdded={addedEntryIds.has(entry.id)}
+                        />
                     ))}
                 </Stack>
             )}
@@ -675,9 +698,17 @@ function QuickEntryDialog({
     );
 }
 
-function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
+function DiaryEntryRow({
+    entry,
+    isNewlyAdded,
+}: {
+    entry: DiaryEntry;
+    isNewlyAdded: boolean;
+}) {
     const { t } = useTranslation();
     const [editing, setEditing] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [deleteProcessing, setDeleteProcessing] = useState(false);
     const form = useForm<{
         unit: MeasurementUnit;
         amount: NumberInputValue;
@@ -706,10 +737,29 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
             onSuccess: () => setEditing(false),
         });
     };
+    const deleteEntry = () => {
+        router.delete(`/diary-entries/${entry.id}`, {
+            preserveScroll: true,
+            onStart: () => setDeleteProcessing(true),
+            onFinish: () => {
+                setDeleteProcessing(false);
+                setDeleteConfirmOpen(false);
+            },
+        });
+    };
 
     return (
         <>
-            <Stack spacing={2} sx={{ p: 2 }}>
+            <Stack
+                spacing={2}
+                data-added-entry={isNewlyAdded || undefined}
+                sx={{
+                    p: 2,
+                    animation: isNewlyAdded
+                        ? `${addedEntryPulse} 2s cubic-bezier(0.22, 1, 0.36, 1) 1`
+                        : undefined,
+                }}
+            >
                 <Box sx={{ minWidth: 0 }}>
                     <Typography variant="subtitle2">
                         {entry.food_name} – {formatNumber(entry.calories)} kcal{' '}
@@ -759,11 +809,7 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                         color="error"
                         variant="text"
                         startIcon={<DeleteOutlineRounded />}
-                        onClick={() =>
-                            router.delete(`/diary-entries/${entry.id}`, {
-                                preserveScroll: true,
-                            })
-                        }
+                        onClick={() => setDeleteConfirmOpen(true)}
                     >
                         {t('diary.delete_entry')}
                     </Button>
@@ -873,6 +919,47 @@ function DiaryEntryRow({ entry }: { entry: DiaryEntry }) {
                         </Button>
                     </DialogActions>
                 </Box>
+            </ResponsiveDialog>
+            <ResponsiveDialog
+                fullWidth
+                maxWidth="xs"
+                open={deleteConfirmOpen}
+                onClose={() => {
+                    if (!deleteProcessing) setDeleteConfirmOpen(false);
+                }}
+            >
+                <DialogTitle>
+                    {t('diary.delete_confirm', { food: entry.food_name })}
+                </DialogTitle>
+                <DialogContent>
+                    <Typography color="text.secondary">
+                        {t('diary.delete_description')}
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        color="inherit"
+                        disabled={deleteProcessing}
+                        onClick={() => setDeleteConfirmOpen(false)}
+                    >
+                        {t('common.cancel')}
+                    </Button>
+                    <Button
+                        color="error"
+                        variant="contained"
+                        disabled={deleteProcessing}
+                        startIcon={
+                            deleteProcessing ? (
+                                <CircularProgress size={18} color="inherit" />
+                            ) : (
+                                <DeleteOutlineRounded />
+                            )
+                        }
+                        onClick={deleteEntry}
+                    >
+                        {t('diary.delete_action')}
+                    </Button>
+                </DialogActions>
             </ResponsiveDialog>
         </>
     );
