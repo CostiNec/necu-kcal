@@ -25,7 +25,13 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
-import { useMemo, useRef, useState, type FormEvent } from 'react';
+import {
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+    type FormEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/layouts/app-layout';
 import { BarcodeScannerDialog } from '@/components/barcode-scanner-dialog';
@@ -97,6 +103,7 @@ export default function FoodsIndex({
     const [createBarcode, setCreateBarcode] = useState<string | null>(null);
     const [scannerOpen, setScannerOpen] = useState(false);
     const requestSequence = useRef(0);
+    const loadMoreScrollPosition = useRef<number | null>(null);
     const logging = Boolean(context.date);
     const activeSearch = barcodeSearch ?? search;
     const localResults = useMemo(
@@ -107,6 +114,13 @@ export default function FoodsIndex({
         [activeTab, search, tabLists],
     );
     const visibleResults = databaseSearch ? results : localResults;
+
+    useLayoutEffect(() => {
+        if (loadingMore || loadMoreScrollPosition.current === null) return;
+
+        window.scrollTo(0, loadMoreScrollPosition.current);
+        loadMoreScrollPosition.current = null;
+    }, [loadingMore, results.length]);
 
     const loadFoods = async ({
         value,
@@ -138,9 +152,11 @@ export default function FoodsIndex({
             params.set('cursor', cursor);
         }
 
-        setDatabaseSearch(true);
-        setSearching(true);
-        setResolvedSearch(trimmedSearch);
+        if (!append) {
+            setDatabaseSearch(true);
+            setSearching(true);
+            setResolvedSearch(trimmedSearch);
+        }
 
         try {
             const response = await fetch(
@@ -166,10 +182,12 @@ export default function FoodsIndex({
         } catch {
             if (requestId !== requestSequence.current) return;
 
-            setResults([]);
-            setNextCursor(null);
+            if (!append) {
+                setResults([]);
+                setNextCursor(null);
+            }
         } finally {
-            if (requestId === requestSequence.current) {
+            if (requestId === requestSequence.current && !append) {
                 setSearching(false);
             }
         }
@@ -184,6 +202,7 @@ export default function FoodsIndex({
     const loadNextPage = async () => {
         if (!nextCursor || loadingMore) return;
 
+        loadMoreScrollPosition.current = window.scrollY;
         setLoadingMore(true);
         try {
             await loadFoods({
