@@ -212,7 +212,7 @@ class SocialFeaturesTest extends TestCase
 
         $this->actingAs($friend)
             ->post('/diary-entries', $this->diaryPayload($recipeFood))
-            ->assertRedirect('/diary/2026-07-27?focus_meal=dinner');
+            ->assertRedirect('/foods?date=2026-07-27&meal=dinner');
         $this->assertDatabaseHas('diary_entries', [
             'food_id' => $recipeFood->id,
             'food_name' => 'Friend soup',

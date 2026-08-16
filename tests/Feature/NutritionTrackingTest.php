@@ -76,7 +76,7 @@ class NutritionTrackingTest extends TestCase
             'unit' => 'g',
             'amount' => 50,
             'quantity' => 2,
-        ])->assertRedirect('/diary/2026-07-26?focus_meal=lunch');
+        ])->assertRedirect('/foods?date=2026-07-26&meal=lunch');
 
         $entry = DiaryDay::firstOrFail()->entries()->firstOrFail();
         $this->assertSame('g', $entry->unit);
@@ -115,7 +115,7 @@ class NutritionTrackingTest extends TestCase
             'unit' => 'kg',
             'amount' => 0.25,
             'quantity' => 2,
-        ])->assertRedirect('/diary/2026-07-26?focus_meal=lunch');
+        ])->assertRedirect('/foods?date=2026-07-26&meal=lunch');
 
         $entry = DiaryDay::firstOrFail()->entries()->firstOrFail();
 
@@ -194,7 +194,7 @@ class NutritionTrackingTest extends TestCase
             'unit' => 'l',
             'amount' => 0.25,
             'quantity' => 2,
-        ])->assertRedirect('/diary/2026-07-26?focus_meal=breakfast');
+        ])->assertRedirect('/foods?date=2026-07-26&meal=breakfast');
 
         $entry = DiaryDay::firstOrFail()->entries()->firstOrFail();
         $this->assertNull($entry->total_grams);

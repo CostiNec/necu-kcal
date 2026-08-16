@@ -171,6 +171,8 @@ class LocalizationTest extends TestCase
             [$exact->id, $other->id],
             collect($response->json('foods'))->pluck('id')->all()
         );
+        $this->assertSame('Ouă', $response->json('foods.0.name'));
+        $this->assertSame('Salată cu ouă', $response->json('foods.1.name'));
     }
 
     public function test_food_name_is_used_when_current_locale_translation_is_missing(): void

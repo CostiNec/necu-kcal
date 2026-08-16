@@ -83,7 +83,10 @@ class FoodController extends Controller
         return Inertia::render('foods/index', [
             'foods' => $search === ''
                 ? $this->foodPayloads($favouriteFoods)
-                : $this->foodPayloads(collect($paginator?->items())),
+                : $this->foodPayloads(
+                    collect($paginator?->items()),
+                    $search
+                ),
             'lists' => [
                 'recent' => $this->foodPayloads($recentFoods),
                 'favourites' => $this->foodPayloads($favouriteFoods),
@@ -118,7 +121,7 @@ class FoodController extends Controller
 
         return response()->json([
             'foods' => collect($paginator->items())
-                ->map(fn (Food $food) => $this->foodPayload($food)),
+                ->map(fn (Food $food) => $this->foodPayload($food, $search)),
             'next_cursor' => $paginator->nextCursor()?->encode(),
         ]);
     }
@@ -199,6 +202,10 @@ class FoodController extends Controller
                 fn (Builder $query) => $query->whereNotNull('favourite.id')
             );
 
+        if ($search !== '') {
+            $query->with('translations');
+        }
+
         return $this->foodSearch->order($query, $search);
     }
 
@@ -228,15 +235,19 @@ class FoodController extends Controller
      * @param  Collection<int, Food>  $foods
      * @return Collection<int, array<string, mixed>>
      */
-    private function foodPayloads(Collection $foods): Collection
-    {
-        return $foods->map(fn (Food $food) => $this->foodPayload($food));
+    private function foodPayloads(
+        Collection $foods,
+        string $search = ''
+    ): Collection {
+        return $foods->map(
+            fn (Food $food) => $this->foodPayload($food, $search)
+        );
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function foodPayload(Food $food): array
+    private function foodPayload(Food $food, string $search = ''): array
     {
         return [
             ...$food->only([
@@ -251,7 +262,9 @@ class FoodController extends Controller
                 'fat',
                 'fibre',
             ]),
-            'name' => $food->localizedName(),
+            'name' => $search === ''
+                ? $food->localizedName()
+                : $food->localizedNameMatching($search),
             'is_custom' => $food->food_type === 'custom',
             'is_recipe' => $food->food_type === 'recipe',
             'recipe_id' => $food->recipe?->id,

@@ -145,6 +145,51 @@ class Food extends Model
         return $this->translation?->name ?? $this->name;
     }
 
+    public function localizedNameMatching(string $search): string
+    {
+        $search = mb_strtolower(trim($search));
+
+        if ($search === '') {
+            return $this->localizedName();
+        }
+
+        $matchingTranslation = $this->translations
+            ->map(fn (FoodTranslation $translation) => [
+                'translation' => $translation,
+                'match_priority' => $this->nameMatchPriority(
+                    $translation->name,
+                    $search
+                ),
+            ])
+            ->filter(fn (array $match) => $match['match_priority'] !== null)
+            ->sortBy(fn (array $match) => [
+                $match['match_priority'],
+                $match['translation']->locale === app()->getLocale() ? 0 : 1,
+            ])
+            ->first();
+
+        return $matchingTranslation['translation']->name
+            ?? $this->localizedName();
+    }
+
+    private function nameMatchPriority(string $name, string $search): ?int
+    {
+        $name = mb_strtolower($name);
+
+        if ($name === $search) {
+            return 0;
+        }
+
+        if (str_starts_with($name, $search)) {
+            return 1;
+        }
+
+        return preg_match(
+            '/[^\p{L}\p{N}]'.preg_quote($search, '/').'/u',
+            $name
+        ) === 1 ? 2 : null;
+    }
+
     public function recipe(): HasOne
     {
         return $this->hasOne(Recipe::class);
