@@ -56,7 +56,8 @@
   },
   "theme": {
     "dark_mode": "Mod întunecat",
-    "light_mode": "Mod luminos"
+    "light_mode": "Mod luminos",
+    "font_size": "Dimensiunea textului"
   },
   "install_app": {
     "action": "Instalează aplicația",

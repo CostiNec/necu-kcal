@@ -21,9 +21,14 @@ import { createKcalTheme } from '@/theme';
 type ColorModeContextValue = {
     mode: PaletteMode;
     toggleMode: () => void;
+    fontSize: number;
+    setFontSize: (fontSize: number) => void;
 };
 
 const ColorModeContext = createContext<ColorModeContextValue | null>(null);
+const defaultFontSize = 14;
+const minFontSize = 12;
+const maxFontSize = 18;
 
 function initialMode(): PaletteMode {
     if (typeof window === 'undefined') return 'light';
@@ -36,9 +41,27 @@ function initialMode(): PaletteMode {
         : 'light';
 }
 
+function initialFontSize() {
+    if (typeof window === 'undefined') return defaultFontSize;
+
+    const stored = window.localStorage.getItem('kcal-font-size');
+
+    if (stored === null) return defaultFontSize;
+
+    const saved = Number(stored);
+
+    if (!Number.isFinite(saved)) return defaultFontSize;
+
+    return Math.min(maxFontSize, Math.max(minFontSize, saved));
+}
+
 export function ThemeProvider({ children }: PropsWithChildren) {
     const [mode, setMode] = useState<PaletteMode>(initialMode);
-    const theme = useMemo(() => createKcalTheme(mode), [mode]);
+    const [fontSize, setFontSize] = useState(initialFontSize);
+    const theme = useMemo(
+        () => createKcalTheme(mode, fontSize),
+        [fontSize, mode],
+    );
     const isRomanian = document.documentElement.lang.startsWith('ro');
     const pickerLocale = isRomanian ? roRO : enUS;
     const colorMode = useMemo(
@@ -46,8 +69,10 @@ export function ThemeProvider({ children }: PropsWithChildren) {
             mode,
             toggleMode: () =>
                 setMode((current) => (current === 'light' ? 'dark' : 'light')),
+            fontSize,
+            setFontSize,
         }),
-        [mode],
+        [fontSize, mode],
     );
 
     useEffect(() => {
@@ -57,6 +82,10 @@ export function ThemeProvider({ children }: PropsWithChildren) {
             .querySelector('meta[name="theme-color"]')
             ?.setAttribute('content', mode === 'dark' ? '#141A21' : '#00A76F');
     }, [mode]);
+
+    useEffect(() => {
+        window.localStorage.setItem('kcal-font-size', String(fontSize));
+    }, [fontSize]);
 
     return (
         <ColorModeContext.Provider value={colorMode}>

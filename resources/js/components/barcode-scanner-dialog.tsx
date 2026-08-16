@@ -55,67 +55,16 @@ const nativeBarcodeFormats = [
     'code_128',
 ];
 
-let retainedCameraStream: MediaStream | null = null;
-let cameraStreamRequest: Promise<MediaStream> | null = null;
-
-const liveCameraStream = () => {
-    if (
-        retainedCameraStream?.getVideoTracks().some(
-            (track) => track.readyState === 'live',
-        )
-    ) {
-        return retainedCameraStream;
-    }
-
-    retainedCameraStream?.getTracks().forEach((track) => track.stop());
-    retainedCameraStream = null;
-
-    return null;
-};
-
 const acquireCameraStream = async (constraints: MediaTrackConstraints) => {
-    const existingStream = liveCameraStream();
-
-    if (existingStream) {
-        existingStream.getVideoTracks().forEach((track) => {
-            track.enabled = true;
-        });
-
-        return existingStream;
-    }
-
-    cameraStreamRequest ??= navigator.mediaDevices
-        .getUserMedia({
-            audio: false,
-            video: constraints,
-        })
-        .then((stream) => {
-            retainedCameraStream = stream;
-            return stream;
-        })
-        .finally(() => {
-            cameraStreamRequest = null;
-        });
-
-    return cameraStreamRequest;
-};
-
-const pauseCameraStream = (stream: MediaStream | null) => {
-    if (!stream || stream !== retainedCameraStream) return;
-
-    stream.getVideoTracks().forEach((track) => {
-        track.enabled = false;
+    return navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: constraints,
     });
 };
 
-const releaseCameraStream = () => {
-    retainedCameraStream?.getTracks().forEach((track) => track.stop());
-    retainedCameraStream = null;
+const stopCameraStream = (stream: MediaStream | null) => {
+    stream?.getTracks().forEach((track) => track.stop());
 };
-
-if (typeof window !== 'undefined') {
-    window.addEventListener('pagehide', releaseCameraStream);
-}
 
 export function BarcodeScannerDialog({
     open,
@@ -148,11 +97,33 @@ export function BarcodeScannerDialog({
         let scannerControls: IScannerControls | null = null;
         let nativeScanTimer: number | null = null;
         let tryHarderTimer: number | null = null;
+        let cameraStream: MediaStream | null = null;
         handledRef.current = false;
         setError(null);
         setStarting(true);
         setTorchSupported(false);
         setTorchOn(false);
+
+        const stopCamera = () => {
+            const video = videoRef.current;
+            const attachedStream = video?.srcObject;
+
+            stopCameraStream(cameraStream);
+            if (
+                attachedStream instanceof MediaStream &&
+                attachedStream !== cameraStream
+            ) {
+                stopCameraStream(attachedStream);
+            }
+
+            cameraStream = null;
+            videoTrackRef.current = null;
+
+            if (video) {
+                video.pause();
+                video.srcObject = null;
+            }
+        };
 
         const finishDetection = (
             value: string,
@@ -170,6 +141,7 @@ export function BarcodeScannerDialog({
 
             handledRef.current = true;
             stopScanner();
+            stopCamera();
             navigator.vibrate?.(80);
             onDetectedRef.current(barcode);
 
@@ -224,10 +196,11 @@ export function BarcodeScannerDialog({
 
             const detector = new Detector({ formats });
             const stream = await acquireCameraStream(videoConstraints);
+            cameraStream = stream;
             const video = videoRef.current;
 
             if (!video || cancelled) {
-                pauseCameraStream(stream);
+                stopCamera();
                 return;
             }
 
@@ -295,10 +268,11 @@ export function BarcodeScannerDialog({
             }, 1500);
 
             const stream = await acquireCameraStream(videoConstraints);
+            cameraStream = stream;
             const video = videoRef.current;
 
             if (!video || cancelled) {
-                pauseCameraStream(stream);
+                stopCamera();
                 return;
             }
 
@@ -355,6 +329,8 @@ export function BarcodeScannerDialog({
                         ) {
                             throw nativeError;
                         }
+
+                        stopCamera();
                     }
                 }
 
@@ -362,7 +338,7 @@ export function BarcodeScannerDialog({
             } catch (scannerError) {
                 if (cancelled) return;
 
-                pauseCameraStream(retainedCameraStream);
+                stopCamera();
 
                 const name =
                     scannerError instanceof DOMException
@@ -392,17 +368,7 @@ export function BarcodeScannerDialog({
                 window.clearTimeout(tryHarderTimer);
             }
             scannerControls?.stop();
-            videoTrackRef.current = null;
-
-            const video = videoRef.current;
-            const stream = video?.srcObject;
-            if (stream instanceof MediaStream) {
-                pauseCameraStream(stream);
-            }
-            if (video) {
-                video.pause();
-                video.srcObject = null;
-            }
+            stopCamera();
         };
     }, [attempt, open]);
 

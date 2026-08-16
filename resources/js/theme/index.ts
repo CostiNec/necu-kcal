@@ -48,7 +48,7 @@ const statusColors = {
 
 const buttonHeight = 40;
 
-export function createKcalTheme(mode: PaletteMode) {
+export function createKcalTheme(mode: PaletteMode, fontSize = 14) {
     const dark = mode === 'dark';
 
     return createTheme({
@@ -127,6 +127,7 @@ export function createKcalTheme(mode: PaletteMode) {
         shape: { borderRadius: 8 },
         typography: {
             fontFamily: '"Public Sans Variable", "Public Sans", Arial, sans-serif',
+            fontSize,
             fontWeightRegular: 400,
             fontWeightMedium: 600,
             fontWeightBold: 700,

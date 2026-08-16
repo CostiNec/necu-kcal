@@ -56,7 +56,8 @@
   },
   "theme": {
     "dark_mode": "Dark mode",
-    "light_mode": "Light mode"
+    "light_mode": "Light mode",
+    "font_size": "Font size"
   },
   "install_app": {
     "action": "Install app",
