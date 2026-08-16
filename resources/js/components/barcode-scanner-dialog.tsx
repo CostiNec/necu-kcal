@@ -68,11 +68,16 @@ export function BarcodeScannerDialog({
     const videoRef = useRef<HTMLVideoElement>(null);
     const videoTrackRef = useRef<MediaStreamTrack | null>(null);
     const handledRef = useRef(false);
+    const onDetectedRef = useRef(onDetected);
     const [starting, setStarting] = useState(false);
     const [error, setError] = useState<ScannerError | null>(null);
     const [attempt, setAttempt] = useState(0);
     const [torchSupported, setTorchSupported] = useState(false);
     const [torchOn, setTorchOn] = useState(false);
+
+    useEffect(() => {
+        onDetectedRef.current = onDetected;
+    }, [onDetected]);
 
     useEffect(() => {
         if (!open) return;
@@ -104,7 +109,7 @@ export function BarcodeScannerDialog({
             handledRef.current = true;
             stopScanner();
             navigator.vibrate?.(80);
-            onDetected(barcode);
+            onDetectedRef.current(barcode);
 
             return true;
         };
@@ -343,7 +348,7 @@ export function BarcodeScannerDialog({
                 stream.getTracks().forEach((track) => track.stop());
             }
         };
-    }, [attempt, onDetected, open]);
+    }, [attempt, open]);
 
     const toggleTorch = async () => {
         const track = videoTrackRef.current;
