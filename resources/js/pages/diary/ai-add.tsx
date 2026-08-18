@@ -21,7 +21,6 @@ import Typography from '@mui/material/Typography';
 import {
     useEffect,
     useMemo,
-    useRef,
     useState,
     type ChangeEvent,
     type ClipboardEvent,
@@ -90,7 +89,6 @@ export default function AiAddDiaryEntry({
     const [estimating, setEstimating] = useState(false);
     const [processingImages, setProcessingImages] = useState(false);
     const [saving, setSaving] = useState(false);
-    const reviewRef = useRef<HTMLDivElement | null>(null);
     const previews = useMemo(
         () =>
             images.map((file) => ({
@@ -106,25 +104,6 @@ export default function AiAddDiaryEntry({
         },
         [previews],
     );
-
-    useEffect(() => {
-        if (!entries) {
-            return;
-        }
-
-        const frame = window.requestAnimationFrame(() => {
-            reviewRef.current?.scrollIntoView({
-                behavior: window.matchMedia(
-                    '(prefers-reduced-motion: reduce)',
-                ).matches
-                    ? 'auto'
-                    : 'smooth',
-                block: 'start',
-            });
-        });
-
-        return () => window.cancelAnimationFrame(frame);
-    }, [entries]);
 
     const canEstimate = description.trim() !== '' || images.length > 0;
 
@@ -593,7 +572,7 @@ export default function AiAddDiaryEntry({
                         </CardContent>
                     </Card>
 
-                    <Card ref={reviewRef} sx={{ scrollMarginTop: 96 }}>
+                    <Card>
                         <CardHeader
                             title={
                                 entries

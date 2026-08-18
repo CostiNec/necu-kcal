@@ -14,6 +14,8 @@ class EstimateDiaryEntryController extends Controller
         Request $request,
         NutritionEstimator $estimator
     ): JsonResponse {
+        set_time_limit((int) config('nutrition-ai.timeout', 120));
+
         $validator = Validator::make($request->all(), [
             'description' => ['nullable', 'string', 'min:3', 'max:1000'],
             'images' => ['nullable', 'array', 'max:2'],

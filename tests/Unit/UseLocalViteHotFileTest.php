@@ -11,12 +11,36 @@ use Tests\TestCase;
 
 class UseLocalViteHotFileTest extends TestCase
 {
+    private string|false $originalHotFile;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->originalHotFile = is_file(public_path('hot'))
+            ? file_get_contents(public_path('hot'))
+            : false;
+    }
+
+    protected function tearDown(): void
+    {
+        if ($this->originalHotFile === false) {
+            @unlink(public_path('hot'));
+        } else {
+            file_put_contents(public_path('hot'), $this->originalHotFile);
+        }
+
+        parent::tearDown();
+    }
+
     #[DataProvider('localHosts')]
     public function test_local_requests_use_the_vite_development_server(
         string $url
     ): void {
+        file_put_contents(public_path('hot'), 'http://127.0.0.1:5173');
+
         $vite = $this->app->make(Vite::class);
-        $middleware = new UseLocalViteHotFile($vite);
+        $middleware = new UseLocalViteHotFile($vite, fn () => true);
 
         $middleware->handle(
             Request::create($url),
@@ -24,6 +48,24 @@ class UseLocalViteHotFileTest extends TestCase
         );
 
         $this->assertSame(public_path('hot'), $vite->hotFile());
+    }
+
+    public function test_local_requests_use_compiled_assets_when_the_vite_hot_file_is_stale(): void
+    {
+        file_put_contents(public_path('hot'), 'http://127.0.0.1:1');
+
+        $vite = $this->app->make(Vite::class);
+        $middleware = new UseLocalViteHotFile($vite, fn () => false);
+
+        $middleware->handle(
+            Request::create('http://127.0.0.1'),
+            fn () => new Response
+        );
+
+        $this->assertSame(
+            storage_path('framework/vite-external.hot'),
+            $vite->hotFile()
+        );
     }
 
     public function test_external_requests_use_compiled_assets(): void

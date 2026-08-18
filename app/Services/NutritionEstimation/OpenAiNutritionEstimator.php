@@ -74,8 +74,8 @@ class OpenAiNutritionEstimator extends AbstractNutritionEstimator
             ->acceptJson()
             ->asJson()
             ->timeout($fullDay
-                ? (int) config('nutrition-ai.full_day_timeout')
-                : (int) config('services.openai.timeout'))
+                ? (int) config('nutrition-ai.full_day_timeout', 120)
+                : (int) config('nutrition-ai.timeout', 120))
             ->retry($fullDay ? 1 : 2, 250, throw: false)
             ->post('/responses', [
                 'model' => config('services.openai.nutrition_model'),

@@ -99,8 +99,8 @@ class GeminiNutritionEstimator extends AbstractNutritionEstimator
                 ->acceptJson()
                 ->asJson()
                 ->timeout($fullDay
-                    ? (int) config('nutrition-ai.full_day_timeout')
-                    : (int) config('services.gemini.timeout'))
+                    ? (int) config('nutrition-ai.full_day_timeout', 120)
+                    : (int) config('nutrition-ai.timeout', 120))
                 ->retry(
                     $fullDay || count($apiKeys) > 1 ? 1 : 2,
                     250,

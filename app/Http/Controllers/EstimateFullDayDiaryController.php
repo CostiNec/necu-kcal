@@ -14,6 +14,8 @@ class EstimateFullDayDiaryController extends Controller
         Request $request,
         NutritionEstimator $estimator
     ): JsonResponse {
+        set_time_limit((int) config('nutrition-ai.full_day_timeout', 120));
+
         $validator = Validator::make($request->all(), [
             'description' => ['nullable', 'string', 'min:3', 'max:2000'],
             'images' => ['nullable', 'array', 'max:10'],

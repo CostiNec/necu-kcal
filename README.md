@@ -64,6 +64,7 @@ then configure it in `.env`:
 
 ```dotenv
 AI_NUTRITION_PROVIDER=gemini
+AI_NUTRITION_TIMEOUT=120
 AI_NUTRITION_FULL_DAY_TIMEOUT=120
 GEMINI_API_KEY=your-key
 GEMINI_API_KEY_2=optional-second-key
@@ -71,8 +72,8 @@ GEMINI_API_KEY_3=optional-third-key
 GEMINI_NUTRITION_MODEL=gemini-3.6-flash
 ```
 
-Full-day estimates allow two minutes for the configured provider to respond.
-Single-food estimates continue to use the provider-specific timeout.
+Meal and full-day estimates allow two minutes for the configured provider to
+respond.
 When multiple different Gemini keys are configured, requests alternate between
 all of them. If one key is rejected, rate-limited, or temporarily unavailable,
 the remaining keys are tried immediately. Gemini quotas are shared by keys from
