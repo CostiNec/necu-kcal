@@ -76,14 +76,17 @@ class ReportController extends Controller
             ];
         });
 
-        $loggedDays = $dailyChart->where('calories', '>', 0);
+        $loggedDates = $days
+            ->filter(fn (DiaryDay $day) => $day->entries->isNotEmpty())
+            ->keys();
+        $loggedDays = $dailyChart->whereIn('date', $loggedDates);
         $completedLoggedDays = $loggedDays->where('date', '!=', $today->toDateString());
         $average = fn (Collection $points, string $key) => $points->isEmpty()
             ? 0
             : round((float) $points->avg($key), $key === 'calories' ? 0 : 1);
 
-        $summarize = function (Collection $points): array {
-            $loggedPoints = $points->where('calories', '>', 0);
+        $summarize = function (Collection $points) use ($loggedDates): array {
+            $loggedPoints = $points->whereIn('date', $loggedDates);
             $average = fn (string $key, int $precision = 1) => $loggedPoints->isEmpty()
                 ? 0
                 : round((float) $loggedPoints->avg($key), $precision);
@@ -98,17 +101,19 @@ class ReportController extends Controller
                 'fibre' => $average('fibre'),
             ];
         };
-        $summarizeCalories = function (Collection $points) use ($today): array {
+        $summarizeCalories = function (Collection $points) use ($loggedDates, $today): ?array {
             $loggedPoints = $points
                 ->where('date', '!=', $today->toDateString())
-                ->where('calories', '>', 0);
+                ->whereIn('date', $loggedDates);
+
+            if ($loggedPoints->isEmpty()) {
+                return null;
+            }
 
             return [
                 'date' => $points->first()['date'],
                 'day' => $points->first()['day'],
-                'calories' => $loggedPoints->isEmpty()
-                    ? 0
-                    : round((float) $loggedPoints->avg('calories')),
+                'calories' => round((float) $loggedPoints->avg('calories')),
             ];
         };
 
@@ -124,13 +129,16 @@ class ReportController extends Controller
             $periodDays > 90 => $dailyChart
                 ->groupBy(fn (array $point) => substr($point['date'], 0, 7))
                 ->map($summarizeCalories)
+                ->filter()
                 ->values(),
             $periodDays > 31 => $dailyChart
                 ->chunk(7)
                 ->map($summarizeCalories)
+                ->filter()
                 ->values(),
             default => $dailyChart
                 ->where('date', '!=', $today->toDateString())
+                ->whereIn('date', $loggedDates)
                 ->values(),
         };
 
