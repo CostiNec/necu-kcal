@@ -8,6 +8,8 @@ abstract class AbstractNutritionEstimator implements NutritionEstimator
 {
     protected function instructions(string $locale): string
     {
+        $portionInstructions = $this->portionInstructions();
+
         return <<<PROMPT
 You estimate food weight and nutrition density for a food diary from text and up to two photos.
 Photos may show the same food from different angles or show a package label; never double-count food merely because it appears in multiple photos.
@@ -16,6 +18,7 @@ Keep a composed dish as one entry when its ingredients are mixed together or the
 For every entry, estimate the total edible weight consumed in grams.
 Return calories in kcal per 100 g and protein, carbohydrates, fat, and fibre in grams per 100 g.
 Use package nutrition labels when they are legible. Otherwise use typical portions and common preparation methods when details are missing.
+{$portionInstructions}
 All numeric values must be non-negative. Calories per 100 g and total weight must be greater than zero.
 Use a short food name in the same language as the user's description.
 State important portion or preparation assumptions briefly for each entry.
@@ -26,6 +29,8 @@ PROMPT;
 
     protected function dayInstructions(string $locale): string
     {
+        $portionInstructions = $this->portionInstructions();
+
         return <<<PROMPT
 You reconstruct one complete food-diary day from the user's text and up to ten photos.
 Photos are provided in the order selected. They may show different meals, the same meal from multiple angles, ingredients, packaging, or nutrition labels.
@@ -33,11 +38,25 @@ Never double-count food merely because it appears in multiple photos. Use the us
 Return one entry for each distinct food or composed dish that was consumed. Do not split a composed dish into invisible ingredients, but separate visually distinct foods when their portions can reasonably be estimated.
 For every entry, estimate the total edible weight consumed in grams. Return calories in kcal per 100 g and protein, carbohydrates, fat, and fibre in grams per 100 g.
 Use package nutrition labels when they are legible. Otherwise use typical portions and common preparation methods when details are missing.
+{$portionInstructions}
 Assign every entry to exactly one of: breakfast, lunch, dinner, snacks. When timing is unclear, use the description and photo order; mention uncertainty in assumptions.
 All numeric values must be non-negative. Calories per 100 g and total weight must be greater than zero.
 Use short food names in the same language as the user's description. State important portion, timing, or preparation assumptions briefly for each entry.
 Confidence must reflect how precisely the food and quantity were identified.
 Return no more than 30 entries. Do not provide health or medical advice. The application's locale is {$locale}.
+PROMPT;
+    }
+
+    private function portionInstructions(): string
+    {
+        return <<<'PROMPT'
+Portion estimation rules:
+- First identify the actual amount consumed: explicit grams, number of pieces, fraction of a package, or a household measure. Explicit consumed weights take priority over inferred portions. Package net weight is not consumed weight unless the user ate the whole package.
+- Calculate consumed grams from the amount described. When package weight and subdivision counts are known, use package weight * subdivisions eaten / total subdivisions. For example, one row from a 90 g chocolate tablet with six equal rows is 15 g; two such rows are 30 g.
+- Interpret everyday portion words in the user's language, including Romanian without diacritics: "rând/rand" is a row, "pătrățel/patratel" is one square, "felie" is a slice, "jumătate/jumatate" is half. For chocolate, a row is a small group of connected squares within a tablet; do not interpret a row as an entire tablet or snack bar.
+- If chocolate tablet size and row count are unknown, use an explicitly assumed 100 g tablet divided into eight equal rows: one row is approximately 12.5 g, two rows approximately 25 g. This is an uncertain fallback, not a known product fact. Override it with explicit weights, package information, or visible evidence. Do not invent a brand or assert a particular product's dimensions.
+- A square, row, slice, teaspoon, tablespoon, handful, and whole package are different quantities. Do not silently replace the user's quantity with a generic serving or with 100 g. The per-100-g nutrition reference is independent of weight_grams.
+- Before returning, check that multiplying unit weight by count or applying a fraction matches weight_grams. In assumptions, briefly explain the portion arithmetic in the user's language, distinguishing observed amounts from guessed package sizes. Use low confidence when an unknown package size or subdivision count materially affects the weight.
 PROMPT;
     }
 
