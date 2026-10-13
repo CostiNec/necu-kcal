@@ -38,8 +38,9 @@ class GroqNutritionEstimateTest extends TestCase
             return $request->url() === 'https://groq.test/openai/v1/chat/completions'
                 && $request->hasHeader('Authorization', 'Bearer test-groq-key')
                 && $data['model'] === 'qwen/qwen3.8-27b'
-                && $data['response_format']['type'] === 'json_object'
-                && str_contains($data['messages'][0]['content'], 'JSON Schema')
+                && $data['response_format']['type'] === 'json_schema'
+                && $data['response_format']['json_schema']['strict'] === true
+                && $data['response_format']['json_schema']['schema']['required'] === ['entries']
                 && str_contains($data['messages'][0]['content'], 'locale is ro')
                 && $data['messages'][1]['content'][0]['text'] === 'Două ouă fierte';
         });
@@ -49,11 +50,13 @@ class GroqNutritionEstimateTest extends TestCase
     {
         Http::fake(['groq.test/*' => Http::response($this->response())]);
         $images = [UploadedFile::fake()->image('meal.jpg'), UploadedFile::fake()->image('label.png')];
-        app(NutritionEstimator::class)->estimate('', 'en', $images);
+        app(NutritionEstimator::class)->estimate('Eggs with a package label', 'en', $images);
         Http::assertSent(function (Request $request) use ($images): bool {
             $content = $request->data()['messages'][1]['content'];
 
             return count($content) === 3
+                && $content[0]['text'] === 'Eggs with a package label'
+                && $request->data()['response_format']['json_schema']['strict'] === true
                 && $content[1]['image_url']['url'] === 'data:image/jpeg;base64,'.base64_encode($images[0]->get())
                 && $content[2]['image_url']['url'] === 'data:image/png;base64,'.base64_encode($images[1]->get());
         });
@@ -89,7 +92,7 @@ class GroqNutritionEstimateTest extends TestCase
             }
 
             return $data['max_completion_tokens'] === 8192
-                && str_contains($data['messages'][0]['content'], '"meal"')
+                && isset($data['response_format']['json_schema']['schema']['properties']['entries']['items']['properties']['meal'])
                 && str_contains($content[0]['text'], 'Photos 1-4');
         });
     }
@@ -143,6 +146,41 @@ class GroqNutritionEstimateTest extends TestCase
             $this->assertSame('The Groq API key is not configured.', $e->getMessage());
         }
         Http::assertNothingSent();
+    }
+
+    public function test_an_unexpected_response_shape_has_structural_diagnostics_without_model_text(): void
+    {
+        $response = $this->response();
+        $response['choices'][0]['message']['content'] = json_encode(['food' => 'private food description']);
+        Http::fake(['groq.test/*' => Http::response($response)]);
+
+        try {
+            app(NutritionEstimator::class)->estimate('private user description', 'en');
+            $this->fail('Expected invalid response shape failure.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('entries=null; count=n/a', $exception->getMessage());
+            $this->assertStringNotContainsString('private', $exception->getMessage());
+        }
+    }
+
+    public function test_an_empty_estimate_is_rejected_without_inventing_a_food(): void
+    {
+        $response = $this->response();
+        $response['choices'][0]['message']['content'] = '{"entries":[]}';
+        Http::fake(['groq.test/*' => Http::response($response)]);
+
+        $this->expectExceptionMessage('entries=array; count=0');
+        app(NutritionEstimator::class)->estimate('A photo with no identifiable food', 'en');
+    }
+
+    public function test_malformed_json_reports_a_parse_error_without_exposing_the_response(): void
+    {
+        $response = $this->response();
+        $response['choices'][0]['message']['content'] = 'private malformed JSON';
+        Http::fake(['groq.test/*' => Http::response($response)]);
+
+        $this->expectExceptionMessage('json=Syntax error; root=null; entries=null; count=n/a');
+        app(NutritionEstimator::class)->estimate('Eggs', 'en');
     }
 
     private function response(bool $day = false): array

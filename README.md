@@ -71,7 +71,7 @@ GROQ_BASE_URL=https://api.groq.com/openai/v1
 GROQ_NUTRITION_MODEL=qwen/qwen3.8-27b
 ```
 
-Groq uses JSON mode, and the application validates every returned entry before
+Groq uses strict JSON Schema output, and the application validates every returned entry before
 showing it for review. Meal estimates accept two photos; full-day estimates
 accept ten. For more than three photos, the Groq adapter creates up to three
 numbered image sheets using PHP's GD extension. Photo order is preserved;

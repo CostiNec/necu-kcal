@@ -33,7 +33,7 @@ class GroqNutritionEstimator extends AbstractNutritionEstimator
 
         $schema = $fullDay ? $this->daySchema() : $this->schema();
         $instructions = $fullDay ? $this->dayInstructions($locale) : $this->instructions($locale);
-        $instructions .= "\nReturn only a JSON object matching this JSON Schema: ".json_encode($schema, JSON_THROW_ON_ERROR);
+        $instructions .= "\nReturn only the nutrition estimate in the required JSON structure. If the input contains no identifiable food or drink, return an empty entries array; do not invent foods.";
         $instructions .= "\nNumbered panels in image sheets refer to the original photo order. Treat each panel as a separate photo, not a separate serving.";
         $content = [[
             'type' => 'text',
@@ -70,7 +70,14 @@ class GroqNutritionEstimator extends AbstractNutritionEstimator
                     ['role' => 'system', 'content' => $instructions],
                     ['role' => 'user', 'content' => $content],
                 ],
-                'response_format' => ['type' => 'json_object'],
+                'response_format' => [
+                    'type' => 'json_schema',
+                    'json_schema' => [
+                        'name' => $fullDay ? 'day_nutrition_estimate' : 'nutrition_estimate',
+                        'strict' => true,
+                        'schema' => $schema,
+                    ],
+                ],
                 'max_completion_tokens' => $fullDay ? 8192 : 4096,
                 'stream' => false,
             ]);
@@ -89,7 +96,27 @@ class GroqNutritionEstimator extends AbstractNutritionEstimator
             throw new RuntimeException('Groq returned no estimate.');
         }
 
-        return $fullDay ? $this->validatedDayEstimate($output) : $this->validatedEstimate($output);
+        try {
+            return $fullDay ? $this->validatedDayEstimate($output) : $this->validatedEstimate($output);
+        } catch (RuntimeException $exception) {
+            // Record only structural diagnostics, never descriptions, images, or model text.
+            $decoded = json_decode($output, true);
+            $jsonError = json_last_error_msg();
+            $entries = is_array($decoded) ? ($decoded['entries'] ?? null) : null;
+            $details = sprintf(
+                'json=%s; root=%s; entries=%s; count=%s',
+                $jsonError,
+                get_debug_type($decoded),
+                get_debug_type($entries),
+                is_array($entries) ? (string) count($entries) : 'n/a'
+            );
+
+            throw new RuntimeException(
+                'Groq estimate validation failed: '.$exception->getMessage().' ('.$details.').',
+                0,
+                $exception
+            );
+        }
     }
 
     /**
