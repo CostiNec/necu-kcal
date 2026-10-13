@@ -6,6 +6,7 @@ use App\Contracts\FoodSearchIndex;
 use App\Services\FoodTranslations\DeepLFoodNameTranslator;
 use App\Services\FoodTranslations\FoodNameTranslator;
 use App\Services\NutritionEstimation\GeminiNutritionEstimator;
+use App\Services\NutritionEstimation\GroqNutritionEstimator;
 use App\Services\NutritionEstimation\NutritionEstimator;
 use App\Services\NutritionEstimation\OpenAiNutritionEstimator;
 use App\Services\TypesenseFoodSearchIndex;
@@ -44,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             NutritionEstimator::class,
             fn ($app) => match (config('nutrition-ai.provider')) {
+                'groq' => $app->make(GroqNutritionEstimator::class),
                 'gemini' => $app->make(GeminiNutritionEstimator::class),
                 'openai' => $app->make(OpenAiNutritionEstimator::class),
                 default => throw new RuntimeException(

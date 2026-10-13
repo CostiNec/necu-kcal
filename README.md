@@ -59,36 +59,40 @@ the queue worker and Reverb process to be running.
 
 ## AI nutrition estimates
 
-Google Gemini is the default provider. Create an API key in Google AI Studio,
-then configure it in `.env`:
+Groq is the default provider for text and photo estimates. Create an API key at
+https://console.groq.com/keys, then configure it in `.env`:
 
 ```dotenv
-AI_NUTRITION_PROVIDER=gemini
+AI_NUTRITION_PROVIDER=groq
 AI_NUTRITION_TIMEOUT=120
 AI_NUTRITION_FULL_DAY_TIMEOUT=120
-GEMINI_API_KEY=your-key
-GEMINI_API_KEY_2=optional-second-key
-GEMINI_API_KEY_3=optional-third-key
-GEMINI_NUTRITION_MODEL=gemini-3.6-flash
+GROQ_API_KEY=your-key
+GROQ_BASE_URL=https://api.groq.com/openai/v1
+GROQ_NUTRITION_MODEL=qwen/qwen3.8-27b
 ```
 
-Meal and full-day estimates allow two minutes for the configured provider to
-respond.
-When multiple different Gemini keys are configured, requests alternate between
-all of them. If one key is rejected, rate-limited, or temporarily unavailable,
-the remaining keys are tried immediately. Gemini quotas are shared by keys from
-the same Google project, so separate keys only provide additional quota when
-they use separate projects.
+Groq uses JSON mode, and the application validates every returned entry before
+showing it for review. Meal estimates accept two photos; full-day estimates
+accept ten. For more than three photos, the Groq adapter creates up to three
+numbered image sheets using PHP's GD extension. Photo order is preserved;
+resizing can reduce the readability of small nutrition labels.
+
+Transient server errors and short rate limits are retried once, respecting a
+numeric `Retry-After` of up to five seconds within the configured timeout budget.
+Longer rate limits return the existing unavailable message so users can retry
+later. Free-plan request and token limits still apply.
+
+Gemini and OpenAI remain available as alternative providers; there is no automatic
+provider fallback. Set `AI_NUTRITION_PROVIDER=gemini` with `GEMINI_API_KEY`, or
+`AI_NUTRITION_PROVIDER=openai` with `OPENAI_API_KEY`, to switch. Gemini also accepts
+`GEMINI_API_KEY_2` and `GEMINI_API_KEY_3`; configured keys rotate and remaining keys
+are tried after provider errors. Keys from the same Google project share quotas.
 
 Clear cached configuration after changing providers or keys:
 
 ```bash
 php artisan config:clear
 ```
-
-OpenAI remains available as a fallback. Set
-`AI_NUTRITION_PROVIDER=openai` and configure `OPENAI_API_KEY` to switch without
-changing application code.
 
 ## Verification
 

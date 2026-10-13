@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'provider' => env('AI_NUTRITION_PROVIDER', 'gemini'),
+    'provider' => env('AI_NUTRITION_PROVIDER', 'groq'),
     'timeout' => (int) env('AI_NUTRITION_TIMEOUT', 120),
     'full_day_timeout' => (int) env(
         'AI_NUTRITION_FULL_DAY_TIMEOUT',

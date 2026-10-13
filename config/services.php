@@ -29,6 +29,12 @@ return [
         'timeout' => env('OPENAI_TIMEOUT', 30),
     ],
 
+    'groq' => [
+        'api_key' => env('GROQ_API_KEY'),
+        'base_url' => env('GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
+        'nutrition_model' => env('GROQ_NUTRITION_MODEL', 'qwen/qwen3.8-27b'),
+    ],
+
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY'),
         'api_key_2' => env(
