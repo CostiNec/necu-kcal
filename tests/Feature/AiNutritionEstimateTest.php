@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\DiaryDay;
 use App\Models\User;
+use App\Services\NutritionEstimation\NutritionEstimator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
@@ -324,7 +325,7 @@ class AiNutritionEstimateTest extends TestCase
         Http::assertSentCount(4);
     }
 
-    public function test_an_unavailable_provider_returns_a_safe_error(): void
+    public function test_an_unavailable_provider_returns_the_real_error_and_trace(): void
     {
         config([
             'nutrition-ai.provider' => 'gemini',
@@ -342,8 +343,31 @@ class AiNutritionEstimateTest extends TestCase
             ->assertStatus(503)
             ->assertJsonPath(
                 'message',
-                'The nutrition estimate is unavailable right now. Try again in a moment.'
-            );
+                'The Gemini API key is not configured.'
+            )
+            ->assertJsonStructure(['message', 'error_report']);
+    }
+
+    public function test_both_estimate_endpoints_return_full_exception_chains_with_keys_redacted(): void
+    {
+        config(['app.debug' => false, 'services.groq.api_key' => 'gsk_private_test_key']);
+        $this->actingAs($this->onboardedUser());
+        $estimator = \Mockery::mock(NutritionEstimator::class);
+        $exception = new \RuntimeException('Outer failure gsk_private_test_key', 0, new \RuntimeException('Inner error entries=array; count=0'));
+        $estimator->shouldReceive('estimate')->once()->andThrow($exception);
+        $estimator->shouldReceive('estimateDay')->once()->andThrow($exception);
+        $this->app->instance(NutritionEstimator::class, $estimator);
+
+        foreach (['/diary-entries/ai/estimate', '/diary-entries/ai/day/estimate'] as $endpoint) {
+            $response = $this->postJson($endpoint, ['description' => '30g paine']);
+            $response->assertStatus(503)->assertJsonPath('message', 'Outer failure [REDACTED]');
+            $report = $response->json('error_report');
+            $this->assertStringContainsString('Outer failure [REDACTED]', $report);
+            $this->assertStringContainsString('Inner error entries=array; count=0', $report);
+            $this->assertStringContainsString('[stacktrace]', $report);
+            $this->assertStringContainsString('Provider:', $report);
+            $this->assertStringNotContainsString('gsk_private_test_key', $report);
+        }
     }
 
     private function fakeGeminiResponse(): void

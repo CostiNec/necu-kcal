@@ -111,7 +111,7 @@ class GroqNutritionEstimateTest extends TestCase
             app(NutritionEstimator::class)->estimate('Eggs', 'en');
             $this->fail('Expected rate-limit failure.');
         } catch (RuntimeException $e) {
-            $this->assertSame('Groq request failed with HTTP 429.', $e->getMessage());
+            $this->assertStringStartsWith('Groq request failed with HTTP 429.', $e->getMessage());
         }
         Http::assertSentCount(1);
     }
@@ -148,7 +148,7 @@ class GroqNutritionEstimateTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_an_unexpected_response_shape_has_structural_diagnostics_without_model_text(): void
+    public function test_an_unexpected_response_shape_includes_diagnostics_and_provider_output(): void
     {
         $response = $this->response();
         $response['choices'][0]['message']['content'] = json_encode(['food' => 'private food description']);
@@ -159,7 +159,9 @@ class GroqNutritionEstimateTest extends TestCase
             $this->fail('Expected invalid response shape failure.');
         } catch (RuntimeException $exception) {
             $this->assertStringContainsString('entries=null; count=n/a', $exception->getMessage());
-            $this->assertStringNotContainsString('private', $exception->getMessage());
+            $this->assertStringContainsString('Provider response:', $exception->getMessage());
+            $this->assertStringContainsString('private food description', $exception->getMessage());
+            $this->assertStringNotContainsString('private user description', $exception->getMessage());
         }
     }
 
@@ -181,6 +183,32 @@ class GroqNutritionEstimateTest extends TestCase
 
         $this->expectExceptionMessage('json=Syntax error; root=null; entries=null; count=n/a');
         app(NutritionEstimator::class)->estimate('Eggs', 'en');
+    }
+
+    public function test_an_empty_response_is_retried_and_a_valid_estimate_is_returned(): void
+    {
+        $empty = $this->response();
+        $empty['choices'][0]['message']['content'] = '{"entries":[]}';
+        Http::fake(['groq.test/*' => Http::sequence()->push($empty)->push($this->response())]);
+
+        $result = app(NutritionEstimator::class)->estimate('30g paine', 'ro');
+        $this->assertCount(1, $result['entries']);
+        Http::assertSentCount(2);
+    }
+
+    public function test_invalid_responses_are_retried_only_once(): void
+    {
+        $empty = $this->response();
+        $empty['choices'][0]['message']['content'] = '{"entries":[]}';
+        Http::fake(['groq.test/*' => Http::response($empty)]);
+        try {
+            app(NutritionEstimator::class)->estimate('30g paine', 'ro');
+            $this->fail('Expected invalid estimate failure.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('after 2 attempt(s)', $exception->getMessage());
+            $this->assertStringContainsString('Provider response:', $exception->getMessage());
+        }
+        Http::assertSentCount(2);
     }
 
     private function response(bool $day = false): array

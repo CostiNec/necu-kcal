@@ -26,6 +26,7 @@ import {
     type ClipboardEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { AiEstimateError } from '@/components/ai-estimate-error';
 import { AppLayout } from '@/layouts/app-layout';
 import { optimizeImageForUpload } from '@/lib/ai-image-upload';
 import { formatDate, formatNumber, parseNumberInput } from '@/lib/utils';
@@ -85,6 +86,7 @@ export default function AiAddDiaryEntry({
     const [entries, setEntries] = useState<AiFoodEntry[] | null>(null);
     const [inputError, setInputError] = useState('');
     const [estimateError, setEstimateError] = useState('');
+    const [errorReport, setErrorReport] = useState('');
     const [saveError, setSaveError] = useState('');
     const [estimating, setEstimating] = useState(false);
     const [processingImages, setProcessingImages] = useState(false);
@@ -110,6 +112,7 @@ export default function AiAddDiaryEntry({
     const resetEstimate = () => {
         setEntries(null);
         setEstimateError('');
+        setErrorReport('');
         setSaveError('');
     };
 
@@ -191,6 +194,7 @@ export default function AiAddDiaryEntry({
 
         setInputError('');
         setEstimateError('');
+        setErrorReport('');
         setSaveError('');
         setEstimating(true);
 
@@ -217,21 +221,34 @@ export default function AiAddDiaryEntry({
                 headers,
                 body: requestData,
             });
-            const payload = (await response.json().catch(() => ({}))) as {
+            const responseText = await response.text();
+            const payload = (() => {
+                try {
+                    return JSON.parse(responseText);
+                } catch {
+                    return {};
+                }
+            })() as {
                 estimate?: MealEstimate;
                 message?: string;
+                error_report?: string;
                 errors?: Record<string, string[]>;
             };
 
             if (
                 !response.ok ||
                 !payload.estimate ||
+                !Array.isArray(payload.estimate.entries) ||
                 payload.estimate.entries.length === 0
             ) {
                 const validationError = Object.values(
                     payload.errors ?? {},
                 ).flat()[0];
 
+                setErrorReport(
+                    payload.error_report ??
+                        `HTTP ${response.status} ${response.statusText}\n${responseText}`,
+                );
                 throw new Error(
                     validationError ??
                         payload.message ??
@@ -241,6 +258,9 @@ export default function AiAddDiaryEntry({
 
             setEntries(payload.estimate.entries);
         } catch (error) {
+            setErrorReport((current) => current || (
+                error instanceof Error ? error.stack || error.message : String(error)
+            ));
             setEstimateError(
                 error instanceof Error
                     ? error.message
@@ -531,9 +551,11 @@ export default function AiAddDiaryEntry({
                                     {t('diary.ai_privacy')}
                                 </Alert>
                                 {estimateError && (
-                                    <Alert severity="error">
-                                        {estimateError}
-                                    </Alert>
+                                    <AiEstimateError
+                                        key={errorReport || estimateError}
+                                        message={estimateError}
+                                        report={errorReport}
+                                    />
                                 )}
                                 {!entries && (
                                     <Button

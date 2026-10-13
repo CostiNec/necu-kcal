@@ -79,8 +79,12 @@ resizing can reduce the readability of small nutrition labels.
 
 Transient server errors and short rate limits are retried once, respecting a
 numeric `Retry-After` of up to five seconds within the configured timeout budget.
-Longer rate limits return the existing unavailable message so users can retry
-later. Free-plan request and token limits still apply.
+Invalid estimates are retried once with corrective instructions within the remaining
+timeout budget. Failed estimates show the actual error and a copyable report on both
+AI pages, including provider/model, provider response, and the full exception chain.
+Configured API keys are redacted, and trace frames omit argument values.
+Longer rate limits return an error so users can retry later. Free-plan request and
+token limits still apply.
 
 Gemini and OpenAI remain available as alternative providers; there is no automatic
 provider fallback. Set `AI_NUTRITION_PROVIDER=gemini` with `GEMINI_API_KEY`, or

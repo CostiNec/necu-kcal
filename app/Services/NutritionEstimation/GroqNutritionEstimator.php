@@ -33,7 +33,7 @@ class GroqNutritionEstimator extends AbstractNutritionEstimator
 
         $schema = $fullDay ? $this->daySchema() : $this->schema();
         $instructions = $fullDay ? $this->dayInstructions($locale) : $this->instructions($locale);
-        $instructions .= "\nReturn only the nutrition estimate in the required JSON structure. If the input contains no identifiable food or drink, return an empty entries array; do not invent foods.";
+        $instructions .= "\nReturn only the nutrition estimate in the required JSON structure. Use foods identified in the description even when photos are unclear or unrelated. A list of foods and weights is sufficient input. Return an empty entries array only when neither text nor images identify food or drink; do not invent foods.";
         $instructions .= "\nNumbered panels in image sheets refer to the original photo order. Treat each panel as a separate photo, not a separate serving.";
         $content = [[
             'type' => 'text',
@@ -43,80 +43,94 @@ class GroqNutritionEstimator extends AbstractNutritionEstimator
         ], ...$this->imageContent($images)];
         $timeout = (int) config($fullDay ? 'nutrition-ai.full_day_timeout' : 'nutrition-ai.timeout', 120);
 
-        $response = Http::baseUrl(rtrim((string) config('services.groq.base_url'), '/'))
-            ->withToken($apiKey)
-            ->acceptJson()
-            ->asJson()
-            ->timeout(max(1, (int) (($timeout - 5) / 2)))
-            ->retry(
-                2,
-                fn (int $attempt, Throwable $exception): int => $exception instanceof RequestException
-                    ? max(1000, (int) $exception->response->header('Retry-After') * 1000)
-                    : 1000,
-                function (Throwable $exception, PendingRequest $request): bool {
-                    if ($exception instanceof ConnectionException) {
-                        return true;
-                    }
+        $deadline = microtime(true) + $timeout;
+        for ($generation = 0; $generation < 2; $generation++) {
+            $response = Http::baseUrl(rtrim((string) config('services.groq.base_url'), '/'))
+                ->withToken($apiKey)
+                ->acceptJson()
+                ->asJson()
+                ->timeout(max(1, (int) (($deadline - microtime(true) - 5) / 2)))
+                ->retry(
+                    2,
+                    fn (int $attempt, Throwable $exception): int => $exception instanceof RequestException
+                        ? max(1000, (int) $exception->response->header('Retry-After') * 1000)
+                        : 1000,
+                    function (Throwable $exception, PendingRequest $request): bool {
+                        if ($exception instanceof ConnectionException) {
+                            return true;
+                        }
 
-                    return $exception instanceof RequestException
-                        && ($exception->response->status() === 429 || $exception->response->serverError())
-                        && (int) $exception->response->header('Retry-After') <= 5;
-                },
-                throw: false
-            )
-            ->post('/chat/completions', [
-                'model' => config('services.groq.nutrition_model'),
-                'messages' => [
-                    ['role' => 'system', 'content' => $instructions],
-                    ['role' => 'user', 'content' => $content],
-                ],
-                'response_format' => [
-                    'type' => 'json_schema',
-                    'json_schema' => [
-                        'name' => $fullDay ? 'day_nutrition_estimate' : 'nutrition_estimate',
-                        'strict' => true,
-                        'schema' => $schema,
+                        return $exception instanceof RequestException
+                            && ($exception->response->status() === 429 || $exception->response->serverError())
+                            && (int) $exception->response->header('Retry-After') <= 5;
+                    },
+                    throw: false
+                )
+                ->post('/chat/completions', [
+                    'model' => config('services.groq.nutrition_model'),
+                    'messages' => [
+                        ['role' => 'system', 'content' => $instructions],
+                        ['role' => 'user', 'content' => $content],
                     ],
-                ],
-                'max_completion_tokens' => $fullDay ? 8192 : 4096,
-                'stream' => false,
-            ]);
+                    'response_format' => [
+                        'type' => 'json_schema',
+                        'json_schema' => [
+                            'name' => $fullDay ? 'day_nutrition_estimate' : 'nutrition_estimate',
+                            'strict' => true,
+                            'schema' => $schema,
+                        ],
+                    ],
+                    'max_completion_tokens' => $fullDay ? 8192 : 4096,
+                    'stream' => false,
+                ]);
 
-        if (! $response->successful()) {
-            throw new RuntimeException('Groq request failed with HTTP '.$response->status().'.');
+            if (! $response->successful()) {
+                throw new RuntimeException('Groq request failed with HTTP '.$response->status().'.'
+                    ."\nProvider response:\n".$response->body());
+            }
+
+            if ($response->json('choices.0.finish_reason') !== 'stop') {
+                throw new RuntimeException('Groq returned an incomplete estimate.');
+            }
+
+            $output = $response->json('choices.0.message.content');
+
+            if (! is_string($output) || trim($output) === '') {
+                throw new RuntimeException('Groq returned no estimate.');
+            }
+
+            try {
+                return $fullDay ? $this->validatedDayEstimate($output) : $this->validatedEstimate($output);
+            } catch (RuntimeException $exception) {
+                // Keep the response and structural diagnostics available in the copyable error report.
+                $decoded = json_decode($output, true);
+                $jsonError = json_last_error_msg();
+                $entries = is_array($decoded) ? ($decoded['entries'] ?? null) : null;
+                $details = sprintf(
+                    'json=%s; root=%s; entries=%s; count=%s',
+                    $jsonError,
+                    get_debug_type($decoded),
+                    get_debug_type($entries),
+                    is_array($entries) ? (string) count($entries) : 'n/a'
+                );
+
+                if ($generation === 0 && microtime(true) < $deadline - 2) {
+                    $instructions .= "\nThe previous response failed validation: ".$exception->getMessage()
+                        .' Return a corrected estimate for the original input with all required fields and identifiable foods.';
+
+                    continue;
+                }
+
+                throw new RuntimeException(
+                    'Groq estimate validation failed after '.($generation + 1).' attempt(s): '.$exception->getMessage().' ('.$details.').'
+                        ."\nProvider response:\n".$output,
+                    0,
+                    $exception
+                );
+            }
         }
 
-        if ($response->json('choices.0.finish_reason') !== 'stop') {
-            throw new RuntimeException('Groq returned an incomplete estimate.');
-        }
-
-        $output = $response->json('choices.0.message.content');
-
-        if (! is_string($output) || trim($output) === '') {
-            throw new RuntimeException('Groq returned no estimate.');
-        }
-
-        try {
-            return $fullDay ? $this->validatedDayEstimate($output) : $this->validatedEstimate($output);
-        } catch (RuntimeException $exception) {
-            // Record only structural diagnostics, never descriptions, images, or model text.
-            $decoded = json_decode($output, true);
-            $jsonError = json_last_error_msg();
-            $entries = is_array($decoded) ? ($decoded['entries'] ?? null) : null;
-            $details = sprintf(
-                'json=%s; root=%s; entries=%s; count=%s',
-                $jsonError,
-                get_debug_type($decoded),
-                get_debug_type($entries),
-                is_array($entries) ? (string) count($entries) : 'n/a'
-            );
-
-            throw new RuntimeException(
-                'Groq estimate validation failed: '.$exception->getMessage().' ('.$details.').',
-                0,
-                $exception
-            );
-        }
+        throw new RuntimeException('Groq could not produce a valid estimate.');
     }
 
     /**

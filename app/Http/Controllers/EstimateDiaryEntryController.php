@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\NutritionEstimation\NutritionEstimator;
+use App\Support\AiEstimateErrorReport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -62,9 +63,7 @@ class EstimateDiaryEntryController extends Controller
         } catch (Throwable $exception) {
             report($exception);
 
-            return response()->json([
-                'message' => __('app.ai_estimate_unavailable'),
-            ], 503);
+            return response()->json(AiEstimateErrorReport::from($exception), 503);
         }
 
         return response()->json(['estimate' => $estimate]);
