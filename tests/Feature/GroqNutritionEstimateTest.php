@@ -7,6 +7,7 @@ use App\Services\NutritionEstimation\NutritionEstimator;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -114,6 +115,97 @@ class GroqNutritionEstimateTest extends TestCase
             $this->assertStringStartsWith('Groq request failed with HTTP 429.', $e->getMessage());
         }
         Http::assertSentCount(1);
+    }
+
+    #[DataProvider('estimateModes')]
+    public function test_provider_json_generation_errors_are_retried_for_meals_and_full_days(bool $fullDay): void
+    {
+        Http::fake(['groq.test/*' => Http::sequence()
+            ->push($this->jsonGenerationError(), 400)
+            ->push($this->response(day: $fullDay))]);
+        $images = [UploadedFile::fake()->image('chicken.jpg'), UploadedFile::fake()->image('scale.jpg')];
+        $description = 'pulpe de pui dezosate fara piele cu miere, cantarite crude cu TARE';
+        $estimator = app(NutritionEstimator::class);
+        $result = $fullDay
+            ? $estimator->estimateDay($description, 'ro', $images)
+            : $estimator->estimate($description, 'ro', $images);
+
+        $this->assertCount(1, $result['entries']);
+        $this->assertSame(100.0, $result['entries'][0]['weight_grams']);
+        if ($fullDay) {
+            $this->assertSame('breakfast', $result['entries'][0]['meal']);
+        }
+        Http::assertSentCount(2);
+        [$first, $second] = Http::recorded()->map(fn (array $pair): array => $pair[0]->data())->all();
+        $this->assertSame($first['messages'][1], $second['messages'][1]);
+        $this->assertSame($description, $second['messages'][1]['content'][0]['text']);
+        $this->assertCount(3, $second['messages'][1]['content']);
+        $this->assertSame($first['response_format'], $second['response_format']);
+        $this->assertTrue($second['response_format']['json_schema']['strict']);
+        $this->assertStringContainsString('previous generation was rejected', $second['messages'][0]['content']);
+    }
+
+    public static function estimateModes(): array
+    {
+        return [[false], [true]];
+    }
+
+    public function test_repeated_provider_json_errors_stop_after_one_retry_and_keep_diagnostics(): void
+    {
+        Http::fake(['groq.test/*' => Http::response($this->jsonGenerationError(), 400)]);
+
+        try {
+            app(NutritionEstimator::class)->estimate('Chicken', 'en');
+            $this->fail('Expected generation failure.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('Groq request failed with HTTP 400.', $exception->getMessage());
+            $this->assertStringContainsString('json_validate_failed', $exception->getMessage());
+            $this->assertStringContainsString('failed_generation', $exception->getMessage());
+        }
+        Http::assertSentCount(2);
+    }
+
+    public function test_other_bad_requests_are_not_retried(): void
+    {
+        Http::fake(['groq.test/*' => Http::response(['error' => ['code' => 'invalid_request_error']], 400)]);
+
+        try {
+            app(NutritionEstimator::class)->estimate('Chicken', 'en');
+            $this->fail('Expected request failure.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('Groq request failed with HTTP 400.', $exception->getMessage());
+        }
+        Http::assertSentCount(1);
+    }
+
+    public function test_an_invalid_estimate_after_a_provider_json_error_is_still_rejected(): void
+    {
+        $invalid = $this->response();
+        $payload = json_decode($invalid['choices'][0]['message']['content'], true);
+        $payload['entries'][0]['weight_grams'] = -10;
+        $invalid['choices'][0]['message']['content'] = json_encode($payload);
+        Http::fake(['groq.test/*' => Http::sequence()
+            ->push($this->jsonGenerationError(), 400)
+            ->push($invalid)]);
+
+        try {
+            app(NutritionEstimator::class)->estimate('Chicken', 'en');
+            $this->fail('Expected validation failure.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('after 2 attempt(s)', $exception->getMessage());
+            $this->assertStringContainsString('invalid nutrition values', $exception->getMessage());
+        }
+        Http::assertSentCount(2);
+    }
+
+    private function jsonGenerationError(): array
+    {
+        return ['error' => [
+            'message' => "Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details.",
+            'type' => 'invalid_request_error',
+            'code' => 'json_validate_failed',
+            'failed_generation' => '{(entries=[], comprehension=Pâte dez오sseerate dezóżerate dezourage',
+        ]];
     }
 
     public function test_invalid_nutrition_values_are_rejected(): void

@@ -85,6 +85,18 @@ class GroqNutritionEstimator extends AbstractNutritionEstimator
                 ]);
 
             if (! $response->successful()) {
+                // Groq can reject a malformed generation before returning a completion,
+                // even with strict structured output enabled. Use the same bounded
+                // correction attempt as an estimate rejected by local validation.
+                if ($response->status() === 400
+                    && $response->json('error.code') === 'json_validate_failed'
+                    && $generation === 0
+                    && microtime(true) < $deadline - 2) {
+                    $instructions .= "\nThe previous generation was rejected because it was not valid JSON matching the schema. Generate a fresh estimate for the original notes and photos. Return exactly one JSON object with an entries array and every required field; do not use prose, code fences, or assignment syntax.";
+
+                    continue;
+                }
+
                 throw new RuntimeException('Groq request failed with HTTP '.$response->status().'.'
                     ."\nProvider response:\n".$response->body());
             }
