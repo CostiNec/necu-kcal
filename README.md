@@ -81,7 +81,9 @@ Transient server errors and short rate limits are retried once, respecting a
 numeric `Retry-After` of up to five seconds within the configured timeout budget.
 Invalid estimates, including Groq's HTTP 400 `json_validate_failed` generation errors,
 are retried once with corrective instructions within the remaining
-timeout budget. Failed estimates show the actual error and a copyable report on both
+timeout budget. After `json_validate_failed`, the retry uses JSON object mode with
+the schema in the prompt, and the same local nutrition validation still applies.
+Failed estimates show the actual error and a copyable report on both
 AI pages, including provider/model, provider response, and the full exception chain.
 Configured API keys are redacted, and trace frames omit argument values.
 Longer rate limits return an error so users can retry later. Free-plan request and

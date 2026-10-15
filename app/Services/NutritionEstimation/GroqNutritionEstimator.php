@@ -44,6 +44,14 @@ class GroqNutritionEstimator extends AbstractNutritionEstimator
         $timeout = (int) config($fullDay ? 'nutrition-ai.full_day_timeout' : 'nutrition-ai.timeout', 120);
 
         $deadline = microtime(true) + $timeout;
+        $responseFormat = [
+            'type' => 'json_schema',
+            'json_schema' => [
+                'name' => $fullDay ? 'day_nutrition_estimate' : 'nutrition_estimate',
+                'strict' => true,
+                'schema' => $schema,
+            ],
+        ];
         for ($generation = 0; $generation < 2; $generation++) {
             $response = Http::baseUrl(rtrim((string) config('services.groq.base_url'), '/'))
                 ->withToken($apiKey)
@@ -72,27 +80,22 @@ class GroqNutritionEstimator extends AbstractNutritionEstimator
                         ['role' => 'system', 'content' => $instructions],
                         ['role' => 'user', 'content' => $content],
                     ],
-                    'response_format' => [
-                        'type' => 'json_schema',
-                        'json_schema' => [
-                            'name' => $fullDay ? 'day_nutrition_estimate' : 'nutrition_estimate',
-                            'strict' => true,
-                            'schema' => $schema,
-                        ],
-                    ],
+                    'response_format' => $responseFormat,
                     'max_completion_tokens' => $fullDay ? 8192 : 4096,
                     'stream' => false,
                 ]);
 
             if (! $response->successful()) {
                 // Groq can reject a malformed generation before returning a completion,
-                // even with strict structured output enabled. Use the same bounded
-                // correction attempt as an estimate rejected by local validation.
+                // even with strict structured output enabled. Try JSON object mode
+                // within the existing correction budget; local validation still applies.
                 if ($response->status() === 400
                     && $response->json('error.code') === 'json_validate_failed'
                     && $generation === 0
                     && microtime(true) < $deadline - 2) {
                     $instructions .= "\nThe previous generation was rejected because it was not valid JSON matching the schema. Generate a fresh estimate for the original notes and photos. Return exactly one JSON object with an entries array and every required field; do not use prose, code fences, or assignment syntax.";
+                    $instructions .= "\nThe JSON object must match this schema: ".json_encode($schema, JSON_THROW_ON_ERROR);
+                    $responseFormat = ['type' => 'json_object'];
 
                     continue;
                 }

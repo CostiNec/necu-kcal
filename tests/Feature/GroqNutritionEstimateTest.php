@@ -140,14 +140,36 @@ class GroqNutritionEstimateTest extends TestCase
         $this->assertSame($first['messages'][1], $second['messages'][1]);
         $this->assertSame($description, $second['messages'][1]['content'][0]['text']);
         $this->assertCount(3, $second['messages'][1]['content']);
-        $this->assertSame($first['response_format'], $second['response_format']);
-        $this->assertTrue($second['response_format']['json_schema']['strict']);
+        $this->assertTrue($first['response_format']['json_schema']['strict']);
+        $this->assertSame(['type' => 'json_object'], $second['response_format']);
+        $this->assertStringContainsString(json_encode($first['response_format']['json_schema']['schema']), $second['messages'][0]['content']);
         $this->assertStringContainsString('previous generation was rejected', $second['messages'][0]['content']);
     }
 
     public static function estimateModes(): array
     {
         return [[false], [true]];
+    }
+
+    public function test_a_romanian_food_list_recovers_using_json_object_mode(): void
+    {
+        $response = $this->response();
+        $template = json_decode($response['choices'][0]['message']['content'], true)['entries'][0];
+        $entries = [];
+        foreach (['Parizer' => 50, 'Paine' => 70, 'Cascaval' => 30] as $name => $weight) {
+            $entries[] = [...$template, 'name' => $name, 'weight_grams' => $weight];
+        }
+        $response['choices'][0]['message']['content'] = json_encode(['entries' => $entries]);
+        $error = $this->jsonGenerationError();
+        $error['error']['failed_generation'] = '{\\""';
+        Http::fake(['groq.test/*' => Http::sequence()->push($error, 400)->push($response)]);
+
+        $result = app(NutritionEstimator::class)->estimate("Parizer 50g\nPaine 70g\nCascaval 30g", 'ro');
+
+        $this->assertSame(['Parizer', 'Paine', 'Cascaval'], array_column($result['entries'], 'name'));
+        $this->assertSame([50.0, 70.0, 30.0], array_column($result['entries'], 'weight_grams'));
+        Http::assertSentCount(2);
+        Http::assertSent(fn (Request $request): bool => $request['response_format'] === ['type' => 'json_object']);
     }
 
     public function test_repeated_provider_json_errors_stop_after_one_retry_and_keep_diagnostics(): void
