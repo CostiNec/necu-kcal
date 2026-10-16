@@ -42,6 +42,8 @@ class GroqNutritionEstimateTest extends TestCase
                 && $data['response_format']['type'] === 'json_schema'
                 && $data['response_format']['json_schema']['strict'] === true
                 && $data['response_format']['json_schema']['schema']['required'] === ['entries']
+                && $data['temperature'] === 0.2
+                && $data['reasoning_format'] === 'hidden'
                 && str_contains($data['messages'][0]['content'], 'locale is ro')
                 && $data['messages'][1]['content'][0]['text'] === 'Două ouă fierte';
         });
@@ -172,7 +174,89 @@ class GroqNutritionEstimateTest extends TestCase
         Http::assertSent(fn (Request $request): bool => $request['response_format'] === ['type' => 'json_object']);
     }
 
-    public function test_repeated_provider_json_errors_stop_after_one_retry_and_keep_diagnostics(): void
+    #[DataProvider('textRecoveryModes')]
+    public function test_repeated_json_errors_recover_the_pizza_prompt_using_validated_text(bool $fullDay, bool $fenced): void
+    {
+        $response = $this->response(day: $fullDay);
+        $payload = json_decode($response['choices'][0]['message']['content'], true);
+        $payload['entries'][0]['name'] = 'Pizza Zest';
+        $payload['entries'][0]['weight_grams'] = 620;
+        $output = json_encode($payload);
+        $response['choices'][0]['message']['content'] = $fenced ? "```json\n".$output."\n```" : $output;
+        $error = $this->jsonGenerationError();
+        $error['error']['failed_generation'] = '{fant';
+        Http::fake(['groq.test/*' => Http::sequence()
+            ->push($error, 400)
+            ->push($error, 400)
+            ->push($response)]);
+        $images = [UploadedFile::fake()->image('pizza.jpg')];
+        $estimator = app(NutritionEstimator::class);
+
+        $result = $fullDay
+            ? $estimator->estimateDay('pizza zest - 620g', 'ro', $images)
+            : $estimator->estimate('pizza zest - 620g', 'ro', $images);
+
+        $this->assertSame('Pizza Zest', $result['entries'][0]['name']);
+        $this->assertSame(620.0, $result['entries'][0]['weight_grams']);
+        if ($fullDay) {
+            $this->assertSame('breakfast', $result['entries'][0]['meal']);
+        }
+        Http::assertSentCount(3);
+        [$first, $second, $third] = Http::recorded()->map(fn (array $pair): array => $pair[0]->data())->all();
+        $this->assertSame('json_schema', $first['response_format']['type']);
+        $this->assertSame(['type' => 'json_object'], $second['response_format']);
+        $this->assertSame(['type' => 'text'], $third['response_format']);
+        $this->assertSame($first['messages'][1], $third['messages'][1]);
+        $this->assertSame('pizza zest - 620g', $third['messages'][1]['content'][0]['text']);
+        $this->assertCount(2, $third['messages'][1]['content']);
+        $this->assertSame('hidden', $third['reasoning_format']);
+        $this->assertStringContainsString(json_encode($first['response_format']['json_schema']['schema']), $third['messages'][0]['content']);
+    }
+
+    public static function textRecoveryModes(): array
+    {
+        return [[false, false], [false, true], [true, false], [true, true]];
+    }
+
+    #[DataProvider('invalidTextRecoveryOutputs')]
+    public function test_text_recovery_still_rejects_invalid_estimates(string $kind): void
+    {
+        $response = $this->response();
+        $payload = json_decode($response['choices'][0]['message']['content'], true);
+        if ($kind === 'negative_weight') {
+            $payload['entries'][0]['weight_grams'] = -620;
+        } elseif ($kind === 'missing_nutrient') {
+            unset($payload['entries'][0]['protein_per_100g']);
+        } elseif ($kind === 'empty_entries') {
+            $payload['entries'] = [];
+        }
+        $output = match ($kind) {
+            'malformed' => '{fant',
+            'prose' => 'Here is the estimate: '.json_encode($payload),
+            default => "```json\n".json_encode($payload)."\n```",
+        };
+        $response['choices'][0]['message']['content'] = $output;
+        Http::fake(['groq.test/*' => Http::sequence()
+            ->push($this->jsonGenerationError(), 400)
+            ->push($this->jsonGenerationError(), 400)
+            ->push($response)]);
+
+        try {
+            app(NutritionEstimator::class)->estimate('pizza zest - 620g', 'ro');
+            $this->fail('Expected invalid text recovery failure.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('after 3 attempt(s)', $exception->getMessage());
+            $this->assertStringContainsString("Provider response:\n".$output, $exception->getMessage());
+        }
+        Http::assertSentCount(3);
+    }
+
+    public static function invalidTextRecoveryOutputs(): array
+    {
+        return [['malformed'], ['negative_weight'], ['missing_nutrient'], ['empty_entries'], ['prose']];
+    }
+
+    public function test_repeated_provider_json_errors_stop_after_text_recovery_and_keep_diagnostics(): void
     {
         Http::fake(['groq.test/*' => Http::response($this->jsonGenerationError(), 400)]);
 
@@ -183,8 +267,33 @@ class GroqNutritionEstimateTest extends TestCase
             $this->assertStringContainsString('Groq request failed with HTTP 400.', $exception->getMessage());
             $this->assertStringContainsString('json_validate_failed', $exception->getMessage());
             $this->assertStringContainsString('failed_generation', $exception->getMessage());
+            $this->assertStringContainsString('Generation attempt: 3; response format: text.', $exception->getMessage());
         }
-        Http::assertSentCount(2);
+        Http::assertSentCount(3);
+    }
+
+    public function test_json_recovery_stops_when_the_timeout_budget_is_exhausted(): void
+    {
+        config(['nutrition-ai.timeout' => 2]);
+        Http::fake(['groq.test/*' => Http::response($this->jsonGenerationError(), 400)]);
+
+        try {
+            app(NutritionEstimator::class)->estimate('pizza zest - 620g', 'ro');
+            $this->fail('Expected generation failure without time for recovery.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('Generation attempt: 1; response format: json_schema.', $exception->getMessage());
+        }
+        Http::assertSentCount(1);
+    }
+
+    public function test_qwen_reasoning_options_are_not_sent_to_other_models(): void
+    {
+        config(['services.groq.nutrition_model' => 'openai/gpt-oss-20b']);
+        Http::fake(['groq.test/*' => Http::response($this->response())]);
+
+        app(NutritionEstimator::class)->estimate('pizza zest - 620g', 'ro');
+
+        Http::assertSent(fn (Request $request): bool => ! array_key_exists('reasoning_format', $request->data()));
     }
 
     public function test_other_bad_requests_are_not_retried(): void

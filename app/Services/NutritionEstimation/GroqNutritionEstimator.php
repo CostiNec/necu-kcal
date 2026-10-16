@@ -52,7 +52,7 @@ class GroqNutritionEstimator extends AbstractNutritionEstimator
                 'schema' => $schema,
             ],
         ];
-        for ($generation = 0; $generation < 2; $generation++) {
+        for ($generation = 0; $generation < 3; $generation++) {
             $response = Http::baseUrl(rtrim((string) config('services.groq.base_url'), '/'))
                 ->withToken($apiKey)
                 ->acceptJson()
@@ -81,26 +81,34 @@ class GroqNutritionEstimator extends AbstractNutritionEstimator
                         ['role' => 'user', 'content' => $content],
                     ],
                     'response_format' => $responseFormat,
+                    'temperature' => 0.2,
+                    // Keep Qwen's reasoning out of the JSON, including in text recovery mode.
+                    ...(config('services.groq.nutrition_model') === 'qwen/qwen3.8-27b'
+                        ? ['reasoning_format' => 'hidden'] : []),
                     'max_completion_tokens' => $fullDay ? 8192 : 4096,
                     'stream' => false,
                 ]);
 
             if (! $response->successful()) {
                 // Groq can reject a malformed generation before returning a completion,
-                // even with strict structured output enabled. Try JSON object mode
-                // within the existing correction budget; local validation still applies.
+                // even with strict structured output enabled. JSON object mode can
+                // fail the same way, so the final recovery bypasses provider JSON
+                // validation. Every completion must still pass local validation.
                 if ($response->status() === 400
                     && $response->json('error.code') === 'json_validate_failed'
-                    && $generation === 0
+                    && $generation < 2
                     && microtime(true) < $deadline - 2) {
                     $instructions .= "\nThe previous generation was rejected because it was not valid JSON matching the schema. Generate a fresh estimate for the original notes and photos. Return exactly one JSON object with an entries array and every required field; do not use prose, code fences, or assignment syntax.";
-                    $instructions .= "\nThe JSON object must match this schema: ".json_encode($schema, JSON_THROW_ON_ERROR);
-                    $responseFormat = ['type' => 'json_object'];
+                    if ($responseFormat['type'] === 'json_schema') {
+                        $instructions .= "\nThe JSON object must match this schema: ".json_encode($schema, JSON_THROW_ON_ERROR);
+                    }
+                    $responseFormat = ['type' => $generation === 0 ? 'json_object' : 'text'];
 
                     continue;
                 }
 
                 throw new RuntimeException('Groq request failed with HTTP '.$response->status().'.'
+                    ."\nGeneration attempt: ".($generation + 1).'; response format: '.$responseFormat['type'].'.'
                     ."\nProvider response:\n".$response->body());
             }
 
@@ -114,11 +122,17 @@ class GroqNutritionEstimator extends AbstractNutritionEstimator
                 throw new RuntimeException('Groq returned no estimate.');
             }
 
+            // Text mode may wrap the entire JSON object in a Markdown code fence.
+            // Remove only that wrapper; never extract partial JSON from prose.
+            $jsonOutput = $responseFormat['type'] === 'text'
+                ? preg_replace('/\A```(?:json)?\s*(.*?)\s*```\z/is', '$1', trim($output))
+                : $output;
+
             try {
-                return $fullDay ? $this->validatedDayEstimate($output) : $this->validatedEstimate($output);
+                return $fullDay ? $this->validatedDayEstimate($jsonOutput) : $this->validatedEstimate($jsonOutput);
             } catch (RuntimeException $exception) {
                 // Keep the response and structural diagnostics available in the copyable error report.
-                $decoded = json_decode($output, true);
+                $decoded = json_decode($jsonOutput, true);
                 $jsonError = json_last_error_msg();
                 $entries = is_array($decoded) ? ($decoded['entries'] ?? null) : null;
                 $details = sprintf(

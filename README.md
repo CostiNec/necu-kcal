@@ -79,10 +79,14 @@ resizing can reduce the readability of small nutrition labels.
 
 Transient server errors and short rate limits are retried once, respecting a
 numeric `Retry-After` of up to five seconds within the configured timeout budget.
-Invalid estimates, including Groq's HTTP 400 `json_validate_failed` generation errors,
-are retried once with corrective instructions within the remaining
-timeout budget. After `json_validate_failed`, the retry uses JSON object mode with
-the schema in the prompt, and the same local nutrition validation still applies.
+Invalid estimates are retried once with corrective instructions within the remaining
+timeout budget. Groq's HTTP 400 `json_validate_failed` generation errors recover
+through JSON object mode, then one final text-mode attempt if JSON generation fails
+again. Recovery prompts include the schema and preserve the original text and photos.
+Text recovery accepts a JSON object, optionally wrapped in a code fence; the same
+local nutrition validation still applies. Requests use a low temperature, and Qwen
+3.8 reasoning is hidden so it cannot appear alongside the JSON. Error reports include
+the failed generation attempt and response format.
 Failed estimates show the actual error and a copyable report on both
 AI pages, including provider/model, provider response, and the full exception chain.
 Configured API keys are redacted, and trace frames omit argument values.
